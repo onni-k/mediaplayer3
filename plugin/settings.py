@@ -228,7 +228,7 @@ class MediaPlayerSettings(Screen,ConfigListScreen):
                     self.list.append(getConfigListEntry(_("subtitles"), config.plugins.mediaplayer2.serviceGstPlayer.subtitles))
             self["config"].setList(self.list)
         except KeyError:
-            print "keyError"
+            print ("keyError")
 
     def changedConfigList(self):
         self.initConfigList()
@@ -252,14 +252,14 @@ class MediaPlayerSettings(Screen,ConfigListScreen):
 
     def removeDbCB(self, answer):
         if answer:
-            from util import CueSheetDAO
+            from .util import CueSheetDAO
             try:
                 CueSheetDAO.instance.clean_db()
             except Exception as e:
-                print str(e)
+                print (str(e))
 
     def DirectoryBrowserClosed(self, path):
-        print "PathBrowserClosed:" + str(path)
+        print("PathBrowserClosed:" + str(path))
         if path != False:
             config.plugins.mediaplayer2.defaultDir.setValue(path)
 
