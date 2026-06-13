@@ -55,13 +55,13 @@ fi
 echo "installing '${IPK_NAME}' to $E2_HOST..."
 if [ -f "$with_pass" ]; then
 	sshpass -p $E2_PASSWORD ssh $E2_USERNAME@$E2_HOST <<- EOFSSH > /dev/null
-		opkg remove enigma2-plugin-extensions-mediaplayer2
+		opkg remove enigma2-plugin-extensions-mediaplayer3
 		opkg --force-downgrade install /tmp/$IPK_NAME
 		rm /tmp/$IPK_NAME
 	EOFSSH
 else
 	ssh $E2_USERNAME@$E2_HOST <<- EOFSSH > /dev/null
-		opkg remove enigma2-plugin-extensions-mediaplayer2
+		opkg remove enigma2-plugin-extensions-mediaplayer3
 		opkg --force-downgrade install /tmp/$IPK_NAME
 		rm /tmp/$IPK_NAME
 	EOFSSH
