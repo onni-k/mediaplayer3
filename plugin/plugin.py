@@ -27,12 +27,17 @@ from Tools.Directories import fileExists, resolveFilename, \
     SCOPE_CONFIG, SCOPE_PLAYLIST, SCOPE_CURRENT_SKIN
 
 from ServiceReference import ServiceReference
-from e2util import InfoBarAspectChange, StatusScreen, MyAudioSelection, \
-    MyInfoBarCueSheetSupport
-from compat import eConnectCallback
+from .e2util import (
+    InfoBarAspectChange,
+    StatusScreen,
+    MyAudioSelection,
+    MyInfoBarCueSheetSupport,
+)
+
+from .compat import eConnectCallback
 from enigma import iPlayableService, eTimer, eServiceCenter, iServiceInformation, \
     ePicLoad, getDesktop
-from settings import MediaPlayerSettings, LIBMEDIA_CHOICES, SERVICEMP3, SERVICE_GSTPLAYER, SERVICE_EXTEPLAYER3, SERVICE_EPLAYER3, ServiceGstPlayerApplySettings
+from .settings import MediaPlayerSettings, LIBMEDIA_CHOICES, SERVICEMP3, SERVICE_GSTPLAYER, SERVICE_EXTEPLAYER3, SERVICE_EPLAYER3, ServiceGstPlayerApplySettings
 from skin import parseColor
 
 from . import _
@@ -131,7 +136,7 @@ class MediaPlayerInfoBar(Screen):
         self.skinName = "MoviePlayer"
 
 
-class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSeek, InfoBarAudioSelection, MyInfoBarCueSheetSupport, InfoBarExtensions, InfoBarPlugins, InfoBarNotifications, InfoB[...]:
+class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSeek, InfoBarAudioSelection, MyInfoBarCueSheetSupport, InfoBarExtensions, InfoBarPlugins, InfoBarNotifications, InfoBarPlugins):
     ALLOW_SUSPEND = True
     ENABLE_RESUME_SUPPORT = True
 
@@ -160,7 +165,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
 
         # 'None' is magic to start at the list of mountpoints
         defaultDir = config.plugins.mediaplayer2.defaultDir.getValue()
-        self.filelist = FileList(defaultDir, matchingPattern="(?i)^.*\.(mp2|mp3|ogg|ts|mts|m2ts|wav|wave|m3u|pls|e2pls|mpg|vob|avi|divx|m4v|mkv|mp4|m4a|dat|flac|flv|mov|dts|3gp|3g2|asf|wmv|wma|is[...]", useServiceRef=True, showMountpoints=True)
+        self.filelist = FileList(defaultDir, matchingPattern="(?i)^.*\.(mp2|mp3|ogg|ts|mts|m2ts|wav|wave|m3u|pls|e2pls|mpg|vob|avi|divx|m4v|mkv|mp4|m4a|dat|flac|flv|mov|dts|3gp|3g2|asf|wmv|wma|is)", useServiceRef=True, showMountpoints=True)
         self["filelist"] = self.filelist
         
         if config.plugins.mediaplayer2.useLibMedia.getValue() == True:
