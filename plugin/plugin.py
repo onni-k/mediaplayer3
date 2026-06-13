@@ -27,12 +27,17 @@ from Tools.Directories import fileExists, resolveFilename, \
     SCOPE_CONFIG, SCOPE_PLAYLIST, SCOPE_CURRENT_SKIN
 
 from ServiceReference import ServiceReference
-from e2util import InfoBarAspectChange, StatusScreen, MyAudioSelection, \
-    MyInfoBarCueSheetSupport
-from compat import eConnectCallback
+from .e2util import (
+    InfoBarAspectChange,
+    StatusScreen,
+    MyAudioSelection,
+    MyInfoBarCueSheetSupport,
+)
+
+from .compat import eConnectCallback
 from enigma import iPlayableService, eTimer, eServiceCenter, iServiceInformation, \
     ePicLoad, getDesktop
-from settings import MediaPlayerSettings, LIBMEDIA_CHOICES, SERVICEMP3, SERVICE_GSTPLAYER, SERVICE_EXTEPLAYER3, SERVICE_EPLAYER3, ServiceGstPlayerApplySettings
+from .settings import MediaPlayerSettings, LIBMEDIA_CHOICES, SERVICEMP3, SERVICE_GSTPLAYER, SERVICE_EXTEPLAYER3, SERVICE_EPLAYER3, ServiceGstPlayerApplySettings
 from skin import parseColor
 
 from . import _
