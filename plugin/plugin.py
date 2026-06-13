@@ -120,7 +120,7 @@ class MediaPixmap(Pixmap):
         self.instance.setPixmap(self.noCoverPixmap)
 
     def embeddedCoverArt(self):
-        print "[embeddedCoverArt] found"
+        print("[embeddedCoverArt] found")
         self.coverArtFileName = "/tmp/.id3coverart"
         self.picload.startDecode(self.coverArtFileName)
 
@@ -131,7 +131,7 @@ class MediaPlayerInfoBar(Screen):
         self.skinName = "MoviePlayer"
 
 
-class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSeek, InfoBarAudioSelection, MyInfoBarCueSheetSupport, InfoBarExtensions, InfoBarPlugins, InfoBarNotifications, InfoBarAspectChange, HelpableScreen):
+class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSeek, InfoBarAudioSelection, MyInfoBarCueSheetSupport, InfoBarExtensions, InfoBarPlugins, InfoBarNotifications, InfoB[...]:
     ALLOW_SUSPEND = True
     ENABLE_RESUME_SUPPORT = True
 
@@ -160,7 +160,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
 
         # 'None' is magic to start at the list of mountpoints
         defaultDir = config.plugins.mediaplayer2.defaultDir.getValue()
-        self.filelist = FileList(defaultDir, matchingPattern="(?i)^.*\.(mp2|mp3|ogg|ts|mts|m2ts|wav|wave|m3u|pls|e2pls|mpg|vob|avi|divx|m4v|mkv|mp4|m4a|dat|flac|flv|mov|dts|3gp|3g2|asf|wmv|wma|iso|webm)", useServiceRef=True, additionalExtensions="4098:m3u 4098:e2pls 4098:pls")
+        self.filelist = FileList(defaultDir, matchingPattern="(?i)^.*\.(mp2|mp3|ogg|ts|mts|m2ts|wav|wave|m3u|pls|e2pls|mpg|vob|avi|divx|m4v|mkv|mp4|m4a|dat|flac|flv|mov|dts|3gp|3g2|asf|wmv|wma|is[...]", useServiceRef=True, showMountpoints=True)
         self["filelist"] = self.filelist
         
         if config.plugins.mediaplayer2.useLibMedia.getValue() == True:
@@ -196,8 +196,8 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         try:
             from Plugins.SystemPlugins.Hotplug.plugin import hotplugNotifier
             hotplugNotifier.append(self.hotplugCB)
-        except Exception, ex:
-            print "[MediaPlayer] No hotplug support", ex
+        except Exception as ex:
+            print("[MediaPlayer] No hotplug support", ex)
 
         class MoviePlayerActionMap(ActionMap):
             def __init__(self, player, contexts=[ ], actions={ }, prio=0):
@@ -394,7 +394,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
                 try:
                     self.playlistIOInternal.save(resolveFilename(SCOPE_CONFIG, "playlist.e2pls"))
                 except IOError:
-                    print "couldn't save playlist.e2pls"
+                    print("couldn't save playlist.e2pls")
             if config.plugins.mediaplayer2.saveDirOnExit.getValue():
                 config.plugins.mediaplayer2.defaultDir.setValue(self.filelist.getCurrentDirectory())
                 config.plugins.mediaplayer2.defaultDir.save()
@@ -427,25 +427,25 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         sTagTrackNumber = currPlay.info().getInfo(iServiceInformation.sTagTrackNumber)
         sTagTrackCount = currPlay.info().getInfo(iServiceInformation.sTagTrackCount)
         sTagTitle = currPlay.info().getInfoString(iServiceInformation.sTagTitle)
-        print "[__evUpdatedInfo] title %d of %d (%s)" % (sTagTrackNumber, sTagTrackCount, sTagTitle)
+        print("[__evUpdatedInfo] title %d of %d (%s)" % (sTagTrackNumber, sTagTrackCount, sTagTitle))
         self.readTitleInformation()
 
     def __evAudioDecodeError(self):
         currPlay = self.session.nav.getCurrentService()
         sTagAudioCodec = currPlay.info().getInfoString(iServiceInformation.sTagAudioCodec)
-        print "[__evAudioDecodeError] audio-codec %s can't be decoded by hardware" % (sTagAudioCodec)
+        print("[__evAudioDecodeError] audio-codec %s can't be decoded by hardware" % (sTagAudioCodec))
         self.session.open(MessageBox, _("This receiver cannot decode %s streams!") % sTagAudioCodec, type=MessageBox.TYPE_INFO, timeout=20)
 
     def __evVideoDecodeError(self):
         currPlay = self.session.nav.getCurrentService()
         sTagVideoCodec = currPlay.info().getInfoString(iServiceInformation.sTagVideoCodec)
-        print "[__evVideoDecodeError] video-codec %s can't be decoded by hardware" % (sTagVideoCodec)
+        print("[__evVideoDecodeError] video-codec %s can't be decoded by hardware" % (sTagVideoCodec))
         self.session.open(MessageBox, _("This receiver cannot decode %s streams!") % sTagVideoCodec, type=MessageBox.TYPE_INFO, timeout=20)
 
     def __evPluginError(self):
         currPlay = self.session.nav.getCurrentService()
         message = currPlay.info().getInfoString(iServiceInformation.sUser + 12)
-        print "[__evPluginError]" , message
+        print("[__evPluginError]", message)
         self.session.open(MessageBox, message, type=MessageBox.TYPE_INFO, timeout=20)
 
     def delMPTimer(self):
@@ -467,9 +467,9 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
 
         try:
             from Plugins.Extensions.CSFD.plugin import CSFD
-            print "CSFD plugin import OK"
+            print("CSFD plugin import OK")
         except ImportError:
-            print "CSFD not installed"
+            print("CSFD not installed")
             CSFD = None
 
         movieName = None
@@ -479,11 +479,11 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
                 if sel is not None:
                     if sel[1]:
                         path = sel[0]
-                        print path
+                        print(path)
                         movieName = path.split('/')[-2]
                     else:
                         path = sel[0].getPath()
-                        print path
+                        print(path)
                         movieName = os.path.splitext(os.path.split(path)[1])[0]
             elif self.currList == 'playlist':
                 t = self.playlist.getSelection()
@@ -908,8 +908,8 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         try:
             for i in os.listdir(playlistdir):
                 listpath.append((i, playlistdir + i))
-        except IOError, e:
-            print "Error while scanning subdirs ", e
+        except IOError as e:
+            print("Error while scanning subdirs", e)
         if config.plugins.mediaplayer2.sortPlaylists.value:
             listpath.sort()
         self.session.openWithCallback(self.PlaylistSelected, ChoiceBox, title=_("Please select a playlist..."), list=listpath)
@@ -919,7 +919,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
             self.playlistname = path[0].rsplit('.', 1)[-2]
             self.clear_playlist()
             extension = path[0].rsplit('.', 1)[-1]
-            if self.playlistparsers.has_key(extension):
+            if extension in self.playlistparsers:
                 playlist = self.playlistparsers[extension]()
                 list = playlist.open(path[1])
                 for x in list:
@@ -932,8 +932,8 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         try:
             for i in os.listdir(playlistdir):
                 listpath.append((i, playlistdir + i))
-        except IOError, e:
-            print "Error while scanning subdirs ", e
+        except IOError as e:
+            print("Error while scanning subdirs", e)
         if config.plugins.mediaplayer2.sortPlaylists.value:
             listpath.sort()
         self.session.openWithCallback(self.DeletePlaylistSelected, ChoiceBox, title=_("Please select a playlist to delete..."), list=listpath)
@@ -947,8 +947,8 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         if confirmed:
             try:
                 os.remove(self.delname)
-            except OSError, e:
-                print "delete failed:", e
+            except OSError as e:
+                print("delete failed:", e)
                 self.session.open(MessageBox, _("Delete failed!"), MessageBox.TYPE_ERROR)
 
     def clear_playlist(self):
@@ -958,9 +958,9 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         self.switchToFileList()
 
     def copyDirectory(self, directory, recursive=True):
-        print "copyDirectory", directory
+        print("copyDirectory", directory)
         if directory == '/':
-            print "refusing to operate on /"
+            print("refusing to operate on /")
             return
         filelist = FileList(directory, useServiceRef=True, showMountpoints=False, isTop=True)
 
@@ -1035,7 +1035,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
         if self.filelist.getServiceRef().type == 4098:  # playlist
             ServiceRef = self.filelist.getServiceRef()
             extension = ServiceRef.getPath()[ServiceRef.getPath().rfind('.') + 1:]
-            if self.playlistparsers.has_key(extension):
+            if extension in self.playlistparsers:
                 playlist = self.playlistparsers[extension]()
                 list = playlist.open(ServiceRef.getPath())
                 for x in list:
@@ -1347,15 +1347,15 @@ class MediaPlayerLCDScreen(Screen):
         if self.mode == self.POSITION_MODE:
             l = self.getPosition()
             if l is not None:
-                l = l / 90000
-                self["text1"].setText("%d:%02d:%02d" % (l/3600, l%3600/60, l%60))
+                l = l // 90000
+                self["text1"].setText("%d:%02d:%02d" % (l//3600, l%3600//60, l%60))
         elif self.mode == self.REMAINING_TIME_MODE:
             length = self.getLength()
             position = self.getPosition()
             if length is not None and position is not None:
                 l = length - position
-                l = l / 90000
-                self["text1"].setText("%d:%02d:%02d" % (l/3600, l%3600/60, l%60))
+                l = l // 90000
+                self["text1"].setText("%d:%02d:%02d" % (l//3600, l%3600//60, l%60))
 
     def __onClose(self):
         del self.timer_conn
