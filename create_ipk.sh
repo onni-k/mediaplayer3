@@ -14,8 +14,8 @@ GITVER=$(git log -1 --format="%ci" | awk -F" " '{ print $1 }' | tr -d "-")
 #DSTAGEVER="6"
 VER=$PVER-$GITVER
 
-PKG=${D}/enigma2-plugin-extensions-mediaplayer2_${VER}_all
-PLUGINPATH=/usr/lib/enigma2/python/Plugins/Extensions/MediaPlayer2
+PKG=${D}/enigma2-plugin-extensions-mediaplayer3_${VER}_all
+PLUGINPATH=/usr/lib/enigma2/python/Plugins/Extensions/MediaPlayer3
 popd &> /dev/null
 
 rm -rf ${D}/ipkg.src*
@@ -29,7 +29,7 @@ mkdir -p ${S}
 git archive --format=tar HEAD | (cd ${S} && tar xf -)
 
 cat > ${P}/CONTROL/control << EOF
-Package: enigma2-plugin-extensions-mediaplayer2
+Package: enigma2-plugin-extensions-mediaplayer3
 Version: ${VER}
 Architecture: all
 Section: extra
@@ -37,13 +37,13 @@ Priority: optional
 Maintainer: mxfitsat@gmail.com
 Depends: enigma2-plugin-extensions-subssupport (>=1.5.1)
 Recommends: python-sqlite3
-Homepage: https://code.google.com/p/mediaplayer2-for-sh4/
+Homepage: https://github.com/onni-k/mediaplayer3
 Description: MediaPlayer with external subtitle support $VER
 EOF
 
 cat > ${P}/CONTROL/postrm << EOF
 #!/bin/sh
-rm -r /usr/lib/enigma2/python/Plugins/Extensions/MediaPlayer2 2> /dev/null
+rm -r /usr/lib/enigma2/python/Plugins/Extensions/MediaPlayer3 2> /dev/null
 exit 0
 EOF
 
@@ -58,7 +58,7 @@ languages=($(ls -d */ | gsed 's/\/$//g; s/.*\///g'))
 cd -
 for lang in "${languages[@]}" ; do
 	printf "Generating mo files for %s\n" $lang
-	msgfmt ${P}${PLUGINPATH}/locale/${lang}/LC_MESSAGES/MediaPlayer2.po -o ${P}${PLUGINPATH}/locale/${lang}/LC_MESSAGES/MediaPlayer2.mo
+	msgfmt ${P}${PLUGINPATH}/locale/${lang}/LC_MESSAGES/MediaPlayer3.po -o ${P}${PLUGINPATH}/locale/${lang}/LC_MESSAGES/MediaPlayer3.mo
 done
 
 #echo "compiling to optimized python bytecode"
@@ -68,9 +68,9 @@ done
 find ${P} -name "*.pyo" -print -exec rm {} \;
 find ${P} -name "*.pyc" -print -exec rm {} \;
 
-mkdir -p ${P}/tmp/mediaplayer2
-mkdir -p ${P}/tmp/mediaplayer2/python2.6/
-mkdir -p ${P}/tmp/mediaplayer2/python2.7/
+mkdir -p ${P}/tmp/mediaplayer3
+mkdir -p ${P}/tmp/mediaplayer3/python2.6/
+mkdir -p ${P}/tmp/mediaplayer3/python2.7/
 
 tar -C ${P} -cz --format=gnu -f ${B}/data.tar.gz . --exclude=CONTROL
 tar -C ${P}/CONTROL -cz --format=gnu -f ${B}/control.tar.gz .
