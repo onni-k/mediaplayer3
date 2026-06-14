@@ -31,7 +31,7 @@ from .settings import (
 # InfoBarCueSheetSupport from OpenPli with removed getLastPosition and
 # with delayed __serviceStarted, in case serviceReference is not yet set (BH image)
 # changed on_movie_start config
- 
+
 class InfoBarCueSheetSupport:
     CUT_TYPE_IN = 0
     CUT_TYPE_OUT = 1
@@ -58,7 +58,7 @@ class InfoBarCueSheetSupport:
                 iPlayableService.evEnd: self.__serviceStopped,
                 iPlayableService.evCuesheetChanged: self.downloadCuesheet,
             })
-        self.onClose.append(self.__onClose)
+        self.onClose.append(self._onClose)
 
     def __serviceStarted(self):
         if self.is_closing:
@@ -74,7 +74,7 @@ class InfoBarCueSheetSupport:
             self.__servicePlaying()
         else:
             print('service not yet started...')
-        
+
     def __servicePlaying(self):
         print("new service started! trying to download cuts!")
         self.downloadCuesheet()
@@ -92,12 +92,12 @@ class InfoBarCueSheetSupport:
             if seekable is None:
                 return  # Should not happen?
             length = seekable.getLength() or (None, 0)
-            print("seekable.getLength() returns:", length)
+            print(("seekable.getLength() returns:", length))
             # Hmm, this implies we don't resume if the length is unknown...
             if (last > 900000) and (not length[1]  or (last < length[1] - 900000)):
                 self.resume_point = last
                 l = last // 90000
-                on_movie_start = config.plugins.mediaplayer2.onMovieStart.value
+                on_movie_start = config.plugins.mediaplayer3.onMovieStart.value
                 if "ask" in on_movie_start or not length[1]:
                     Notifications.AddNotificationWithCallback(self.playLastCB, MessageBox, _("Do you want to resume this playback?") + "\n" + (_("Resume position at %s") % ("%d:%02d:%02d" % (l / 3600, l % 3600 / 60, l % 60))), timeout=10, default="yes" in on_movie_start)
                 elif on_movie_start == "resume":
@@ -255,8 +255,8 @@ class InfoBarCueSheetSupport:
             self.cut_list = [ ]
         else:
             self.cut_list = cue.getCutList()
-            
-    def __onClose(self):
+
+    def _onClose(self):
         self.timer.stop()
         del self.timer_conn
         del self.timer
@@ -304,7 +304,7 @@ class MyInfoBarCueSheetSupport(InfoBarCueSheetSupport):
             if mark[1] == InfoBarCueSheetSupport.CUT_TYPE_LAST:
                 self.cut_list.remove(mark)
         l = position // 90000
-        print("[InfoBarCueSheet] saveLastPosition - saving position %d:%02d:%02d" % ((l / 3600, l % 3600 / 60, l % 60)))
+        print(("[InfoBarCueSheet] saveLastPosition - saving position %d:%02d:%02d" % ((l / 3600, l % 3600 / 60, l % 60))))
         self.addMark((position, InfoBarCueSheetSupport.CUT_TYPE_LAST))
 
     def removeLastPosition(self):
@@ -322,7 +322,7 @@ class MyInfoBarCueSheetSupport(InfoBarCueSheetSupport):
             print("[InfoBarCueSheet] removeLastPosition - nothing to remove")
             return
         l = last_mark[0] // 90000
-        print("[InfoBarCueSheet] removeLastPosition - %d:%02d:%02d" % ((l / 3600, l % 3600 / 60, l % 60)))
+        print(("[InfoBarCueSheet] removeLastPosition - %d:%02d:%02d" % ((l / 3600, l % 3600 / 60, l % 60))))
         self.removeMark(last_mark)
 
     def getGaugeRenderer(self, rendererList):
@@ -343,7 +343,7 @@ class MyInfoBarCueSheetSupport(InfoBarCueSheetSupport):
 
     def updateGaugeRenderers(self):
         for r in self.__gaugeRenderers:
-            r.setCutlist(list(map(lambda x:(int(x[0]), int(x[1])), (cut for cut in self.cut_list))))
+            r.setCutlist(list([(int(x[0]), int(x[1])) for x in (cut for cut in self.cut_list)]))
 
     def downloadCuesheet(self):
         if self.cueSheetForServicemp3:
@@ -351,7 +351,7 @@ class MyInfoBarCueSheetSupport(InfoBarCueSheetSupport):
             if sref is None:
                 print('[InfobarCueSheetSupport] downloadCuesheet - serviceReference is None!')
                 return
-            print('[InfobarCueSheetSupport] downloadCuesheet - serviceReference type : %d' % sref.type)
+            print(('[InfobarCueSheetSupport] downloadCuesheet - serviceReference type : %d' % sref.type))
             if sref.type in (SERVICE_GSTPLAYER, SERVICE_EPLAYER3, SERVICE_EXTEPLAYER3, SERVICEMP3):
                 try:
                     self.cut_list = self.__cutList.getCutList(sref.getPath())
@@ -383,8 +383,8 @@ class MyInfoBarCueSheetSupport(InfoBarCueSheetSupport):
                 InfoBarCueSheetSupport.uploadCuesheet(self)
         else:
             InfoBarCueSheetSupport.uploadCuesheet(self)
-        
-        
+
+
 class StatusScreen(Screen):
 
     def __init__(self, session):
@@ -408,7 +408,7 @@ class StatusScreen(Screen):
         self.stand_alone = True
         print('initializing status display')
         self["status"] = Label("")
-        self.onClose.append(self.__onClose)
+        self.onClose.append(self._onClose)
 
     def setStatus(self, text, color="yellow"):
         self['status'].setText(text)
@@ -420,7 +420,7 @@ class StatusScreen(Screen):
         self.hide()
         self['status'].setText("")
 
-    def __onClose(self):
+    def _onClose(self):
         self.delayTimer.stop()
         del self.delayTimer_conn
         del self.delayTimer
@@ -441,13 +441,13 @@ class CutList(object):
             return []
         cutList = self.cueSheetDAO.get_cut_list(str(path))
         if cutList is not None:
-            return list(map(lambda x:(int(x[0] * 90000), int(x[1])), (x for x in cutList)))
+            return list([(int(x[0] * 90000), int(x[1])) for x in (x for x in cutList)])
 
     def setCutList(self, path, cutList):
         if not self.sqlite3:
             print('[CutList] python-sqlite3 not installed')
             return
-        self.cueSheetDAO.set_cut_list(str(path), map(lambda x:(int(x[0] / 90000), int(x[1])), (x for x in cutList)))
+        self.cueSheetDAO.set_cut_list(str(path), [(int(x[0] / 90000), int(x[1])) for x in (x for x in cutList)])
 
 
 
@@ -508,25 +508,24 @@ class InfoBarAspectChange:
             self.defaultPolicy2 = open("/proc/stb/video/policy2", "r").read().strip()
         except IOError:
             self.defaultPolicy2 = None
-        self.currentAVMode = self.V_MODES[0]
-
+        self.currentAVMode = InfoBarAspectChange.V_MODES[0]
         self["aspectChangeActions"] = HelpableActionMap(self, "InfobarAspectChangeActions",
             {
              "aspectChange":(self.aspectChange, _("change aspect ratio"))
               }, -3)
 
-        self.onClose.append(self.__onClose)
+        self.onClose.append(self._onClose)
 
 
     def getAspectStr(self):
-        mode = self.V_DICT[self.currentAVMode]
+        mode = InfoBarAspectChange.V_DICT[self.currentAVMode]
         aspectStr = mode['aspect']
         policyStr = mode['title']
         return "%s: %s\n%s: %s" % (_("Aspect"), aspectStr, _("Policy"), policyStr)
 
 
     def setAspect(self, aspect, policy, policy2):
-        print('aspect: %s policy: %s policy2: %s' % (str(aspect), str(policy), str(policy2)))
+        print(('aspect: %s policy: %s policy2: %s' % (str(aspect), str(policy), str(policy2))))
         if aspect:
             try:
                 open("/proc/stb/video/aspect", "w").write(aspect)
@@ -546,18 +545,19 @@ class InfoBarAspectChange:
 
     def toggleAVMode(self):
         self.aspectChanged = True
-        modeIdx = self.V_MODES.index(self.currentAVMode)
+        modeIdx = InfoBarAspectChange.V_MODES.index(self.currentAVMode)
         if modeIdx + 1 == len(self.V_MODES):
             modeIdx = 0
         else:
             modeIdx += 1
-        self.currentAVMode = self.V_MODES[modeIdx]
-        mode = self.V_DICT[self.currentAVMode]
+        self.currentAVMode = InfoBarAspectChange.V_MODES[modeIdx]
+        mode = InfoBarAspectChange.V_DICT[self.currentAVMode]
         aspect = mode['aspect']
         policy = 'policy' in mode and mode['policy'] or None
         policy2 = 'policy2' in mode and mode['policy2'] or None
         self.setAspect(aspect, policy, policy2)
 
-    def __onClose(self):
+    def _onClose(self):
         if self.aspectChanged:
             self.setAspect(self.defaultAspect, self.defaultPolicy, self.defaultPolicy2)
+
