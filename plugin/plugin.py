@@ -222,7 +222,7 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
                 "cancel": (self.exit, _("Exit mediaplayer")),
             }, -2)
 
-        self["MediaPlayerActions"] = HelpableActionMap(self, "MediaPlayerActions",
+        self["MediaPlayerActions"] = HelpableActionMap(self, "MediaPlayer3Actions",
             {
                 "info": (self.info, _("show info")),
                 "play": (self.xplayEntry, _("Play entry")),
@@ -239,6 +239,14 @@ class MediaPlayer(Screen, InfoBarBase, SubsSupportStatus, SubsSupport, InfoBarSe
                 "shift_stop": (self.clear_playlist, _("Clear playlist")),
                 "shift_record": (self.playlist.PlayListShuffle, _("Shuffle playlist")),
                 "subsStatus":(self.subsStatus, _("Show external subtitles status"))
+            }, -2)
+
+        self["MediaPlayerSeekActions"] = HelpableActionMap(self, "MediaPlayer3SeekActions",
+            {
+                "seekBack": (self.seekBack, _("Seek back")),
+                "seekFwd": (self.seekFwd, _("Seek forward")),
+                "seekBackManual": (self.seekBackManual, _("Seek back manual")),
+                "seekFwdManual": (self.seekFwdManual, _("Seek forward manual")),
             }, -2)
 
         self["WizardActions"] = HelpableActionMap(self, "WizardActions",
