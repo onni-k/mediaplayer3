@@ -1,0 +1,189 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Ready"
+msgstr "Valmis"
+
+msgid "No media selected"
+msgstr "Ei valittua tiedostoa"
+
+msgid "Unknown Artist"
+msgstr "Tuntematon esittäjä"
+
+msgid "Unknown Album"
+msgstr "Tuntematon albumi"
+
+msgid "Unknown"
+msgstr "Tuntematon"
+
+msgid "Playback failed"
+msgstr "Toisto epäonnistui"
+
+msgid "Seek failed"
+msgstr "Kelaus epäonnistui"
+
+msgid "No next track"
+msgstr "Ei seuraavaa kappaletta"
+
+msgid "Already at first track"
+msgstr "Jo ensimmäisessä kappaleessa"
+
+msgid "Browser"
+msgstr "Selain"
+
+msgid "Playback Information"
+msgstr "Toistotiedot"
+
+msgid "Settings"
+msgstr "Asetukset"
+
+msgid "Developer Tools"
+msgstr "Kehittäjätyökalut"
+
+msgid "About"
+msgstr "Tietoja"
+
+msgid "Exit"
+msgstr "Poistu"
+
+msgid "General"
+msgstr "Yleiset"
+
+msgid "Playback"
+msgstr "Toisto"
+
+msgid "Logging"
+msgstr "Lokitus"
+
+msgid "Developer"
+msgstr "Kehittäjä"
+
+msgid "User Interface"
+msgstr "Käyttöliittymä"
+
+msgid "OK: Select   MENU/EXIT: Close"
+msgstr "OK: Valitse   MENU/EXIT: Sulje"
+
+msgid "Select a file to play"
+msgstr "Valitse toistettava tiedosto"
+
+msgid "Track"
+msgstr "Kappale"
+
+msgid "Pause failed"
+msgstr "Tauko epäonnistui"
+
+msgid "Stop failed"
+msgstr "Pysäytys epäonnistui"
+
+msgid "Resume failed"
+msgstr "Jatkaminen epäonnistui"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the startup directory"
+msgstr "Selaa haluamaasi hakemistoon ja paina sitten VIHREÄÄ asettaaksesi sen käynnistyshakemistoksi"
+
+msgid "Playlists"
+msgstr "Soittolistat"
+
+msgid "Internet Radio"
+msgstr "Internetradio"
+
+msgid "Tracks"
+msgstr "Kappaleet"
+
+msgid "Stations"
+msgstr "Asemat"
+
+msgid "Region"
+msgstr "Alue"
+
+msgid "Delete"
+msgstr "Poista"
+
+msgid "Exported"
+msgstr "Viety"
+
+msgid "Create New"
+msgstr "Luo uusi"
+
+msgid "Playlist already exists"
+msgstr "Soittolista on jo olemassa"
+
+msgid "Create playlist"
+msgstr "Luo soittolista"
+
+msgid "Empty Playlist"
+msgstr "Tyhjä soittolista"
+
+msgid "New playlist name"
+msgstr "Uuden soittolistan nimi"
+
+msgid "New favorite list name"
+msgstr "Uuden suosikkilistan nimi"
+
+msgid "Select playlist"
+msgstr "Valitse soittolista"
+
+msgid "Select favorite list"
+msgstr "Valitse suosikkilista"
+
+msgid "Search stations by name"
+msgstr "Hae asemia nimellä"
+
+msgid "Codec"
+msgstr "Koodekki"
+
+msgid "Bitrate"
+msgstr "Bittinopeus"
+
+msgid "Country"
+msgstr "Maa"
+
+msgid "Language"
+msgstr "Kieli"
+
+msgid "Tags"
+msgstr "Tunnisteet"
+
+msgid "Homepage"
+msgstr "Kotisivu"
+
+msgid "Any"
+msgstr "Mikä tahansa"
+
+msgid "Path"
+msgstr "Polku"
+
+msgid "Type"
+msgstr "Tyyppi"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Cancel"
+msgstr "Peruuta"
+
+msgid "Information"
+msgstr "Tiedot"
+
+msgid "Play"
+msgstr "Soita"
+
+msgid "Remove from Playlist"
+msgstr "Poista soittolistalta"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   OK: Valinnat   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Local Music"
+msgstr "Paikallinen musiikki"
+
+msgid "What would you like to open?"
+msgstr "Mitä haluat avata?"
+
+msgid "Searching for stations, please wait..."
+msgstr "Kanavia haetaan, odota hetki..."
+
+msgid "Found {0} stations"
+msgstr "Löytyi {0} kanavaa"

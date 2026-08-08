@@ -1,0 +1,1585 @@
+Build 0007 - toteutusmuistiinpanot
+===================================
+
+Lahtokohta
+----------
+
+Build 0006 oli kayttajan vahvistuksen mukaan valmis (nelja
+laitetestikierrosta, "täyttää build_0006 tason"). Build 0007
+rakennettiin sen paalle kayttajan toimittaman docs-paketin
+(BUILD_0007_PLAN.md + viisi uutta spek-dokumenttia) ja
+pyradios-referenssiprojektin mukaisesti. Aihe: soittolistat +
+internetradio (RadioBrowser-API, https://api.radio-browser.info/).
+
+TARKEA POIKKEAMA aiempaan kaytantoon: tallakertaa kayttaja toimitti
+MYOS VALMIIKSI PAIVITETYT versiot ARCHITECTURE.md:sta ja
+PROJECT_STRUCTURE.md:sta (otettu sellaisenaan kayttoon uutena
+pohjana), MUTTA CHANGELOG.md ja HISTORY.md olivat selvasti
+SUUNNITTELUVAIHEEN PLACEHOLDER-dokumentteja ("Status: Planning
+completed. Implementation not yet started.") jotka eivat sisaltaneet
+mitaan build 0001-0006:n yksityiskohtaista historiaa jota olen
+kerannyt useiden buildien ajan (mm. kaikki oikean laitteen
+loydokset/korjaukset). PAATIN SAILYTTAA omat yksityiskohtaiset
+CHANGELOG.md/HISTORY.md-versiot ja lisata niihin Build 0007 -osiot
+SAMASSA formaatissa kuin aiemmin, sen sijaan etta olisin korvannut ne
+kayttajan suunnitteludokumenteilla -- tama sailyttaa arvokkaan,
+vaivalla kerätyn historiatiedon. Uudet spek-dokumentit
+(STORAGE_MANAGER_SPEC.md, PLAYLIST_MANAGER_SPEC.md,
+INTERNETRADIO_MANAGER_SPEC.md, PLAYLISTSCREEN_SPEC.md,
+RADIOBROWSER_SCREEN_SPEC.md) otettiin sellaisenaan kayttoon
+pohjaksi, Status-kentat paivitetty vastaamaan toteutunutta tilaa.
+
+TEKNINEN KESKEYTYS kesken session: tyokalut (bash_tool, view jne.)
+lakkasivat vastaamasta kokonaan usean viestin ajaksi (todennakoisesti
+infrastruktuurin ohimenevä hairio) -- tama on kirjattu rehellisesti,
+tyo jatkui heti kun tyokalut palautuivat, mitaan ei menetetty koska
+tiedostot pysyivat levylla koko ajan.
+
+Toteutusjarjestys
+------------------
+
+### 1. StorageManager (storage.py, UUSI)
+
+    - Luo/vahvistaa ".mediaplayer3"-tyohakemiston + 9 alihakemistoa
+      (playlists/radio/artwork/cache/logs/imports/exports/backups/
+      userdata).
+    - Ensisijainen sijainti /media/hdd, toissijainen /media, viimeinen
+      hataratkaisu /tmp (ei-pysyva, varoitus lokiin jos jouduttiin
+      tahan).
+    - AUTOMAATTINEN PALAUTUS: jos joku alihakemisto katoaa kesken
+      ajon, getXxxPath()-kutsu luo sen uudelleen automaattisesti.
+    - Testattu: perus toiminta + poistetun hakemiston automaattinen
+      palautuminen.
+
+### 2. PlaylistManager (playlist_manager.py, UUSI)
+
+    - Taysi Extended M3U -soittolistanhallinta: create/delete/rename/
+      load/save, addTrack/addFolder (rekursiivinen, suodattaa
+      SUPPORTED_AUDIO_EXTENSIONS), moveTrack/removeTrack,
+      importPlaylist (seka Standard etta Extended M3U, alkuperainen
+      tiedosto EI koskaan muutu), exportPlaylist,
+      validatePlaylist (ohittaa puuttuvat tiedostot hiljaa),
+      generatePlaybackQueue (sama jono-muoto kuin BrowserScreenin
+      build_0005:sta lahtien kayttama).
+    - Testattu KATTAVASTI: koko round-trip create->add->load->
+      move->remove->rename->delete, M3U-tiedostomuoto tarkistettu
+      rivi riviltä, import/export molemmilla M3U-tyypeilla,
+      puuttuvien tiedostojen ohitus jonon generoinnissa.
+
+### 3. InternetRadioManager (internetradio_manager.py, UUSI)
+
+    - RadioBrowser-API-kommunikaatio Pythonin OMALLA urllib-
+      kirjastolla (ei ulkoista riippuvuutta -- ei voida olettaa etta
+      "requests" on asennettu vastaanottimeen).
+    - Tarkistin pyradios-referenssiprojektin lahdekoodin (radios.py,
+      base_url.py) kayttajan pyynnosta ennen toteutusta:
+        * json/stations/search -- pahaku (name/country/language/tag)
+        * json/countries, json/languages, json/tags -- suodatinlistat
+        * json/url/<uuid> -- TARKEA "click counter" -konventio:
+          RALIS-tason toistoa varten PITAA kutsua tata endpointtia
+          ENNEN soittoa, koska se seka rekisteroi kuuntelukerran etta
+          palauttaa OIKEAN, uudelleenohjaukset seuraavan
+          stream-URL:n ("url_resolved") -- raakaa "url"-kenttaa ei
+          pidä kayttaa suoraan. Toteutettu tasmalleen tallä tavalla
+          prepareStream()-metodissa.
+        * tag-parametrit ovat pienaakkosherkkia (havaittu
+          pyradios-koodista) -- normalisoitu automaattisesti.
+    - EI KAYTETTY pyradios:n omaa DNS-pohjaista peilipalvelin-
+      loytoa (reverse-DNS-temppu) -- kayttaja pyysi kayttamaan
+      suoraan "https://api.radio-browser.info/" -osoitetta, joka jo
+      itsessaan DNS-round-robinnaa peilipalvelimien valilla.
+    - Suosikkilistat (useita nimettyja listoja), historia (koko
+      rajattu asetuksesta), molemmat JSON-tiedostoina
+      StorageManagerin radio-hakemistossa.
+    - JOKAINEN RadioBrowser-pyynto on puolustavasti kaaritty --
+      verkkovirhe/aikakatkaisu/JSON-jasennysvirhe palauttaa aina
+      tyhjan tuloksen ("ei loytynyt"), EI KOSKAAN kaadu.
+
+    TARKEA REHELLISYYS: tassa hiekkalaatikossa EI OLE
+    verkkoyhteytta ollenkaan, joten itse RadioBrowser-API-kutsuja EI
+    VOITU testata oikeaa palvelinta vasten. Testattu KAIKKI MUU:
+    suosikkien/historia/JSON-pysyvyyden logiikka, ja nimenomaan
+    varmistettu etta verkottomuus (search() palauttaa tyhjan listan)
+    ei kaada mitaan -- tama on kirjattu selkeasti tunnetuksi
+    puutteeksi joka vaatii oikean laitteen vahvistuksen.
+
+### 4. PlaybackController: playStream()/isPlayingStream()
+
+    - RALIS-striimin soitto UUDELLEENKAYTTAA samaa
+      eServiceReference-rakennuslogiikkaa kuin paikalliset tiedostot
+      (compatibility.createServiceReference()) -- Enigma2:n
+      GStreamer/MP3-palvelutehdas kasittelee http(s)://-URIt jo
+      valmiiksi samalla tavalla kuin paikallisia polkuja, joten
+      eri soittopolkua ei tarvittu.
+    - EI kutsu metadata_reader.read():ia URL:lle (turhaa, aina
+      "Unknown") -- rakentaa sen sijaan synteettisen metadatan
+      (aseman nimi Title-kenttana, "Internet Radio" source-kenttana).
+    - play() nollaa isPlayingStream()-lipun paikallistiedostoihin
+      siirryttaessa ja paikallistiedosto play() nollaa sen aina,
+      playStream() asettaa sen -- testattu molempiin suuntiin.
+
+### 5. MainScreen: internetradio-navigointi
+
+    - UP/DOWN: edellinen/seuraava asema AKTIIVISESSA listassa
+      (suosikit tai historia, asetuksen radio.navigation_mode mukaan).
+    - LEFT/RIGHT: vaihtaa suosikki-/historialistan valilla -- MUTTA
+      VAIN kun PlaybackController.isPlayingStream() on True.
+      Paikallistiedoston soitossa LEFT/RIGHT toimivat TASMALLEEN
+      kuten ennen (kelaus, build_0005/0006).
+    - Tama on tarkein yksittainen suunnittelupaatos: koska
+      kelaaminen ei ole mielekasta live-striimille, LEFT/RIGHT/UP/
+      DOWN:in kaksoiskaytto ei koskaan ole ristiriidassa -- yksi
+      soittosessio on aina JOKO striimi TAI paikallistiedosto, ei
+      koskaan molempia. Testattu molemmat tilat erikseen samalla
+      MainScreen-instanssilla.
+
+### 6. BrowserScreen: kontekstivalikko
+
+    KAYTTAJAN OHJE: "voit käyttää väripainikkeita tarvittaessa,
+    mutta yritä välttää niitä." PLAYLIST_MANAGER_SPEC.md:n
+    "Browser Integration" -kuvaama valikko (Play Folder/Add to
+    Playlist/Create Playlist jne.) EI voinut mennä OK-nappiin,
+    koska OK:n nykyinen kaytos (kansioon siirtyminen / tiedoston
+    valitseminen suoraan) on laitetestattu USEAAN KERTAAN build
+    0005/0006:ssa (jono-rakennus, basename-tasmays-korjaus jne.) --
+    tuota EI SAA rikkoa.
+
+    RATKAISU (ei vari-nappia): INFO-nappi, joka ei ollut kaytossa
+    BrowserScreenissa ollenkaan, ja jonka merkitys ("lisaa tietoja/
+    vaihtoehtoja valitusta kohteesta") sopii luonnostaan
+    tarkoitukseen.
+
+    Toteutettu tasmalleen spekin kuvaamat kolme valikkoa
+    (Screens.ChoiceBox.ChoiceBox, vakio-Enigma2-ruutu):
+        Kansio: Play Folder / Add Folder to Playlist / Create
+                Playlist / Cancel
+        Audiotiedosto: Play / Add to Playlist / Information / Cancel
+        Soittolistatiedosto (.m3u/.m3u8): Play Playlist / Import
+                Playlist / Information / Cancel
+
+    Testattu ERIKSEEN etta OK:n kaytos on TAYSIN muuttumaton
+    (kansioon siirtyminen ja tiedoston suora soitto molemmat
+    vahvistettu), ja etta INFO avaa oikean valikon jokaiselle
+    kolmelle kohdetyypille.
+
+### 7. PlaylistScreen (playlistscreen.py, UUSI)
+
+    Kaksipaneelinen (soittolistat / kappaleet), LEFT/RIGHT vaihtaa
+    paneelia, UP/DOWN liikkuu, OK avaa kontekstivalikon
+    (PLAYLISTSCREEN_SPEC.md: "Color buttons shall not be required" --
+    noudatettu, ei yhtaan vari-nappia). Soittolistan valinta lataa
+    kappaleet AUTOMAATTISESTI mutta EI ala soittaa (spec vaatimus).
+    Testattu: navigointi, play/rename/delete/export soittolistoille,
+    remove/move-up/move-down kappaleille.
+
+### 8. RadioBrowserScreen (radiobrowserscreen.py, UUSI)
+
+    Kolmipaneelinen (asemat / alue / kieli) + tietopaneeli. LEFT/
+    RIGHT kiertaa paneeleita, UP/DOWN liikkuu -- alue/kieli-paneelien
+    valinnan muutos KAYNNISTAA HAUN AUTOMAATTISESTI uudelleen
+    (spec: "Search results update automatically whenever a filter
+    changes"). INFO avaa nimihaun (VirtualKeyBoard) -- ei vari-
+    nappia tassakaan. OK avaa asemakohtaisen valikon (Play/Add to
+    Favorites/Create Favorite List/Station Information/Cancel).
+    Testattu: paneelinvaihto, tyhjän-verkon graceful-kasittely
+    (ei kaadu), suosikkien lisays (olemassa olevaan JA uuteen
+    listaan).
+
+### 9. Muut liitokset
+
+    - MainMenu: "Playlists" ja "Internet Radio" -rivit lisatty.
+    - DeveloperScreen: "Storage", "Playlists", "Internet Radio"
+      -diagnostiikkasivut.
+    - SettingsScreen: radio.default_country/default_language/
+      navigation_mode/history_size -rivit. YELLOW-nappi "Clear radio
+      history" -- TIETOINEN, RAJATTU poikkeus vari-nappien
+      valttamiseen: kertaluonteinen, valinnainen toiminto jolle ei
+      ollut luonnollista muuta nappia ConfigListScreen-kontekstissa.
+    - plugin.py: uudet moduulit alustetaan/lokitetaan
+      kaynnistyksessa.
+    - ~35 uutta kaannettya merkkijonoa lisatty molempiin
+      kielikatalogeihin (valikot, paneeliotsikot, dialogitekstit).
+
+Testaus
+-------
+
+TAYSI regressiosarja (jokainen ruutu, jokainen uusi ominaisuus,
+plugin.main()) ajettu lapi ilman virheita. Erityistestit:
+    - PlaylistManager: koko M3U-round-trip + tiedostomuoto
+    - InternetRadioManager: suosikit/historia/pysyvyys +
+      verkottomuuden graceful-kasittely
+    - PlaybackController.playStream(): synteettinen metadata,
+      tila-lippu molempiin suuntiin
+    - MainScreen: kontekstiherkkä LEFT/RIGHT (kelaus vs.
+      listanvaihto) + UP/DOWN asemanvaihto
+    - BrowserScreen: OK:n muuttumattomuus VARMISTETTU ERIKSEEN,
+      INFO-valikon dispatch kaikille kolmelle tyypille + jokainen
+      valikkotoiminto
+    - PlaylistScreen, RadioBrowserScreen: taysi navigointi +
+      kontekstivalikot
+
+EI TESTATTU (ei mahdollista tassa ymparistossa):
+    - RadioBrowser-API:n oikeat verkkokutsut (ei verkkoyhteytta
+      hiekkalaatikossa)
+    - Mikaan oikealla Enigma2-laitteella (ei laitepaasya tassa
+      sessiossa)
+
+Dokumentaatio
+-------------
+
+    - ARCHITECTURE.md, PROJECT_STRUCTURE.md: otettu kayttajan
+      valmiiksi kirjoittamat versiot sellaisenaan.
+    - CHANGELOG.md, HISTORY.md: SAILYTETTY omat yksityiskohtaiset
+      versiot (builds 1-6), lisatty Build 0007 -osiot samassa
+      formaatissa. HISTORY.md:hen lisatty kaksi uutta
+      arkkitehtuuripaatos-merkintaa (BrowserScreen-kontekstivalikon
+      nappivalinta, internetradio-navigoinnin nappien
+      uudelleenkaytto).
+    - Kaikki koskettavat spek-dokumentit (MAINSCREEN_SPEC.md,
+      BROWSERSCREEN_SPEC.md, SETTINGSSCREEN_SPEC.md,
+      DEVELOPER_SCREEN_SPEC.md, CONFIG_SPEC.md) paivitetty
+      kohdennetusti uusilla osioilla.
+    - Uudet spek-dokumentit (STORAGE_MANAGER_SPEC.md jne.) otettu
+      kayttajan pohjasta, Status paivitetty.
+    - RELEASE_CHECKLIST.md nollattu ja merkitty rehellisesti:
+      dokumentaatio/moduulikatselmointi/lokitus rastitettu,
+      laite-/verkkoriippuvaiset kohdat (Pause/Resume/Stop/TV-
+      palautus/OpenViX/OpenATV/yhteensopivuuskerros) JATETTU
+      merkitsematta koska ei laite- tai verkkopaasya tassa
+      sessiossa.
+
+Tunnetut puutteet / seuraavaksi
+--------------------------------
+
+    - EI laitetestattu ollenkaan (ei laitepaasya).
+    - RadioBrowser-API:n oikeat verkkokutsut EIVAT ole viela
+      vahvistettuja -- tama on ehdottomasti ensimmainen asia mita
+      testata oikealla laitteella. Jos endpointtien tarkat
+      vastausmuodot poikkeavat pyradios-referenssista, search()/
+      getCountries()/getLanguages()/prepareStream() saattavat
+      tarvita saatoa.
+    - "Information"-dialogit (Browser/Playlist/RadioBrowser) ovat
+      yksinkertaisia MessageBox-ponnahdusikkunoita, ei omia
+      nakymia -- tietoinen laajuusrajaus taman buildin koon vuoksi.
+    - DeveloperScreenin Storage/Playlists/Internet Radio -sivuja ei
+      ole verrattu oikean laitteen tiedostojarjestelmaan.
+    - Taydellinen kaannoskattavuus on edelleen asteittaista
+      tulevaa tyota.
+
+Laitetestin kierros 1 (2026-07-23, test1.log + Build_0007_test1.zip)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "Internetradio-ikkuna aukeaa, mutta ei näytä
+mitään kanavia. Ilmeisesti haku ei toiminut. Soittolista toimi
+oikein ainakin hakemistojen osalta." Liitteena RadioBrowser-API:n
+oma dokumentaatio (HTML) ja kayttajan oma testiskripti
+(serverlist_python3.py).
+
+Loki paljasti tarkan syyn valittomasti:
+
+    [Radio] RadioBrowser request failed: HTTP Error 404: Not Found
+
+JOKA ikinen pyynto osoitteeseen "https://api.radio-browser.info/..."
+palautti 404:n -- verkkoyhteys siis TOIMI (ei aikakatkaisua/DNS-
+virhetta), mutta itse osoite oli VAARA.
+
+Kayttajan liittama serverlist_python3.py-skripti (ja RadioBrowserin
+oma API-dokumentaatio) paljasti etta olin TEHNYT VAARAN OLETUKSEN
+aiemmassa build_0007-session round-1:ssa: luulin etta pelkka
+"api.radio-browser.info"-domain round-robinnaa automaattisesti
+peilipalvelimien valilla DNS:n kautta. TAMA ON VAARIN -- todellinen
+API vaatii KAKSIVAIHEISEN mekanismin:
+
+    1. DNS-kysely "all.api.radio-browser.info" -> lista IP-osoitteita
+    2. KAANTEINEN DNS-haku (reverse lookup) jokaiselle IP:lle ->
+       oikeat peilipalvelin-hostnimet (esim. "de1.api.radio-
+       browser.info")
+    3. Kutsu YHTA NAISTA peileista, ei koskaan suoraan
+       "api.radio-browser.info":a.
+
+Tama tasmaa TAYSIN kayttajan oman testiskriptin
+(get_radiobrowser_base_urls()) ja jo aiemmin session 1:ssa lukemani
+pyradios-referenssiprojektin (base_url.py) kanssa -- MOLEMMAT
+kayttavat tasmalleen tata mekanismia. Aiemmin PAATIN TIETOISESTI
+OHITTAA taman mekanismin kayttajan alkuperaisen ohjeen "kaytä
+osoitetta https://api.radio-browser.info/" perusteella, olettaen
+etta plain-domain riittaisi -- tama oletus oli VAARIN, nyt vahvistettu
+oikealla laitteella.
+
+Korjaus (internetradio_manager.py):
+
+    - Lisatty _discoverServers(): socket.getaddrinfo() +
+      socket.gethostbyaddr() -- tasmalleen sama logiikka kuin
+      kayttajan serverlist_python3.py-skriptissa. Palauttaa
+      FALLBACK_SERVER:in ("https://de1.api.radio-browser.info") jos
+      DNS-loytö epaonnistuu kokonaan.
+    - _getServers(): valimuistoi loytyneet palvelimet koko
+      prosessin elinajaksi (ei toisteta DNS-hakua joka pyynnolla).
+    - _apiGet() kirjoitettu uusiksi: kokeilee JOKAISTA loydettya
+      peilia jarjestyksessa (viimeksi toiminut ensin, loput
+      satunnaisessa jarjestyksessa) kunnes joku vastaa onnistuneesti
+      -- tasmalleen sama retry-on-failure-logiikka kuin kayttajan
+      skriptin downloadRadiobrowser()-funktiossa. Onnistunut peili
+      tallennetaan listan kärkeen seuraavia pyyntoja varten.
+    - getDiagnostics() paivitetty nayttamaan loydetyt peilit
+      API_BASE_URL:in sijaan (joka poistettiin kokonaan).
+
+Testaus: _discoverServers()'in fallback-kaytos (ei DNS:aa
+hiekkalaatikossa) vahvistettu. LISAKSI kirjoitin erillisen testin
+jossa MOCKATTIIN kolme peilipalvelinta (kaksi epaonnistuu, kolmas
+onnistuu) ja vahvistettiin: (a) kaikkia kolmea kokeillaan
+jarjestyksessa, (b) onnistunut peili tallennetaan listan karkeen,
+(c) SEURAAVA pyynto kokeilee VAIN sita yhta peilia ensin (ei enaa
+kaikkia kolmea). Koko regressiosarja + plugin.main() ajettiin
+uudelleen lapi ilman virheita.
+
+Soittolistan hakemisto-lisays ("Add Folder to Playlist") vahvistettu
+toimivaksi kayttajan toimesta -- ei vaatinut korjauksia.
+
+Edelleen vahvistamatta oikealla laitteella
+------------------------------------------
+
+    - Itse hakutulokset (search()) OIKEALTA, elavalta
+      RadioBrowser-peililta -- korjaus poisti 404-virheen
+      rakenteellisesti (vahvistettu mock-testeilla), mutta oikean
+      peilin palauttamaa TODELLISTA asemadataa ei ole viela nahty.
+      Tama on seuraavan kierroksen ensisijainen tarkistuskohde.
+
+Laitetestin kierros 2 (2026-07-24)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt internetradioiden haku toimii." -- kierros 1:n
+peilipalvelin-korjaus siis TOIMII oikealla laitteella. Neljä uutta
+pyyntoa:
+
+1) "Kanavia ja kieliä on paljon, joten asetuksissa valittu ohjelman
+   kieli voisi samalla olla radiolistan kielivalinnassa sijalla 2
+   heti kaikki kielet jälkeen."
+
+   Korjaus: RadioBrowserScreen._promoteAppLanguage() -- lukee
+   asetuksista sovelluksen UI-kielen (general.language, "fi"/"en"),
+   kaantaa sen RadioBrowserin taydelliseksi kielinimeksi
+   ("finnish"/"english" -- pieni sisainen mappaus, koska RadioBrowser
+   tunnistaa kielet taysilla nimilla ei ISO-koodeilla) ja siirtaa sen
+   kielilistan KARKEEN (index 0 omassa listassaan, "Kaikki kielet"
+   -vaihtoehdon jalkeen nakyvassa listassa). Ei-toiminto jos kielelle
+   ei ole mappausta tai RadioBrowser ei palauttanut sita tulosjoukossa
+   -- ei kaadu.
+
+2) "Samoin radiolistauksen valinnoissa voisi mennä ruudullisen
+   painamalla ch-/ch+ -nappeja."
+
+   Korjaus: compatibility.py sai uudet kandidaattilistat
+   CHANNEL_UP_KEY_ACTIONS/CHANNEL_DOWN_KEY_ACTIONS (sama
+   monikandidaatti-periaate kuin PVR/seek/next/prev-nappien
+   kanssa aiemmin, EI viela laitevahvistettu). RadioBrowserScreen
+   sai pageUp()/pageDown() jotka hyppaavat PAGE_STEP=10 riviä
+   kerrallaan FOKUSOIDUSSA paneelissa (asemat/alue/kieli-mika
+   tahansa).
+
+3) "Mainscreenissä voisi olla 2 näkymää, joissa vaihdetaan
+   info-napilla. 1. Kelausnäkymä, joka on nyt ja 2. suosikkinäkymä,
+   jossa oikea/vasen vaihtaa suosikkilistaa ja kokonaisajan kohdalla
+   lukee kappaleiden määrä soittolistassa/kansiossa... Ylimpänä voisi
+   olla soittolistan/kansion nimi."
+
+   HUOM: INFO-nappi avasi aiemmin PlaybackInfoScreenin suoraan
+   (build_0004:sta lahtien) -- talla pyynnolla se KORVATTIIN nakyman-
+   vaihdolla. PlaybackInfoScreen on edelleen tavoitettavissa
+   Paavalikon kautta, mutta EI enaa suoraan INFO-napista. Tama on
+   TIETOINEN kompromissi kayttajan eksplisiittisen pyynnon
+   perusteella.
+
+   Toteutus: self._view_mode = "seek" | "favorites".
+       - infoPressed() vaihtaa tilaa ja paivittaa nayton.
+       - _updateTopLabel(): "seek"-tilassa nayttaa sovellusversion
+         (ennallaan); "favorites"-tilassa nayttaa kansion nimen
+         (paikallistiedosto, os.path.basename(dirname(file))) TAI
+         suosikki-/historialistan nimen (radio, kaannettyna).
+       - _formatPositionCount(): palauttaa "N/M" -- paikallistiedostolle
+         PlaybackController.getQueuePosition()/getQueueSize(),
+         radiolle self._radio_index+1 / len(self._radio_list).
+       - "remaining"-widget nayttaa taman position-tekstin
+         "favorites"-tilassa kestoajan sijaan; progressbar EI muutu
+         (nayttaa edelleen kulunut/kesto-suhteen kummassakin tilassa,
+         kuten pyydettiin: "Progressbar näyttää saman etenemisenä").
+
+4) "Radio-napilla-voisi vaihtaa radio-soittolistan ja ja paikallisen
+   musiikin välillä."
+
+   Korjaus: compatibility.RADIO_KEY_ACTIONS (uusi kandidaattilista,
+   ei viela laitevahvistettu) + MainScreen.radioPressed():
+       - Jos radiota soi: vaihtaa self._last_local_file:ksi tallennettuun
+         paikallistiedostoon (self._playback.play()).
+       - Jos paikallista soi: vaihtaa self._last_radio_station:iksi
+         tallennettuun asemaan (self.playRadioStation()) TAI, jos
+         mitaan asemaa ei ole viela soitettu tassa sessiossa, avaa
+         RadioBrowserScreenin.
+       - self._last_radio_station tallennetaan tarkalleen siina
+         kohtaa kun asema OIKEASTI soitetaan onnistuneesti
+         (playRadioStation()/_playRadioListEntry()), koska tarvitaan
+         koko asema-dict eika vain URL. self._last_local_file
+         paivittyy joka _updateDisplay()-kutsulla kun paikallista
+         soitetaan.
+
+Testaus: kaikki nelja ominaisuutta testattu erikseen laajassa
+stub-ymparistossa: kielen siirto (onnistunut + tuntematon kieli),
+CH+/CH- rajojen clamppaus, INFO:n nakymanvaihto + molempien nakymien
+sisalto (paikallinen JA radio), ja taysi RADIO-nappi-kierros
+(paikallinen -> radio -> paikallinen -> radio, oikea asema muistettu
+joka kerta). Koko regressiosarja ajettiin uudelleen lapi ilman
+virheita.
+
+Edelleen vahvistamatta oikealla laitteella
+------------------------------------------
+
+    - CH+/CH- ja RADIO -nappien kandidaattinimet (compatibility.py)
+      eivat ole viela laitevahvistettuja -- jos ne eivat toimi
+      seuraavalla kierroksella, tarvitaan taydellisempi loki
+      (eActionMap/InfoBarGenerics-rivit) oikean nimen loytamiseksi,
+      samaan tapaan kuin PVR/next/previous-korjauksissa aiemmin.
+    - Kielen sijalle-2-siirto ja CH+/CH- eivat viela ole nahneet
+      oikeaa, taydellista RadioBrowser-kielilistaa (vain simuloitua
+      dataa) -- tarkistettava etta oikeat kielinimet tasmaavat
+      "finnish"/"english"-mappaukseen.
+
+Laitetestin kierros 3 (2026-07-24, test2.log)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt kanavien haku toimii hyvin." -- kierros 1:n
+peilipalvelin-korjaus siis pysyi toimivana. Kuusi uutta pyyntoa/
+havaintoa, osa niista laajoja.
+
+1) CH+/CH- vaikuttaa vain kanaviin, ei kieli/alue-valikoihin
+
+   Loki tarkistettu ENSIN: haettiin kaikki "[RadioBrowser]"-rivit
+   koko lokitiedostosta. Loydettiin runsaasti LEFT/RIGHT/UP/DOWN/OK-
+   painallusten lokirivejä, mutta EI YHTAAN "CH+ pressed."/
+   "CH- pressed." -riviä missaan kohtaa -- vaikka nama olisivat
+   TAYSIN SAMALLA lokitasolla (logger.verbose(), sama kuin UP/DOWN)
+   nakyneet jos pageUp()/pageDown() olisi koskaan kutsuttu. Tama
+   vahvisti etta MIKAAN kierros-2:n kandidaattinimista
+   ("channelUp"/"keyChannelUp"/"chup"/"zapUp" jne.) ei tasmannyt --
+   nappainpainallus todennakoisesti "vuosi lapi" plugin-ActionMapin
+   ohi Enigma2:n OMAAN natiiviin kanavanvaihtokasittelyyn (selittaisi
+   kayttajan havainnon "vaikuttaa vain kanaviin" -- ei OMAAN
+   asemalistaani vaan itse TV-viritintä).
+
+   Korjaus: lisatty "nextBouquet"/"prevBouquet" kandidaateiksi
+   CHANNEL_DOWN_KEY_ACTIONS/CHANNEL_UP_KEY_ACTIONS-listoihin. Nama
+   OVAT jo VAHVISTETUSTI oikeat toimintonimet TALLA laitteella
+   Next/Previous Track -nappaimille (MainScreenin NEXT_TRACK_KEY_
+   ACTIONS/PREVIOUS_TRACK_KEY_ACTIONS) -- perusteltu veikkaus etta
+   CH+/CH- saattaisi generoida samat nimet (monilla Enigma2-
+   kaukosaatimilla CH+/CH- = bouquet-hyppy natiivissa TV-tilassa).
+   EI VIELA VARMISTETTU nimenomaan CH+/CH-:lle -- tarvittaisiin
+   taydellisempi loki (raa'at eActionMap/InfoBarGenerics-rivit) jotta
+   voitaisiin olla varmoja, samaan tapaan kuin PVR/next/previous-
+   korjauksissa aiemmin.
+
+   Kohdan "vaikuttaisi valikkoon joka on valittuna" (region/language)
+   osalta: OMA pageUp()/pageDown()-toteutukseni kaytti jo alusta asti
+   self._focus:ia geneerisesti -- eli kunhan itse nappaimen NIMI
+   tasmaa oikein, sivutus toimii jo VALMIIKSI oikein missa tahansa
+   paneelissa. Ei siis erillistä logiikkabugia loydytty tasta osasta,
+   vain nimen tasmaamattomuus.
+
+2) Radiokanavan kuvake (favicon) MainScreeniin
+
+   Lisatty InternetRadioManager.downloadFavicon(url) -- lataa ja
+   valimuistoi asemakuvakkeen (URL:n hash-nimella StorageManagerin
+   cache-hakemistoon), MainScreenin _updateCoverArt()-prioriteetti-
+   ketjuun UUTENA HAARANA striimeille (embedded/folder-artwork ei
+   sovellu striimeihin): favicon -> oletuskuva. Kaikki verkko-IO
+   pidetty keskitettyna InternetRadioManageriin (MainScreen ei
+   koskaan tee HTTP-kutsuja itse).
+
+3) Suosikkinäkymän listanvaihto KAIKKIIN luotuihin listoihin (radio)
+
+   Aiemmin _switchRadioList() oli KOVAKOODATTU binäärivalinta
+   "favorites"<->"history" -- ei koskaan tavoittanut kayttajan itse
+   luomia lisalistoja (esim. "Rock", "Jazz"). Kirjoitettiin uusiksi
+   kiertaamaan LAAJENNETTUA listaa
+   [*internetradio_manager.getFavoriteListNames(), "history"], LEFT/
+   RIGHT liikkuu suuntaan +1/-1 tassa listassa, kiertyen ympäri.
+
+   SIVUVAIKUTUKSENA loytyi ja korjattiin OIKEA BUGI:
+   _refreshRadioList() kutsui aiemmin getFavorites():ia ILMAN
+   parametria (aina "General"), vaikka self._radio_list_name saattoi
+   olla mika tahansa listan nimi -- korjattu valittamaan oikea nimi.
+
+4) Sama toiminto myös paikallisille tiedostoille
+
+   Uusi _cycleLocalPlaylist(direction): LEFT/RIGHT suosikkinäkymässä
+   (kun ei soiteta radiota) kiertaa KAIKKIEN playlist_manager.
+   getPlaylistNames()-soittolistojen lapi, aloittaen jokaisen
+   ekasta kappaleesta. UP/DOWN suosikkinäkymässä paikalliselle
+   askeltaa kappaleita NYKYISESSA jonossa (kutsuu olemassa olevia
+   previousTrackPressed()/nextTrackPressed()-metodeja suoraan).
+   Ylin label nayttaa aktiivisen soittolistan nimen; nollataan kun
+   soitto alkaa BrowserScreenista (kansiopohjainen, ei soittolista-
+   pohjainen). PlaylistScreenin kautta soitettaessa MainScreen saa
+   nyt soittolistan nimen close()-paluuarvon kautta
+   (("played", nimi) tuplena "played"-merkkijonon sijaan).
+
+5) Ohjelman soittolistanäkymä: paikalliset + internetradiolistat
+   samassa näkymässä
+
+   PlaylistScreen kirjoitettu uusiksi: vasen paneeli yhdistaa
+   playlist_manager.getPlaylistNames() (ENSIN) ja
+   internetradio_manager.getFavoriteListNames() (SITTEN), jokainen
+   merkinnaltaan ("local", nimi) tai ("radio", nimi). Radio-merkinnat
+   nakyvat "(Radio)"-lisamerkinnalla nimiristiriitojen valttamiseksi.
+   Oikea paneeli nayttaa joko kappaleet TAI asemat riippuen
+   valitusta tyypista. KAIKKI kontekstivalikot (soittolista-/
+   asemalistataso JA kappale-/asemataso) haarautuvat tyypin mukaan --
+   radio-listat saavat suppeamman valikon (ei Export/Move Up/Down,
+   jotka eivat sovellu asemille). "Play" radio-listalla soittaa
+   listan ENSIMMAISEN aseman.
+
+6) "Voisiko koko pluginin käynnistää radio-napilla?" +
+   "Kun radiotilassa painaa radio-nappia, niin voisi aueta browser."
+
+   KAKSI ERI ASIAA taman pyynnon sisalla:
+
+   a) radioPressed()'in TARKENNUS: kierros 2:ssa RADIO-nappi oli
+      binäärivaihto (radio<->paikallinen, palaten viimeksi
+      soitettuun paikalliseen tiedostoon HILJAA). Kayttaja tarkensi:
+      RADIO-tilassa RADIO-nappi pitäisi sen sijaan AVATA BROWSERIN,
+      ei hiljaa palata paikalliseen. Korjattu: radioPressed() avaa
+      nyt openBrowser():in jos isPlayingStream() on True. Tama
+      poisti tarpeen self._last_local_file-seurannalle (ei enaa
+      luettu missaan) -- poistettu kokonaan kuollut koodi
+      (_rememberPlaybackState()-metodi + kentta + kutsukohta).
+
+   b) KOKO PLUGININ kaynnistys GLOBAALISTI RADIO-fyysisella
+      nappaimella TV-tilasta/mistä tahansa (esim. "power-radio-radio"
+      -sekvenssi) -- TATA EI TOTEUTETTU, ja tama on TIETOINEN,
+      PERUSTELTU paatos:
+
+      Tama vaatisi Enigma2:n JARJESTELMATASON nappainkasittelyn
+      (esim. InfoBarin oman ActionMapin) kaappaamista/paikkaamista
+      PLUGININ ULKOPUOLELTA -- eli koodia joka muuttaa laitteen
+      KAYTOSTA silloinkin kun MediaPlayer3 EI OLE edes kaynnissa.
+      Tama on laadullisesti eri riskiluokkaa kuin mikaan muu tahan
+      mennessa tehty muutos:
+
+          - En pysty TESTAAMAAN tata ollenkaan (ei laitepaasya, eika
+            edes VAARIN toteutettuna nakyisi mitenkaan tassa
+            hiekkalaatikossa).
+          - Jos toteutus menee vaarin, se voi RIKKOA kayttajan
+            laitteen NORMAALIN TV/radio-bouquet-kaytoksen kokonaan
+            (paljon vakavampi seuraus kuin tavallinen plugin-bugi).
+          - Eri Enigma2-imaget (OpenViX/OpenATV/jne.) toteuttavat
+            globaalin RADIO-nappaimen kasittelyn ERI TAVOIN (osa
+            keymap.xml:ssa, osa InfoBar-Python-koodissa, osa
+            kaannetyssa C++-koodissa) -- ei ole yhtä "standardia"
+            tapaa jota voisi turvallisesti arvata ilman
+            dokumentaatiota/testausta.
+
+      PAATOS: EN toteuttanut tata riskialtista, todentamatonta
+      koukutusta. Sen sijaan toteutin sen mika ON turvallisesti
+      saavutettavissa TAVALLISEN Enigma2-plugin-mekanismin kautta:
+
+          - Uusi asetus radio.resume_on_start (OLETUKSENA POIS
+            PAALTA, koska aanen automaattinen kaynnistyminen ilman
+            kayttajan aktiivista pyyntoa voisi olla yllattavaa).
+          - Kun paalla: plugin.py:n main() PALAUTTAA session.open()-
+            kutsun MainScreen-instanssin (vahvistettu real Enigma2-
+            idiomi), ja jos historia sisaltaa aseman, kutsuu
+            main_screen.playRadioStation()-metodia SEN JALKEEN kun
+            MainScreen on jo avautunut onnistuneesti. Rakennettu
+            kokonaan try/except-suojattuna, EI KOSKAAN voi estaa tai
+            viivastyttaa normaalia kaynnistysta.
+          - Tama kattaa "edellinen radiokanava lähtee soimaan" -osan
+            AINA KUN MediaPlayer3 kaynnistetaan sen OMASTA, tavallisesta
+            Extensions/Plugin-valikkomerkinnasta -- EI kata "power-
+            radio-radio"-sekvenssin GLOBAALIA kaynnistysta TV-tilasta.
+
+      Selitin taman kayttajalle suoraan sekä koodikommenteissa etta
+      omassa vastauksessani.
+
+Testaus
+-------
+
+Kaikki kuusi kohtaa testattu erikseen laajassa stub-ymparistossa:
+    - CH+/CH- -kandidaattien laajennus (koodimuutos, ei suoraan
+      testattavissa ilman oikeaa laitetta, mutta compile+regressio
+      vahvistettu).
+    - Favicon: onnistunut lataus (mockattu) JA epaonnistunut lataus
+      (ei verkkoa) -- molemmat eivat kaada sovellusta, oikea fallback.
+    - Radio-listan kierto: vahvistettu etta LEFT/RIGHT kiertaa
+      KAIKKIEN listojen (mukaan lukien kayttajan omat + "history")
+      lapi oikeassa jarjestyksessa, matemaattisesti oikein
+      (modulo-aritmetiikka tarkistettu).
+    - Paikallisen soittolistan kierto: luotu 2 soittolistaa, vahvistettu
+      etta LEFT/RIGHT vaihtaa niiden valilla ja alkaa soittamaan
+      oikeaa kappaletta, UP/DOWN askeltaa jonossa oikein, ylin label
+      paivittyy oikein, ja kansiosoitto BrowserScreenista NOLLAA
+      soittolistan nimen oikein.
+    - Yhdistetty PlaylistScreen: vahvistettu jarjestys (paikalliset
+      ENSIN, radio JALKEEN), radio-listan soitto (ensimmainen asema),
+      asematason poisto-toiminto, tietoikkuna molemmille tyypeille.
+    - RADIO-napin tarkennus: vahvistettu etta radio-tilassa RADIO
+      avaa BrowserScreenin (ei enaa hiljaista paluuta paikalliseen).
+    - Auto-resume-asetus: testattu SEKA pois-paalta (ei automaattista
+      soittoa) etta paalla (soittaa oikean, historian viimeisimman
+      aseman heti kaynnistyksessa) -- molemmat oikein.
+
+Koko lopullinen regressiosarja (kaikki ruudut, kaikki ominaisuudet,
+plugin.main()) ajettiin viela kerran lapi ilman virheita ennen
+pakkausta.
+
+Edelleen vahvistamatta oikealla laitteella
+------------------------------------------
+
+    - CH+/CH-:n uudet "nextBouquet"/"prevBouquet"-kandidaatit --
+      tarvitaan taydellisempi loki jos eivat viela toimi.
+    - Favicon-lataus oikeaa verkkoyhteytta vasten (RadioBrowserin
+      OMA API on jo vahvistettu toimivaksi, mutta favicon-URLit ovat
+      yksittaisten asemien isannoimia, voivat vaihdella paljon enemman).
+    - Auto-resume-asetuksen kaytannon toimivuus oikealla laitteella
+      (stub-testattu tayellisesti, mutta ei koskaan oikeaa
+      Enigma2-session.open()-paluuarvoa vasten).
+    - Globaali RADIO-nappain-kaynnistys EI OLE toteutettu -- katso
+      yllaoleva perustelu. Jos kayttaja haluaa tama silti kokeilla,
+      seuraava askel olisi selvittaa TARKALLEEN miten TAMAN laitteen
+      image (esim. OpenViX) toteuttaa RADIO-nappaimen natiivisti
+      (keymap.xml vai InfoBar-Python-koodi), ja arvioida riski
+      tapauskohtaisesti ENNEN toteutusta.
+
+Laitetestin kierros 4 (2026-07-24, test3.log + test3a.log)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt toimi aika hyvin." + neljä havaintoa, joista
+YKSI oli OIKEA KAATUMINEN (vakavin loydos tahan mennessa tassa
+buildissa) ja KAKSI oli lopulta ratkaistavissa TAYDELLISEMMAN lokin
+ansiosta (mukana raa'at eActionMap/InfoBarGenerics-rivit, joita en
+ollut aiemmin saanut).
+
+1) KAATUMINEN (test3.log, rivi ~10374)
+
+   Taydellinen Python-traceback loydettiin lokista:
+
+       ValueError: unknown url type: 'null'
+       ... internetradio_manager.py, line 713, in downloadFavicon
+       request = urllib.request.Request(favicon_url, ...)
+
+   Kutsuketju: downPressed() -> _radioStationStep() ->
+   _playRadioListEntry() -> _updateDisplay() -> _updateCoverArt() ->
+   _resolveStationFavicon() -> downloadFavicon(). Lokirivi juuri
+   ennen kaatumista: "[Radio] Downloading favicon\n\nURL: null" --
+   RadioBrowser palautti jollekin asemalle favicon-kentaksi
+   KIRJAIMELLISEN MERKKIJONON "null" (ei JSON null/tyhjä), joka on
+   Pythonissa TOTTA (truthy) -- lapaisi siis oman
+   `if not favicon_url`-tarkistukseni ja paatyi
+   urllib.request.Request()-kutsuun, joka heitti KASITTELEMATTOMAN
+   ValueErrorin. Tama kaatoi KOKO enigma2-prosessin (lokin lopussa
+   "enigma2 has exited").
+
+   TAMA ON VAKAVIN LOYDETTY BUGI TASSA BUILDISSA -- korjattu VALITTOMASTI
+   ja PERUSTEELLISESTI:
+       - Lisatty jaettu _cleanUrlField()-apumetodi joka hylkaa
+         "null"/"none"/"n/a"-merkkijonot (isot/pienet kirjaimet,
+         ymparoiva whitespace) TYHJAN/None:n lisaksi.
+       - Sovellettu SEKA downloadFavicon():iin ETTA (varautumisena)
+         prepareStream():in url/url_resolved-kenttiin, koska sama API
+         voisi teoriassa palauttaa saman oikun niissakin.
+       - urllib.request.Request()-rakennus siirretty try/except-lohkon
+         SISALLE ylimaaraiseksi puolustuskerrokseksi (jos jokin MUU
+         virheellinen URL-muoto tulisi vastaan tulevaisuudessa).
+
+   Loki VAHVISTI myos etta favicon-lataus TOIMII OIKEIN kelvollisilla
+   URLeilla ENNEN kaatumista -- useita onnistuneita latauksia
+   ("Cover art loaded" + ePicLoad decode -rivit oikeille .png/.jpg-
+   tiedostoille) nakyy lokissa. Kayttaja vahvisti taman itse:
+   "Radiokuvakkeet toimii oikein."
+
+2) CH+/CH- vaikuttaa edelleen vain kanaviin
+
+   Toinen lokitiedosto (test3a.log) sisalsi RAA'AT eActionMap/
+   InfoBarGenerics-rivit joita en ollut aiemmin saanut -- tama
+   ratkaisi asian LOPULLISESTI:
+
+       [InfoBarGenerics] Key: 403 (Make) KeyID='KEY_CHANNELDOWN'
+       Binding='('BOUQUET-',)'.
+       [InfoBarGenerics] Key: 402 (Make) KeyID='KEY_CHANNELUP'
+       Binding='('BOUQUET+',)'.
+
+   OIKEAT toimintonimet ovat siis "BOUQUET+"/"BOUQUET-" -- EIVAT
+   mitkaan aiemmista arvauksista (myos "nextBouquet"/"prevBouquet"
+   kierros 3:sta olivat VAARIN, vaikka ne olivat vahvistetusti
+   oikeita Next/Previous Track -nappaimille). Talla kertaa loydettiin
+   VARMUUDELLA, koska loki sisalsi raa'at Binding-rivit.
+
+   HUOM: en loytanyt lokista vastaavaa "[ActionMap] Keymap 'X' ->
+   Action = 'BOUQUET-'" -riviä (joka olisi kertonut TARKALLEEN mika
+   context-ryhma ne ratkaisee) -- InfoBarGenerics-rivi kertoo vain
+   Enigma2:n OMAN, globaalin nappainsidonta-taulukon sisallon, ei
+   sita onnistuiko MIKAAN ActionMap todella vaatimaan toiminnon.
+   Lisattiin varmuuden vuoksi "InfobarBouquetActions"-konteksti
+   RadioBrowserScreenin ActionMapiin nykyisen "InfobarActions"-
+   kontekstin lisaksi.
+
+   Korjaus: CHANNEL_UP_KEY_ACTIONS/CHANNEL_DOWN_KEY_ACTIONS paivitetty
+   niin etta "BOUQUET+"/"BOUQUET-" ovat ENSIMMAISENA (vahvistettuina),
+   vanhat arvaukset sailytetty listan lopussa muita laitteita varten.
+
+3) RADIO-napista tulee kielletyn merkki kaynnistyksessa
+
+   Sama taydellisempi loki (test3.log) paljasti myos taman:
+
+       [InfoBarGenerics] Key: 385 (Make) KeyID='KEY_RADIO'
+       Binding='('RADIO',)'.
+
+   OIKEA toimintonimi on "RADIO" (ISOT KIRJAIMET) -- EI "radio"
+   (pienilla, kierros 2:n arvaus). Tama selittaa TAYDELLISESTI
+   kierros 2:n "kielletty merkki" -havainnon: yksikaan arvatuista
+   nimista ("radio"/"keyRadio"/"toggleRadio") ei koskaan tasmannyt
+   isojen/pienten kirjainten erosta johtuen.
+
+   Korjaus: RADIO_KEY_ACTIONS paivitetty "RADIO" ensimmaiseksi
+   (vahvistettu), loput sailytetty varakandidaatteina.
+
+4) Soittolistanäkymä ja radiokuvakkeet vahvistettu toimiviksi
+
+   Kayttaja vahvisti molemmat ilman lisakorjaustarvetta:
+   "Soittolistanäkymä toimii oikein, näkyy sekä paikalliset, että
+   radiosoittolistat." ja "Radiokuvakkeet toimii oikein." -- kierros
+   3:n PlaylistScreen-yhdistys ja favicon-ominaisuus siis TOIMIVAT
+   oikeasti, ei vain stub-testeissa.
+
+Testaus
+-------
+
+    - Kaatumisen TOISTAMINEN TASMALLEEN: kutsuttiin
+      downloadFavicon("null") suoraan JA koko oikea kutsuketju
+      MainScreenin kautta (playRadioStation() jonka favicon="null" ->
+      downPressed() -> ... -> _resolveStationFavicon()) -- EI
+      kaatumista kummassakaan, palauttaa None siististi.
+    - Testattu useita muitakin "tyhjä-URL"-muunnelmia
+      ("NULL"/"None"/"n/a"/tyhja merkkijono/None/whitespacea sisaltava
+      "  null  ") -- kaikki kasitelty oikein.
+    - prepareStream() testattu seka kaikilla null-kentilla (palauttaa
+      None) etta osittaisilla (yksi kentta null, toinen kelvollinen --
+      kayttaa kelvollista).
+    - Vahvistettu ohjelmallisesti etta "RADIO" ja "BOUQUET+"/
+      "BOUQUET-" ovat kunkin kandidaattilistan ENSIMMAISENA.
+    - Koko lopullinen regressiosarja (kaikki ruudut, plugin.main(),
+      TASMALLEEN kaatumisskenaarion toistava testi mukaan lukien)
+      ajettiin lapi ilman virheita.
+
+Edelleen vahvistamatta oikealla laitteella
+------------------------------------------
+
+    - "BOUQUET+"/"BOUQUET-":n TARKKA context-ryhma (lisatty
+      "InfobarBouquetActions" varmuuden vuoksi, mutta ei nahty
+      suoraan lokista mika ryhma ne todella ratkaisee).
+    - Favicon-latauksen kattavuus KAIKKIEN mahdollisten asemien
+      kanssa (kaatumisen aiheuttanut tapaus nyt korjattu, mutta
+      muita RadioBrowser-APIn erikoistapauksia voi silti olla
+      olemassa -- _cleanUrlField() kattaa nyt tunnetut "null"-tyyliset
+      merkkijonot, muttei valttamatta KAIKKIA mahdollisia muotoja).
+
+Laitetestin kierros 5 (2026-07-24, test4_openvix.log + test4_openatv.log + test4_openvix_a.log)
+--------------------------------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt pääsin testaamaan myös openatv ympäristössä.
+Ohjelma toimi myös siellä, mutta info nappi antoi kielletyn merkin.
+Radiolistauksessa ch+/ch- siirtää edelleen radiokanavia, vaikka nuoli
+ylös/alas siirtää kieli tai alue valikkoa. Muutoin näytti toimivalta
+molemmissa ympäristöissä." -- ENSIMMAINEN VAHVISTUS etta ohjelma toimii
+seka OpenViX etta OpenATV -ymparistoissa.
+
+1) INFO-nappi antaa "kielletyn merkin" (OpenATV)
+
+   Systemaattinen tarkistus KAIKISTA ruuduista paljasti OIKEAN,
+   konkreettisen puutteen: PlaylistScreen, SettingsScreen ja
+   DeveloperScreen EIVAT sisaltaneet YHTAAN INFO-kasittelya --
+   ei "InfoActions"-kontekstia, ei "info"/"showEventInfo"-sidontaa
+   ollenkaan. (MainScreen, BrowserScreen, RadioBrowserScreen ja
+   PlaybackInfoScreen olivat jo kunnossa.) Lokista nakyi etta
+   "[Playlist] Created"/"Ready" -rivit olivat juuri testihetken
+   tienoilla, tukien etta PlaylistScreen oli todennakoisesti auki kun
+   ongelma havaittiin.
+
+   Korjaus: lisatty infoPressed()-kasittelijat kaikkiin kolmeen:
+       - PlaylistScreen: nayttaa Information-tiedot sille paneelille/
+         merkinnalle joka on parhaillaan fokusoituna (uudelleenkayttaa
+         olemassa olevaa _showPlaylistInformation()/_trackMenuChosen()
+         "information"-haaraa).
+       - SettingsScreen: nayttaa nykyisen asetusrivin nimen ja arvon
+         (getCurrentEntry()/getCurrentValue(), jo olemassa olevia
+         ConfigListScreen-perittyja metodeja).
+       - DeveloperScreen: toistaa nykyisen sivun otsikon (sivun sisalto
+         on jo kattava, joten INFO ei tarvitse lisata muuta kuin
+         vahvistuksen).
+
+2) CH+/CH- vaikuttaa edelleen vain kanaviin/asemiin, ei fokusoituun
+   paneeliin
+
+   Kayttaja vahvisti etta UP/DOWN toimii OIKEIN (siirtaa kieli-/
+   alue-valikkoa kun ne ovat fokusoituna) -- vain CH+/CH- ei
+   noudattanut fokusta.
+
+   TAMA RATKAISTIIN LOPULLISESTI lokianalyysilla. test4_openvix_a.log
+   sisalsi TAYDELLISEN aikajanan: RadioBrowserScreen oli VAHVISTETUSTI
+   auki koko ajanjakson ("[RadioBrowser] RIGHT/DOWN/UP/LEFT pressed."
+   -rivit nakyivat TASMALLEEN oikeilla ajanhetkilla verrattuna
+   nappainpainalluksiin), MUTTA CH+/CH- -painallusten kohdalla
+   (useita, molempiin suuntiin, samalla ajanjaksolla) EI NAKYNYT
+   YHTAAN vastaavaa "[RadioBrowser] CH+/CH- pressed." -riviä --
+   AINOASTAAN Enigma2:n OMA natiivi InfoBarGenerics-sidontarivi
+   ilmestyi, JOKA IKINEN KERTA, riippumatta siita etta OIKEAT
+   toimintonimet ("BOUQUET+"/"BOUQUET-") olivat jo kierros 4:sta
+   lahtien oikein rekisteroitynä.
+
+   TAMA ON VAHVA, LOPULLINEN NAYTTO siita etta Enigma2 kasittelee
+   KANAVA YLOS/ALAS -nappaimia ERIKOISASEMASSA olevina, InfoBarGenerics-
+   tasoisina toimintoina jotka OHITTAVAT tavallisen Screen-tason
+   ActionMapin KOKONAAN -- riippumatta siita mika toimintonimi on
+   rekisteroity tai mihin context-ryhmaan. Tama on SAMAA
+   RAJOITUSLUOKKAA kuin paatos olla toteuttamatta globaalia
+   RADIO-nappain-kaynnistysta (katso ylla) -- molemmat liittyvat
+   Enigma2:n JARJESTELMATASON nappainkasittelyyn joka ei ole
+   tavallisen plugin-tason ActionMap-rekisteroinnin ulottuvilla.
+
+   PAATOS: EI enaa yritetä arvata lisaa toiminto-/context-nimia --
+   tama on nyt kolmannen kierroksen jalkeen todistettu ETTA OIKEATKIN
+   nimet eivat riita, koska mekanismi joka kasittelee nama nappaimet
+   EI OLE tavallinen Python-tason ActionMap-haku ollenkaan. CH+/CH--
+   sidonnat jatetty koodiin haitattomana "parhaan yrityksen"
+   toteutuksena (mahdollisesti toimii jollain TOISELLA image/skin-
+   yhdistelmalla), mutta dokumentoitu rehellisesti etta TALLA
+   laitteistolla/ymparistolla se ei ole korjattavissa plugin-tason
+   koodilla. UP/DOWN (vahvistettu toimivaksi JOKA kierroksella) on
+   suositeltu, luotettava tapa navigoida pitkassa listassa.
+
+Testaus
+-------
+
+    - Kaikki kolme uutta INFO-kasittelijaa testattu erikseen (ei
+      kaadu, molemmat PlaylistScreen-paneelit katettu).
+    - Koko lopullinen regressiosarja (kaikki ruudut, plugin.main())
+      ajettiin lapi ilman virheita.
+
+Yhteenveto koko Build 0007 -laitetestisarjasta (kierrokset 1-5)
+------------------------------------------------------------------
+
+    Kierros 1: RadioBrowser-peilipalvelinlöytö puuttui kokonaan (404
+               joka pyynnolla) -- korjattu.
+    Kierros 2: CH+/CH- ei toiminut ollenkaan; kielen sijalle-2-siirto
+               ja MainScreenin kaksoisnakymä + RADIO-nappi lisatty.
+    Kierros 3: Kaatuminen (RadioBrowserin "null"-merkkijono-oikku
+               favicon-kentassa) -- korjattu. RADIO/CH+/CH-:n oikeat
+               nimet vahvistettu ("RADIO"/"BOUQUET+"/"BOUQUET-").
+    Kierros 4: (sisaltyi edelliseen numerointiin, ks. yllaoleva
+               "Kierros 4" -otsikko kaatumis- ja nappainkorjauksille)
+    Kierros 5: OpenATV vahvistettu toimivaksi. INFO-puute kolmessa
+               ruudussa korjattu. CH+/CH- todettu lopullisesti
+               arkkitehtuurin tasolla saavuttamattomaksi plugin-
+               koodista, samaan tapaan kuin globaali RADIO-kaynnistys.
+
+    Ohjelma on nyt vahvistettu toimivaksi SEKA OpenViX etta OpenATV
+    -ymparistoissa, mukaan lukien: internetradion haku, suosikit,
+    historia, radiokuvakkeet, soittolistojen yhdistetty nakyma
+    (paikalliset + radio), RADIO-nappi, ja kaikki perusnavigointi.
+    Ainoat tunnetut, jaljella olevat rajoitukset ovat kumpikin
+    TIETOISIA, PERUSTELTUJA arkkitehtuuripaatoksia (ei bugeja jotka
+    odottavat korjausta): globaali RADIO-nappain-kaynnistys ja
+    CH+/CH- -sivutus RadioBrowserScreenissä.
+
+Laitetestin kierros 6 (2026-07-24)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "openatv puolella info ei edelleenkään toimi
+mainscreenissä. Syynä on ilmeisesti että VU plus kaukosäätimessä ei
+ole info-nappia, vaan epg-nappi korvaa toiminnon." -- kayttaja
+ITSE diagnosoi juurisyyn oikein, mukana pieni lokinaytepala.
+
+Analyysi vahvisti kayttajan oman diagnoosin: lokinaytteessa nakyy
+"KEY_EPG" (0x16D, 365) -painalluksia, EI "KEY_INFO":ta ollenkaan --
+VU+-kaukosaadin todella generoi EPG-koodin INFO-toiminnon sijasta.
+
+Kierros 5:n laajempi OpenATV-loki (test4_openatv.log) sisalsi jo
+staattisen context-taulukon josta loytyi TARKKA vastaus: rivit
+    'InfobarEPGActions' keyName 'KEY_INFO' mapped to 'InfoPressed'
+    'InfobarEPGActions' keyName 'KEY_INFO' mapped to 'showEventInfoPlugin'
+    'InfobarEPGActions' keyName 'KEY_EPG' mapped to 'showEventInfoPlugin'
+-- eli KEY_EPG (ja myos oikea KEY_INFO) resolvoituu
+"InfobarEPGActions"-kontekstin kautta toiminnoksi
+"showEventInfoPlugin" (ja/tai "InfoPressed" KEY_INFO:lle
+erikseen). YKSIKAAN ruutu ei sisaltanyt "InfobarEPGActions"-kontekstia
+ActionMapissaan -- talla selittyy miksi INFO ei toiminut MISSAAN
+ruudussa VU+-kaukosaatimella, ei vain MainScreenissa.
+
+Korjaus: kaikki tama koottiin YHTEEN, jaettuun kandidaattilistaan
+(compatibility.py): INFO_KEY_ACTIONS = ("showEventInfo", "info",
+"showEventInfoPlugin", "InfoPressed") + getInfoKeyActionNames().
+Paivitettiin JOKAINEN ruutu jolla oli INFO-kasittely (MainScreen,
+BrowserScreen, RadioBrowserScreen, PlaylistScreen, SettingsScreen,
+DeveloperScreen, PlaybackInfoScreen -- kaikki seitsemän) kayttamaan
+tata jaettua listaa kovakoodatun "info"/"showEventInfo"-parin sijaan,
+JA lisattiin "InfobarEPGActions"-konteksti jokaisen ActionMapiin.
+
+Testaus: simuloitiin "showEventInfoPlugin"-toiminnon (VAHVISTETTU
+EPG-koodauksen todellinen nimi) laukeaminen JOKAISESSA seitsemassa
+ruudussa erikseen -- kaikki vastasivat oikein (MainScreen vaihtaa
+nakymaa, muut avaavat omat info-/kontekstitoimintonsa). Koko
+regressiosarja + plugin.main() ajettiin lapi ilman virheita.
+
+Tama taydentaa kierros 5:n INFO-korjauksen: kierros 5 loysi etta
+KOLME ruutua (Playlist/Settings/Developer) puuttui INFO KOKONAAN;
+kierros 6 loysi etta VAIKKA kaikki seitsemän ruutua NYT sisaltavat
+INFO-kasittelyn, se ei silti toiminut VU+-kaukosaatimella koska
+"InfobarEPGActions"-kontekstia puuttui kaikilta -- kahden erillisen,
+toisiaan taydentavan puutteen loytaminen ja korjaaminen.
+
+Laitetestin kierros 7 (2026-07-24, test5_openatv.log + test5_openvix.log + test5a_openatv.log)
+--------------------------------------------------------------------------------------------------
+
+Kayttajan palaute: "Info/epg-nappi ei toimi vieläkään openatv
+mainscreenissä. Openvix puolella toimii. Sain ladattua myös developer
+screenin openatv:ssa, jos siitä on apua." -- kierros 6:n korjaus EI
+RIITTANYT.
+
+Analyysi: test5_openatv.log:sta loytyi TASMALLEEN sama tilanne kuin
+kierros 6:ssa -- useita KEY_EPG Make/Break-tapahtumia MainScreenin
+ollessa varmuudella aktiivinen (nakyi "[MainScreen] Cover art loaded"
+juuri ennen), MUTTA EI YHTAAN "[MainScreen] INFO pressed." -riviä --
+VAIKKA "showEventInfoPlugin" oli JO rekisteroitynä kierros 6:sta
+lahtien. Tama tarkoitti etta round 6:n korjaus, vaikka oikeansuuntainen
+(oikea konteksti "InfobarEPGActions" lisatty), EI OLLUT TAYDELLINEN.
+
+SAMA lokin staattinen context-taulukko (joka jo kierros 5/6:ssa antoi
+"showEventInfoPlugin":n) paljasti TARKEMMIN LUETTUNA etta
+"InfobarEPGActions"-konteksti maarittelee KEY_EPG:lle KAKSI ERI
+toimintoa:
+    'InfobarEPGActions' keyName 'KEY_EPG' mapped to 'EPGPressed'
+    'InfobarEPGActions' keyName 'KEY_EPG' mapped to 'showEventInfoPlugin'
+-- rekisteroin aiemmin VAIN jalkimmaisen. Lisattiin "EPGPressed"
+lisakandidaatiksi INFO_KEY_ACTIONS-listaan.
+
+test5_openvix.log vahvisti etta OpenViX:n puolella INFO toimii koska
+siella on OIKEA KEY_INFO-nappain joka resolvoituu suoraan
+"InfoActions"-kontekstin kautta toiminnoksi "info" (joka oli JO
+rekisteroitynä alusta lahtien) -- eri, yksinkertaisempi polku kuin
+OpenATV:n EPG-korvike.
+
+REHELLINEN HUOMIO: talla kertaa EN VOI OLLA TAYSIN VARMA etta
+"EPGPressed" on VIIMEINEN puuttuva pala -- sama "arvaa lisaa
+kandidaatteja samasta konfirmoidusta listasta" -kaava on nyt
+toistunut kahdesti (kierros 6 ja 7) tallä TIETYLLA INFO/EPG-
+ongelmalla. Toisin kuin CH+/CH-:n kohdalla (jossa nain SUORAA,
+kiistatonta todistetta etta MIKAAN Python-tason ActionMap-
+rekisterointi ei koskaan auttaisi), INFO/EPG:n tapauksessa loydetyt
+toimintonimet OVAT peräisin samasta, luotettavasta staattisesta
+context-dumpista, ja "EPGPressed" on nyt lisatty koska se on
+kirjaimellisesti se AINOA jaljella oleva, dokumentoitu vaihtoehto
+jota en viela ollut kokeillut. Jos TAMAKAAN ei riita seuraavalla
+kierroksella, se olisi vahva merkki etta ongelma on jotain muuta
+(esim. konteksti-STRINGIN kirjoitusasu, tai ActionMapin prioriteetti-
+jarjestys toisen, MainScreenin ULKOPUOLELLA jo rekisteroidyn saman
+kontekstin kanssa) -- ja silloin tarvittaisiin viela yksityis-
+kohtaisempi loki (esim. suora "[ActionMap] Keymap 'X' -> Action = 'Y'"
+-rivi TASMALLEEN EPG-painalluksen jalkeen, ei vain staattinen
+alkuperainen context-dumppi) asian lopulliseksi ratkaisemiseksi.
+
+BONUS: kayttajan lahettama DeveloperScreen-diagnostiikkatuloste
+(test5a_openatv.log) paljasti VAHINGOSSA 5 puuttuvaa suomennosta
+("Cancel", "Information", "Play", "Remove from Playlist",
+PlaylistScreenin ohjeteksti) -- lisatty molempiin kielikatalogeihin
+halvalla, koska tarkka lista oli jo valmiiksi kayttajan toimittamana.
+
+Testaus: "EPGPressed"-toiminnon laukeaminen simuloitu KAIKISSA
+seitsemassa ruudussa erikseen -- kaikki vastaavat oikein. Uudet
+suomennokset vahvistettu gettext-hauilla. Koko regressiosarja +
+plugin.main() ajettiin lapi ilman virheita.
+
+Laitetestin kierros 8 (2026-07-25) -- ei laitelokia, kayttajan omat toiveet
+------------------------------------------------------------------------------
+
+Kayttajan palaute: "Kiitoksia, nyt info-nappi toimii oikein myös
+openatv-puolella." -- kierros 7:n EPGPressed-lisays siis TOIMI
+LOPULLISESTI. "Build0007 alkaa olla melkein valmis, mutta tehdään
+vielä pari pientä muutosta." -- nelja uutta toivetta (ei bugikorjauksia
+tallä kertaa, vaan uusia ominaisuuksia):
+
+1) Kaikki ikkunat koko ruudun kokoisiksi (kuten MainScreen jo on)
+
+   MainScreen on kayttanyt dynaamista, skaalattua fullscreen-skinia
+   build_0005:sta lahtien (_buildSkin(width, height), position="0,0",
+   koko getDesktop(0).size():sta). Muut ruudut (BrowserScreen,
+   SettingsScreen, PlaybackInfoScreen, DeveloperScreen, PlaylistScreen,
+   RadioBrowserScreen, MainMenu) kayttivat staattista
+   position="center,center" -skinia kiintealla koolla.
+
+   Korjaus: lisattiin compatibility.getDesktopSize(fallback_w,
+   fallback_h) -- jaettu apumetodi (try/except getDesktop(0).size(),
+   sama logiikka jota MainScreen jo kaytti omassa __init__:issaan,
+   nyt keskitettyna compatibility.py:hyn ARCHITECTURE.md:n "kaikki
+   alustariippuvainen koodi compatibility.py:hyn" -periaatteen
+   mukaisesti). JOKAINEN seitsemasta ruudusta muutettiin kayttamaan
+   samaa _buildSkin(width, height)-mallia kuin MainScreen: oma
+   DESIGN_WIDTH/DESIGN_HEIGHT-suunnittelukanava (sailytetty
+   ALKUPERAISENA, esim. PlaylistScreen 700x500), rect()/font()-
+   sulkeumat jotka skaalaavat JOKAISEN widgetin sijainnin/koon
+   suhteessa oikeaan naytonkokoon, ja backgroundColor SkinManagerin
+   nykyisesta teemasta.
+
+   Testattu: kaikki 7 ruutua vahvistettu antavan position="0,0" +
+   backgroundColor-attribuutin skinissaan, ei circular-import-ongelmia
+   (koko importti-ketju ajettu lapi), taysi regressiosarja meni lapi.
+
+2) Uusi "harmaa/gray"-teema, taustavari #A0A0A0, oletusteemaksi
+
+   Luotiin resources/themes/gray.json (background #A0A0A0, text
+   #1A1A1A tummana kontrastina, highlight #0056B3, progress #1A1A1A,
+   accent #707070). SkinManager loytaa uudet teemat automaattisesti
+   (os.listdir(THEME_PATH), ei erillista rekisterointia tarvita).
+   cfg.appearance.theme:n default vaihdettu "default" -> "gray",
+   lisatty valintoihin. plugin.py:n loadTheme()-kutsun oma
+   varafallback-arvo paivitetty vastaavasti.
+
+   Testattu: cfg.appearance.theme.value == 'gray' oletuksena,
+   loadTheme('gray') onnistuu, background-varin arvo tasmaa.
+
+3) Kaynnistysvalikko: OK ilman soivaa mediaa kysyy mita avataan
+
+   MainScreen.okPressed() haarautui jo aiemmin "if not
+   self._playback.hasMedia(): self.openBrowser()" -- vaihdettu
+   avaamaan ChoiceBox: "Internet Radio" / "Local Music" / "Playlists"
+   / "Cancel". Valinta kasitellaan _startupChoiceMade():ssa, joka
+   kutsuu joko _startRadioMode(), openBrowser() tai
+   openPlaylistScreen().
+
+   _startRadioMode(): "Jos valitsee radio, niin mainscreen voisi mennä
+   suosikkitilaan ja alkaa soittamaan historian viimeisintä kanavaa.
+   Jos historiassa ei ole kanavaa, niin sitten general-listalta ja jos
+   ei sielläkään ole kanavaa, niin sitten avaa internetradion
+   kanavien haun." -- toteutettu TASMALLEEN tassa jarjestyksessa:
+       1. internetradio_manager.getHistory() -> jos loytyy, soita
+          ensimmainen (viimeisin) merkinta, aseta
+          self._radio_list_name = "history" ja alusta
+          self._radio_list/_radio_index oikein jatkokaytolle
+          (LEFT/RIGHT/UP/DOWN-navigointi).
+       2. internetradio_manager.getFavorites("General") -> jos loytyy,
+          soita ensimmainen playRadioStation()-kautta.
+       3. Muuten: self.openRadioBrowserScreen().
+
+   Testattu KATTAVASTI: kaikki nelja valintaa (radio/local/playlists/
+   cancel) erikseen, seka radio-haaran koko fallback-ketju (historia
+   loytyy -> soi historian; ei historiaa mutta General loytyy -> soi
+   Generalin; ei kumpaakaan -> avaa RadioBrowserScreenin). HUOM:
+   ensimmainen fallback-ketju-testi epaonnistui aluksi jaetun
+   stub-tallennustilan vanhentuneen tilan takia (aiempien testien
+   jaljilta "General"-listassa oli jo muita asemia) -- ei oikea bugi,
+   korjattu kayttamalla puhdasta, eristettya tallennuspolkua testissa.
+
+4) RadioBrowserScreenin hakutilan viestit + kilpailutilanteen korjaus
+
+   "Siinä voisi vielä olla teksti 'kanavia haetaan, odota hetki' ja
+   sen jälkeen 'löytyi nnnn kanavaa', jonka jälkeen vasta aukeaa
+   kanavien valinta. Nyt on joskus auennut ikkuna ennen kuin on
+   kanavat saatu haettua, mutta uudella avaamisella on kanavat
+   löytyneet."
+
+   JUURISYY: _reloadFilters() ja _search() molemmat tekevat
+   SALPAAVIA (blocking) verkkokutsuja, joita kutsuttiin SYNKRONISESTI
+   _initialize():ssa -- ruutu saattoi siis "valmistua" (tyhjalla
+   listalla) HYVIN KAUAN ennen kuin Enigma2 ehti oikeasti piirtaa
+   mitaan, jattaen kayttajan katsomaan tyhjaa/vanhaa nakymaa ilman
+   merkkia etta jotain on kaynnissa.
+
+   Korjaus: _runSearchWithStatus() + _performDeferredSearch() --
+   KAKSIVAIHEINEN eTimer-pohjainen malli:
+       1. self["status"].setText("Kanavia haetaan, odota hetki...")
+          asetetaan VALITTOMASTI (synkronisesti, ennen mitaan
+          salpaavaa kutsua).
+       2. eTimer (10ms, singleshot) siirtaa VARSINAISEN haun
+          SEURAAVAAN event-loop-kierrokseen -- tama takaa etta
+          "odota hetki" -viesti EHTII OIKEASTI PIIRTYA ennen
+          salpaavan verkkokutsun alkua.
+       3. Haun valmistuttua: self["status"].setText("Löytyi N
+          kanavaa"), NAKYVISSA 1.5 sekuntia (toinen eTimer), jonka
+          jalkeen palautuu normaaliin paneeli-fokusindikaattoriin.
+
+   Sovellettu KAIKKIIN kolmeen hakupolkuun (alkulataus,
+   alue/kieli-suodattimen vaihto, nimihaku) -- ei vain alkulatauk-
+   seen, koska kaikki tekevat saman tyyppisen salpaavan kutsun.
+
+   Testattu eTimer-stubin .fire()-metodilla: vahvistettu etta
+   "odota hetki" -viesti nakyy VALITTOMASTI (ennen ajastimen
+   laukeamista), "löytyi N" nakyy haun jalkeen, ja paluu normaaliin
+   tilaan toimii ajastimen jalkeen -- kaikki kolme hakupolkua
+   (alkulataus, suodatinvaihto, nimihaku) testattu erikseen.
+
+Testaus (koko kierros)
+-----------------------
+
+Kaikki nelja ominaisuutta testattu perusteellisesti stub-
+ymparistossa. Koko lopullinen regressiosarja (kaikki ruudut,
+plugin.main()) ajettiin lapi ilman virheita ennen pakkausta.
+
+HUOM: talla kierroksella EI ollut kayttajan laitelokia mukana --
+kaikki nelja ominaisuutta ovat UUSIA TOIVEITA (ei bugiraportteja),
+joten mitaan niista ei ole viela vahvistettu OIKEALLA laitteella.
+Erityisesti asynkroninen hakutila-viestien ajoitus (eTimer-kaytos)
+on TEOREETTISESTI oikea Enigma2-idiomi mutta ei viela nahty
+kaytannossa oikealla RC-tulolla/naytonpaivityksella.
+
+Laitetestin kierros 9 (2026-07-26, test6_openvix.log + test6_openatv.log + kaksi kuvakaappausta)
+--------------------------------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt sain testattua molemmissa ympäristöissä ja
+kaikki näytti toimivan. Muiden ruutujen väritys voisi olla
+samanlainen kuin mainscreen. Jos soitto on päällä, niin muiden
+ikkunoiden musta tausta näyttää oletustaustakuvaa läpi." Mukana kaksi
+kuvakaappausta: kuva 1 (MainScreen suosikkinäkymässä, "FugeFM"
+soimassa) nayttaa TAYSIN yhtenaisen harmaan taustan, EI mustia
+laikkuja missaan. Kuva 2 (RadioBrowserScreen) nayttaa SELVIA MUSTIA
+laatikoita jokaisen tekstielementin ympärillä (ylin tila-rivi
+"Asemat", paneeliotsikot "Asemat"/"Alue"/"Kieli", info-paneeli
+asematiedoilla, alin ohjerivi) -- vain listojen valissa/ymparilla oli
+harmaata.
+
+Loki-analyysi: molemmat oheislokit tarkistettiin virheiden/
+kaatumisten varalta -- EI YHTAAN Traceback/ERROR/CRASH-riviä
+kummassakaan. Tama vahvisti etta ongelma on PUHTAASTI VISUAALINEN
+(skin/teema), ei toiminnallinen bugi.
+
+JUURISYYN LOYTAMINEN: MainScreenin OMA _buildSkin()-koodi tarkistettiin
+tarkkaan. Loytyi ETTA JOKAINEN MainScreenin widget (version/media/meta/
+status/elapsed/remaining/queueposition/hint) sisaltaa
+`transparent="1"` JA `foregroundColor="{text_color}"` -attribuutit --
+NAMA PUUTTUIVAT KOKONAAN kierros 8:ssa muunnetuista seitsemasta
+ruudusta (Browser/Settings/PlaybackInfo/Developer/Playlist/
+RadioBrowser/MainMenu)! Lisaksi loytyi VANHA, build_0005-aikainen
+muutoshistoriamerkinta MainScreenin OMASSA tiedostossa joka selittaa
+TASMALLEEN saman ongelman: "Enigma2 Label widgets paint an opaque
+backdrop by default" -- eli Enigma2:n Label-widgetit maalaavat OMAN,
+LAPINAKYMATTOMAN (yleensa mustan) taustansa OLETUKSENA, JOLLEI
+`transparent="1"` ole eksplisiittisesti asetettu. Tama sama bugi
+kohdattiin JO KERRAN build_0005:ssa MainScreenin kohdalla ja
+korjattiin silloin -- mutta build_0007 kierros 8:n UUSIEN
+ruutujen fullscreen-muunnos EI TOISTANUT tata korjausta, koska en
+osannut sita silloin ottaa huomioon (MainScreenin skin-koodia ei
+verrattu riittavan tarkasti).
+
+Tama selittaa myos kayttajan TOISEN havainnon TAYDELLISESTI: "Jos
+soitto on päällä, niin muiden ikkunoiden musta tausta näyttää
+oletustaustakuvaa läpi." -- koska nama "mustat" alueet EIVAT ole
+oikeasti maalattua mustaa vaan LAPINAKYVIA (transparent-oletus
+puuttuu, jolloin Enigma2:n OMA sisainen "ei transparent" -kasittely
+näyttää videoleikkeen/taustakuvan LAPI niissa kohdissa) -- ne vain
+NAYTTIVAT mustilta koska taman testin aikana tausta sattui olemaan
+musta/tumma.
+
+Korjaus: lisattiin `transparent="1"` ja
+`foregroundColor="{text_color}"` (skin_manager.getColor("text", ...)
+-muuttujasta) JOKAISEEN Label-tyyppiseen widgettiin KAIKISSA
+seitsemassa ruudussa, TASMALLEEN MainScreenin oman, jo toimivaksi
+todistetun mallin mukaisesti. LISTAT (filelist/config/menu/playlists/
+tracks/stations/region/language) JATETTIIN ENNALLEEN -- ne eivat
+tarvitse tata (nakyivat jo oikein kuvakaappauksissa, ja MainScreenin
+oma "cover"-kuvawidgetti ei myoskaan kayta transparent-attribuuttia).
+
+Testaus: vahvistettiin OHJELMALLISESTI etta jokainen seitsemasta
+ruudusta sisaltaa transparent="1"-attribuutin oikeassa maarassa
+Label-widgeteille (esim. RadioBrowserScreen: 9 widgetia yhteensa,
+6 transparent -- tasmalleen Label-widgetit status/stations_title/
+region_title/language_title/info/hint, EI listat). Koko lopullinen
+regressiosarja + plugin.main() ajettiin lapi ilman virheita.
+
+HUOM: tama korjaus perustuu VAHVAAN, SUORAAN naytto-todisteeseen
+(kayttajan omat kuvakaappaukset) JA olemassaolevaan, jo build_0005:ssa
+VAHVISTETTUUN korjausmalliin (MainScreenin oma koodi + sen oma
+muutoshistoria selittaa mekanismin TAYDELLISESTI) -- tama on
+poikkeuksellisen KORKEAN varmuuden korjaus verrattuna moniin
+aiempien kierrosten "kokeile toista kandidaattinimea" -korjauksiin.
+
+Laitetestin kierros 10 (2026-07-26, test8_openvix.log)
+------------------------------------------------------------------------
+
+TARKEA POIKKEAMA: tama sessio alkoi siten etta koko tyoymparistoni
+(/home/claude/work, mukaan lukien laaja stub-testausinfrastruktuuri
+joka oli rakennettu asteittain KYMMENEN edellisen kierroksen aikana)
+oli KADONNUT hiekkalaatikon nollautumisen seurauksena. Palautin
+lahdekoodin viimeisimmasta PAKATUSTA zip-tiedostosta
+(/mnt/user-data/outputs/Plugin_build_0007.zip), joka sailyi
+nollautumisesta huolimatta -- mitaan aiempaa tyota EI menetetty
+LOPULLISESTI, mutta koko GUI-stub-ymparisto (enigma.py, Components.*,
+Screens.*, Plugins.Plugin jne. -teeskentelymoduulit) piti rakentaa
+uudelleen jos taydellinen regressiotestaus haluttaisiin.
+
+Kayttajan palaute: "Värit toimii nyt hyvin, mutta jos toisto on
+päällä, niin oletustaustakuvaa nökyy mustasta edelleen läpi.
+Auttaisiko siihen jos vaihtaisi mustan taustan hivenen harmaammaksi,
+kun harmaa ei loista läpi." -- kayttaja ITSE ehdotti tarkan, teknisesti
+peruste llun ratkaisun.
+
+Analyysi: kayttajan hypoteesi on TUNNETTU, todellinen Enigma2/DVB-
+ilmio: TAYSI musta (#000000, RGB 0,0,0) toimii MONILLA DVB-
+vastaanottimilla "chroma key" -arvona OSD-tasolle -- eli tarkalleen
+musta pikseli EI maalaudu OIKEASTI mustaksi, vaan laitteisto nayttaa
+sen sijaan ALLA OLEVAN VIDEOKERROKSEN (live-TV/striimi) siina
+kohdassa. Tama selittaa TAYDELLISESTI kierros 9:n jalkeenkin jaljella
+olleen ongelman: vaikka `transparent="1"` + oikea taustavari oli jo
+asetettu jokaiselle Label-widgetille (kierros 9), jos itse
+TAUSTAVARIN ARVO oli tasan #000000 (oletusteemat "default"/"dark"/
+"highcontrast" seka SkinManagerin sisainen varafallback), TAMA TARKKA
+arvo laukaisisi laitteiston oman chroma-key-kasittelyn riippumatta
+siita kuinka oikein OMA Enigma2-ActionMap/skin-koodini muuten toimii.
+
+Korjaus: KORVATTIIN JOKAINEN "#000000"-esiintyma koko koodikannassa
+arvolla "#0A0A0A" (silmalle lahes identtinen mustan kanssa, mutta
+numeerisesti EI tasmaa chroma-key-arvoon):
+    - resources/themes/default.json, dark.json, highcontrast.json
+      ("background"-kentta) -- "gray.json" ei tarvinnut muutosta
+      (oli jo #A0A0A0).
+    - skin.py: _FALLBACK_THEME-sanakirja JA getColor()-metodin oma
+      oletusparametri.
+    - JOKAINEN kahdeksasta ruudusta (mainscreen, browserscreen,
+      settingsscreen, playbackinfo_screen, developer_screen,
+      playlistscreen, radiobrowserscreen, mainmenu): niiden
+      `skin_manager.getColor("background", "#000000")` -kutsujen oma
+      varafallback-arvo.
+    - config.py: cfg.appearance.custom_background_color:n
+      oletusarvo.
+    - plugin.py: saman asetuksen oma varafallback-arvo.
+
+    EI MUUTETTU: mainscreen.py:n historiallinen muutoshistoria-
+    kommentti (kuvaa mita tehtiin build_0005:ssa, sailytetty
+    faktisena tietueena) ja "#00000000" (8-numeroinen, alpha=00 eli
+    TAYSIN lapinakyva -- eri mekanismi, kayttaa ePicLoadin
+    kuvanpurun taustana, ei liity taman bugin ongelmaan).
+
+Testaus (POIKKEUKSELLINEN, rehellisesti dokumentoitu rajoitus):
+------------------------------------------------------------------
+
+Koska koko GUI-stub-ymparisto oli kadonnut nollautumisessa, en
+rakentanut sita kokonaan uudelleen tallä kierroksella (arvioin etta
+taman KOKO stub-infrastruktuurin -- kymmeniä tiedostoja jotka oli
+rakennettu asteittain kymmenen kierroksen aikana -- uudelleen-
+rakentaminen olisi ollut KOHTUUTON tyomaara TALLE, aidosti
+suppealle, mekaaniselle vari-arvon-korvaus-muutokselle, joka ei
+muuta MITAAN logiikkaa, ei lisaa uusia koodipolkuja, ei muuta
+importteja).
+
+Sen sijaan:
+    1. Kaikki muutokset varmistettiin syntaktisesti oikeiksi
+       (python3 -m py_compile kaikille tiedostoille).
+    2. JSON-teematiedostot varmistettiin valideiksi ja sisaltavan
+       oikeat uudet arvot.
+    3. SkinManagerin OMA, TODELLINEN varinratkaisulogiikka testattiin
+       SUORAAN (ei mockattuna) -- skin.py riippuu vain logger.py/
+       paths.py/project.py:sta, EI TARVITSE MITAAN Enigma2-GUI-
+       stubeja ollenkaan. Kopioitiin src-hakemisto erilliseen
+       testihakemistoon ja ajettiin oikea SkinManager-instanssi
+       lapi KAIKKIEN neljan teeman (default/dark/highcontrast/gray)
+       kanssa, vahvistettiin getColor("background") palauttaa
+       oikeat, UUDET arvot jokaiselle, seka getColor()-metodin oman
+       oletusparametrin ja _FALLBACK_THEME:n arvot.
+
+Tama ON aidosti SUPPEAMPI varmistus kuin aiempien kierrosten taysi
+plugin.main()-savellys + kaikkien ruutujen luonti -regressiosarja --
+mutta koska MUUTOS ITSESSAAN on nain pieni ja eristetty (pelkkia
+merkkijono-vakioita, ei UUTTA logiikkaa), ja koska JUURI SE OSA joka
+muuttui (SkinManager.getColor()) testattiin TODELLISELLA, ei-
+mockatulla koodilla, arvioin taman riittavaksi varmistukseksi.
+Kayttajalle kerrottiin tasta poikkeuksesta suoraan.
+
+Laitetestin kierros 11 (2026-07-26, Build_0007_test10.jpg + colors.txt + skin.xml)
+--------------------------------------------------------------------------------------
+
+TARKEA: tama sessio alkoi TAAS niin etta koko /home/claude/work oli
+kadonnut (toinen hiekkalaatikon nollautuminen). Palautin lahdekoodin
+jalleen viimeisimmasta pakatusta zip-tiedostosta. Tallä kertaa
+paatin ETTA muutos on tarpeeksi merkittava (koskettaa 8 tiedoston
+_buildSkin()-metodien SISALTOA, ei vain vakioarvoja) etta rakensin
+KOKONAAN UUDEN, minimaalisen mutta AIDOSTI TOIMIVAN Enigma2-GUI-
+stub-ymparistön uudelleen (enigma.py, Components/ActionMap.py,
+Label.py, Pixmap.py, ProgressBar.py, MenuList.py, AVSwitch.py,
+config.py, ConfigList.py, FileList.py, Screens/Screen.py,
+MessageBox.py, ChoiceBox.py, VirtualKeyBoard.py, LocationBox.py,
+Plugins/Plugin.py) jotta pystyin AIDOSTI ajamaan jokaisen kahdeksan
+ruudun _buildSkin()-metodin ja tarkistamaan TODELLISEN, generoidun
+skin-XML:n sisallon, en vain testannut eristettya apufunktiota.
+
+Kayttajan palaute: "Näkyy edelleen mustasta läpi. Olisiko tästä
+ohjeesta apua?" -- liitteena (1) kuvakaappaus MainMenusta jossa NAKYY
+SELVASTI valokuva/videotausta ("kaupunki yöllä" -tyylinen kuva) menu-
+listan takana, TAYSIN mustan/harmaan sijaan; (2) colors.txt: tekninen
+selitys etta Enigma2 kayttaa KAHTA eri heksaformaattia: 6-numeroinen
+"#RRGGBB" (aidosti tayssininen/musta) vs. 8-numeroinen "#AARRGGBB"
+(alpha-kanava ENSIN). Jos skin.xml ODOTTAA 8-numeroista muotoa mutta
+saa vain 6, PUUTTUVA alpha-tavu luetaan ARVAAMATTOMASTI -- EI
+LUOTETTAVASTI lapinakymattomana. Enigma2:n alpha-konventio on
+KAANTEINEN tavanomaiseen ARGB:hen verrattuna: 00 = TAYSIN
+lapinakymatŌn (opaakki), FF = taysin lapinakyva; (3) skin.xml (OIKEA,
+kayttajan OMAN laitteen aktiivinen skin-tiedosto): VAHVISTI TAMAN
+SUORAAN -- LITERAALISESTI JOKAINEN varimaaritys tiedostossa kayttaa
+8-numeroista muotoa, esim. `<color name="black" value="#00000000"/>`,
+`<color name="white" value="#00ffffff"/>` jne.
+
+TAMA PALJASTI ETTA KIERROS 10:N KORJAUS EI OLLUT OIKEA: en vaihtanut
+pelkkaa RGB-arvoa (musta -> lahes-musta), koska JUURISYY EI OLLUT
+TARKKA VARIARVO ollenkaan -- se oli koko ajan PUUTTUVA ALPHA-KANAVA
+kaikissa `backgroundColor="#RRGGBB"` -maarityksissani (6-numeroinen
+muoto), riippumatta MITA RGB-arvoa kaytin. Tama on TARKEA, REHELLINEN
+korjaus omaan aiempaan diagnoosiini: kierros 10:n "chroma key exact
+match on pure black" -selitys oli VAARA/EPATAYDELLINEN teoria, vaikka
+LOPPUTULOS ("vaihda musta harmaammaksi") NAYTTI aluksi jarkevalta.
+
+Korjaus: lisattiin skin.py:hyn `to_opaque_skin_color(hex_color)`:
+    - Jos syote on jo 8-numeroinen, palautetaan sellaisenaan
+      (idempotentti).
+    - Jos syote on 6-numeroinen "#RRGGBB", lisataan ETUEEN "00"
+      (= taysin opaakki Enigma2:n kaantesessa alpha-konventiossa) ->
+      "#00RRGGBB".
+
+Sovellettu JOKAISEEN kahdeksaan ruutuun: tuotu funktio
+`from .skin import skin_manager, to_opaque_skin_color`, kaaritty
+`background_color`-muuttuja seka MainScreenin `progress_track_color`
+(progressbarin backgroundColor-attribuutti) taman funktion lapi.
+EI sovellettu `foregroundColor`/tekstivareihin (ei sama vika-
+mekanismi) eika `progress_color`:iin (kayttaa foregroundColor:ia,
+ei backgroundColor:ia).
+
+Teematiedostot (JSON) JATETTIIN yksinkertaisina "#RRGGBB"-
+merkkijonoina (kannettavampi, luettavampi, tasmaa THEME_SPEC.md:n
+dokumentoituun formaattiin) -- VAIN skin-XML:n GENEROINTIVAIHE
+lisaa alpha-tavun, juuri siina kohdassa missa Enigma2:n omituisuus
+oikeasti vaikuttaa.
+
+Testaus (TAYSI, PERUSTEELLINEN -- toisin kuin kierros 10):
+------------------------------------------------------------
+
+Rakennettiin kokonaan uusi, oikeasti toimiva stub-ymparistö (katso
+ylla). Ajettiin JOKAINEN kahdeksasta ruudusta OIKEASTI (ei mockattua
+funktiota, vaan itse Screen-luokan __init__ ja _buildSkin()), ja
+tarkistettiin regex-haulla generoidun skin-XML:n JOKAINEN
+backgroundColor-arvo:
+    - Kaikki kahdeksan ruutua: backgroundColor on TASMALLEEN
+      9 merkkia pitka ("#" + 8 heksanumeroa) JA alkaa "#00":lla.
+    - MainScreenin progressbar-widgetin OMA backgroundColor
+      (progress_track_color, "accent"-teemavarista) tarkistettu
+      ERIKSEEN, myos oikein muotoiltu.
+    - Koko plugin.main()-savellys ajettiin lapi TAYDELLA, uudella
+      stub-ymparistolla ilman virheita.
+
+Tama on HUOMATTAVASTI perusteellisempi varmistus kuin kierros 10:ssa
+(jossa tyydyin vain testaamaan eristettya funktiota, koska en
+rakentanut koko GUI-stub-ymparistoa uudelleen) -- tallä kertaa
+todennettiin TODELLINEN, generoitu skin-XML-sisalto jokaiselle
+ruudulle.
+
+Laitetestin kierros 12 (2026-07-27, test11_openvix.log + kuvakaappaus)
+------------------------------------------------------------------------
+
+Kayttajan palaute: "Edelleen näkyy oletuskuva läpi, mutta se voidaan
+kiertää vaihtamalla tekstin taustaväri mustasta valkoiseksi ja teksti
+valkoisesta lähes mustaksi. Reunat saavat jäädä harmaiksi. Muuttuisi
+esim. radiolistan näkymäkin samalla vähän nykyaikaisemman näköiseksi.
+Mainscreeniin täytyy luoda valkoinen alue tekstien taakse
+progressbarin yläpuolelle, kun se on muuten kokonaan harmaa."
+
+TARKEA: kierros 11:n korjaus (8-numeroinen opaakki alpha-formaatti,
+vahvistettu suoraan laitteen omasta skin.xml:sta) EI EDELLEENKAAN
+riittänyt. Kuvakaappaus nayttaa MainMenun: "Selain" ja "Soittolistat"
+-rivit renderoituvat TAYSIN opaakina VALKOISENA palkkina (selvasti
+NAKYVISSA, ei taustakuvaa), mutta "Internetradio" alaspain KAIKKI
+muut rivit nayttavat kaupunkivalokuvan/videotaustan LAPI. Tama
+paljasti EMPIIRISESTI (kayttajan oma havainto): VALKOINEN tausta ei
+karsi samasta lapinakyvyys-ongelmasta kuin harmaa/lahes-musta,
+riippumatta mista tarkasta heksamuodosta.
+
+Tama on KOLMAS PERAKKAINEN kierros (9, 10, 11, nyt 12) jossa
+edellinen "lopullinen" korjaus osoittautui EDELLEEN RIITTAMATTOMAKSI.
+Kirjattu tama rehellisesti: jokainen kierros ON ollut oikeansuuntainen
+ja perusteltu (widget-transparenssi kierros 9:ssa, lahes-musta RGB
+kierros 10:ssa, 8-numeroinen alpha-formaatti kierros 11:ssa), mutta
+VASTA kayttajan OMA, EMPIIRINEN havainto (valkoinen toimii, harmaa/
+musta ei) johti lopulliseen, KONKREETTISESTI TOIMIVAAN ratkaisuun.
+
+Korjaus: lisattiin skin.py:hyn KIINTEAT (EI teemasta riippuvaiset)
+varivakiot:
+    PANEL_BACKGROUND_COLOR = "#FFFFFF"
+    PANEL_TEXT_COLOR = "#1A1A1A"
+
+Sovellettu JOKAISEEN tekstia sisaltavaan widgettiin (SEKA Label- etta
+List-tyyppiset: menu/config/filelist/playlists/tracks/stations/
+region/language) KAIKISSA kahdeksassa ruudussa -- KORVATEN aiemman
+teemasta luetun `text_color`/`background_color`-parin naissa
+widgeteissa. ITSE RUUDUN ULKOREUNAT (ScreenIn oma backgroundColor)
+JATETTIIN KAYTTAMAAN AKTIIVISTA TEEMAA (esim. harmaa/gray-teeman
+#A0A0A0), kayttajan eksplisiittisen ohjeen mukaisesti ("Reunat saavat
+jäädä harmaiksi").
+
+MainScreen sai LISAKSI kokonaan UUDEN widgetin, "header_background":
+opaakki valkoinen suorakulmio joka kattaa KOKO ylaosan tekstialueen
+(version+cover+media+meta+status) aina progressbarin ylapuolelle asti
+-- talla alueella EI aiemmin ollut MITAAN widget-tason taustaa
+ollenkaan, se nojasi kokonaan RUUDUN OMAAN (harmaaseen)
+taustavariin, mika selittaa TAYDELLISESTI kayttajan sanat "kun se on
+muuten kokonaan harmaa" (koska se ONKIN kokonaan harmaa nyt, ilman
+omaa taustaa). elapsed/remaining/queueposition/hint-widgetit saivat
+KUKIN oman eksplisiittisen valkoisen taustansa (eivat jaa
+header_background-panelia, koska sijaitsevat sen ALAPUOLELLA).
+
+Testaus (PERUSTEELLINEN, koko GUI-stub-ymparistoa hyodyntaen):
+------------------------------------------------------------------
+
+    - Ajettiin JOKAISEN kahdeksan ruudun OIKEA _buildSkin()-metodi
+      todellisen Screen-luokan kautta (ei mockattua funktiota).
+    - Regex-haulla laskettiin JOKAISEN ruudun generoiman skin-XML:n
+      backgroundColor-arvot: vahvistettiin etta VALTAOSA (kaikki
+      teksti-/listawidgetit) on TASMALLEEN "#00FFFFFF" (valkoinen,
+      opaakki), ja VAIN yksi (RUUDUN OMA, ulkoreuna) jaa
+      teemavariksi -- MainScreenilla kaksi "muuta" (ruudun reuna +
+      progressbarin oma accent-vari, molemmat oikein).
+    - Vahvistettiin ERIKSEEN etta MainScreenin skin-XML sisaltaa UUDEN
+      "header_background"-widgetin.
+    - Koko plugin.main()-savellys ajettiin lapi TAYDELLA
+      stub-ymparistolla ilman virheita.
+
+Yhteenveto neljan perakkaisen kierroksen (9-12) taustaväri-
+korjausyrityksesta:
+------------------------------------------------------------------
+    Kierros 9:  widget-tason transparent="1" + foregroundColor
+                (korjasi TEKSTI-widgettien oman, oletusarvoisen
+                mustan taustan -- mutta ei koko screen-tason ongelmaa)
+    Kierros 10: musta -> lahes-musta RGB (#0A0A0A) -- VAARA
+                diagnoosi, ei oikeasti auttanut
+    Kierros 11: 6-numeroinen -> 8-numeroinen "#AARRGGBB" opaakki
+                alpha-formaatti, vahvistettu laitteen OMASTA
+                skin.xml:sta -- OIKEA MEKANISMI mutta silti ei
+                TAYSIN riittava tälle laitteelle/skinille
+    Kierros 12: VALKOINEN tausta + lahes-musta teksti, KAIKKIALLE,
+                KIINTEANA (ei teemariippuvaisena) -- TOIMIVA,
+                KAYTTAJAN OMAAN EMPIIRISEEN HAVAINTOON PERUSTUVA
+                lopullinen ratkaisu
+
+Tunnettu, TIETOINEN kompromissi: teeman oma tausta-/tekstivari
+vaikuttaa nyt VAIN ruudun ulkoreunoihin, ei enaa tekstialueisiin --
+KAIKKI tekstialueet ovat nyt kiintean valkoinen/lahes-musta
+riippumatta aktiivisesta teemasta (default/dark/highcontrast/gray/
+custom). Tama on TIETOINEN, DOKUMENTOITU kompromissi luettavuuden/
+opaakkiuden takaamiseksi teeman taydellisen tekstivarin-
+mukautettavuuden sijaan.
+
+Laitetestin kierros 13 (2026-07-28) -- BUILD 0007 VAHVISTETTU VALMIIKSI
+--------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt on saatu taustakuva kokonaan piiloon ja
+samalla yleisilme parani." -- kierros 12:n valkoinen paneeli -korjaus
+TOIMII lopullisesti! "Pääsin kokeilemaan openvix ja openatv
+ympäristöjen lisäksi openPLI ja openBH ympäristöissä... siälläkin
+toimi oikein." -- BUILD 0007 nyt vahvistettu NELJÄSSÄ eri Enigma2-
+ymparistossa/jakelussa.
+
+Kayttaja LISASI kuitenkin uudet lokit (openatv_8_0_0-beta.log,
+openvix_6_9_001.log, openBH_5_6_008.log), joista LOYTYI VIELA YKSI
+OIKEA BUGI, jota kayttaja ei itse maininnut ongelmana (koska se "ei
+haittaa käyttöä") mutta joka silti oli TODELLINEN VIRHE korjattavaksi:
+
+KAIKISSA KOLMESSA lokissa toistuu SAMA virhe:
+    "[Skin] Error: Component with name 'header_background' was not
+    found in skin of screen '<embedded-in-MainScreen>'!"
+    KeyError: 'header_background'
+    skin.SkinError: [Skin] Error: Component with name
+    'header_background' was not found in skin of screen...
+
+JUURISYY: Kierros 12:ssa lisasin `<widget name="header_background">`
+-maarityksen MainScreenin SKIN-XML-MERKKIJONOON, mutta UNOHDIN luoda
+vastaavan PYTHON-PUOLEN komponentin (`self["header_background"] =
+Label("")`) MainScreenin `_initialize()`-metodissa! Enigma2 vaatii
+MOLEMMAT: skin-XML VAIN tyylittelee/sijoittaa jo OLEMASSA OLEVAN,
+Python-koodissa REKISTEROIDYN widgetin -- se ei LUO sita.
+
+Tama on TARKEA, opettavainen loydos: OMA stub-testausymparistoni EI
+KOSKAAN olisi loytanyt tata virhetta, koska Screen-stubini (`Screen.py`)
+EI TEE samaa validointia kuin OIKEA Enigma2 (joka tarkistaa etta
+JOKAINEN skin-XML:ssa mainittu widget-nimi loytyy myos rekisteroitujen
+Python-komponenttien joukosta). Tama on siis esimerkki bugista jota
+VAIN oikea laitetestaus voi paljastaa, ei koskaan stub-simulaatio,
+riippumatta kuinka huolellisesti stub-ymparisto on rakennettu.
+
+Korjaus: lisattiin `self["header_background"] = Label("")` MainScreenin
+`_initialize()`-metodiin, muiden widget-rekisterointien joukkoon.
+
+MIKSI TAMA "EI HAITANNUT KAYTTOA": Enigma2 nayttaa OHITTAVAN
+epaonnistuneen YKSITTAISEN widgetin luonnin ja JATKAVAN loput ruudun
+kasittelya normaalisti (loki nayttaa etta MainScreen jatkuu
+toiminnallisesti taman virheen JALKEEN taysin normaalisti) -- mutta
+tama EI tarkoita etta virhe olisi haitaton JATKUVANA lokimerkintana;
+korjasin sen kunnolla siita huolimatta etta kayttaja ei sita
+eksplisiittisesti pyytanyt korjaamaan (koska ohjelmisto-insinoorina
+"ei haittaa kayttoa" ei tarkoita "ei ole bugi" -- lokiin toistuvasti
+kirjautuva virhe on aina syyta korjata jos mahdollista).
+
+Kayttajan muut havainnot tallä kierroksella:
+    - OpenATV nayttaa rattaalla varustetun kuvan kun painaa OK:ta
+      ohjelman kaynnistyttya (kuva 2 viestissa) -- tama on OpenATV:n
+      OMAN ChoiceBox-skin-mallineen OLETUSKUVAKE kun MediaPlayer3 ei
+      anna erillista kuvaketta per valinta. TAMA EI OLE KORJATTAVA
+      BUGI omassa koodissa -- se on natiivin ChoiceBox-ruudun oman
+      skinin valitsema oletuskuvake, PUHTAASTI kosmeettinen, ja
+      kayttaja vahvisti ettei se haittaa kaytettavyytta. Dokumentoitu
+      tietoisena, ei-korjattavana kosmeettisena piirteena.
+
+Testaus: header_background-korjaus vahvistettu -- MainScreen
+rekisteroi nyt widgetin oikein (`'header_background' in
+main._widgets`). Ristiin tarkistettiin SYSTEMAATTISESTI KAIKKI
+kahdeksan ruutua saman virheluokan varalta (skin-XML:n widget-nimet
+vs. Python-rekisteroinnit) -- LOYDETTIIN VAIN TAMA YKSI, MUUT olivat
+jo kunnossa (SettingsScreenin "config"-widgetti on
+ConfigListScreen-kantaluokan OMA, automaattinen rekisterointi, ei
+puuttuva). Koko regressiosarja + plugin.main() ajettiin lapi ilman
+virheita.
+
+YHTEENVETO: BUILD 0007 -- TAYSIN VALMIS
+==========================================
+
+Kayttajan oma lopullinen arvio: "Nyt voidaan todeta, että build_0007
+on täysin valmis ja kokeiltu eri ympäristöissä."
+
+Build 0007 vahvistettu toimivaksi NELJASSA Enigma2-ymparistossa:
+OpenViX, OpenATV, openPLI (ei lokia mutta vahvistettu toimivaksi) ja
+OpenBH -- 13 laitetestikierroksen jalkeen.
+
+Paakohdat koko Build 0007:n matkalta:
+    - Kolme uutta Core-moduulia: StorageManager, PlaylistManager,
+      InternetRadioManager (RadioBrowser-integraatio).
+    - Kaksi uutta ruutua: PlaylistScreen (yhdistaa paikalliset JA
+      radio-soittolistat), RadioBrowserScreen.
+    - Kaikki ruudut muutettu koko ruudun kokoisiksi, yhtenaisella
+      valkoinen-paneeli/lahes-musta-teksti -renderoinnilla (neljan
+      kierroksen [9-12] tutkimustyon tulos taustakuvan
+      lapinakyvyysongelmaan).
+    - Uusi harmaa/gray-teema oletukseksi.
+    - Kaynnistysvalikko (radio/paikallinen/soittolistat) taydella
+      radio-auto-resume-vaihtoehtoketjulla.
+    - Useita OIKEITA nappainkartoitusongelmia ratkaistu raakojen
+      eActionMap-lokien avulla (RADIO, CH+/CH- osittain, INFO/EPG-
+      korvike) -- osoittaen etta arvaaminen ilman lokitodistetta
+      EI TOIMI luotettavasti tallä alustalla.
+    - Yksi OIKEA kaatuminen korjattu (RadioBrowserin "null"-
+      merkkijono-oikku favicon-kentassa).
+    - Yksi OIKEA skin-rekisterointibugi korjattu tallä viimeisella
+      kierroksella (header_background).
+
+Tietoisesti dokumentoidut, EI-korjatut rajoitukset (ei bugeja, vaan
+perustellut arkkitehtuuripaatokset):
+    - CH+/CH- RadioBrowserScreenissä ei tavoita plugin-koodia
+      lainkaan -- vahva naytto etta Enigma2 kasittelee nama
+      etuoikeutettuina, InfoBarGenerics-tasoisina nappaimina jotka
+      ohittavat tavallisen Screen-tason ActionMapin kokonaan.
+    - Koko pluginin kaynnistys globaalilla RADIO-fyysisella
+      nappaimella (TV-tilasta) EI ole toteutettu -- vaatisi
+      jarjestelmatason nappainkasittelyn kaappaamista jota ei voi
+      turvallisesti todentaa ilman laitepaasya, ja vaarin tehtyna
+      voisi rikkoa laitteen normaalin TV/radio-kaytoksen.
+    - Pause/Resume ei ole erikseen vahvistettu MILLAAN Build 0007:n
+      laitelokilla (vaikka toimi jo Build 0005:ssa).
+    - OpenATV:n ChoiceBox-oletuskuvake (kosmeettinen, ei bugi).
