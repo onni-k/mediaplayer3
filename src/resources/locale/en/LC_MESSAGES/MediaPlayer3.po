@@ -1,0 +1,189 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Ready"
+msgstr "Ready"
+
+msgid "No media selected"
+msgstr "No media selected"
+
+msgid "Unknown Artist"
+msgstr "Unknown Artist"
+
+msgid "Unknown Album"
+msgstr "Unknown Album"
+
+msgid "Unknown"
+msgstr "Unknown"
+
+msgid "Playback failed"
+msgstr "Playback failed"
+
+msgid "Seek failed"
+msgstr "Seek failed"
+
+msgid "No next track"
+msgstr "No next track"
+
+msgid "Already at first track"
+msgstr "Already at first track"
+
+msgid "Browser"
+msgstr "Browser"
+
+msgid "Playback Information"
+msgstr "Playback Information"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Developer Tools"
+msgstr "Developer Tools"
+
+msgid "About"
+msgstr "About"
+
+msgid "Exit"
+msgstr "Exit"
+
+msgid "General"
+msgstr "General"
+
+msgid "Playback"
+msgstr "Playback"
+
+msgid "Logging"
+msgstr "Logging"
+
+msgid "Developer"
+msgstr "Developer"
+
+msgid "User Interface"
+msgstr "User Interface"
+
+msgid "OK: Select   MENU/EXIT: Close"
+msgstr "OK: Select   MENU/EXIT: Close"
+
+msgid "Select a file to play"
+msgstr "Select a file to play"
+
+msgid "Track"
+msgstr "Track"
+
+msgid "Pause failed"
+msgstr "Pause failed"
+
+msgid "Stop failed"
+msgstr "Stop failed"
+
+msgid "Resume failed"
+msgstr "Resume failed"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the startup directory"
+msgstr "Browse to the desired directory, then press GREEN to set it as the startup directory"
+
+msgid "Playlists"
+msgstr "Playlists"
+
+msgid "Internet Radio"
+msgstr "Internet Radio"
+
+msgid "Tracks"
+msgstr "Tracks"
+
+msgid "Stations"
+msgstr "Stations"
+
+msgid "Region"
+msgstr "Region"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Exported"
+msgstr "Exported"
+
+msgid "Create New"
+msgstr "Create New"
+
+msgid "Playlist already exists"
+msgstr "Playlist already exists"
+
+msgid "Create playlist"
+msgstr "Create playlist"
+
+msgid "Empty Playlist"
+msgstr "Empty Playlist"
+
+msgid "New playlist name"
+msgstr "New playlist name"
+
+msgid "New favorite list name"
+msgstr "New favorite list name"
+
+msgid "Select playlist"
+msgstr "Select playlist"
+
+msgid "Select favorite list"
+msgstr "Select favorite list"
+
+msgid "Search stations by name"
+msgstr "Search stations by name"
+
+msgid "Codec"
+msgstr "Codec"
+
+msgid "Bitrate"
+msgstr "Bitrate"
+
+msgid "Country"
+msgstr "Country"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Tags"
+msgstr "Tags"
+
+msgid "Homepage"
+msgstr "Homepage"
+
+msgid "Any"
+msgstr "Any"
+
+msgid "Path"
+msgstr "Path"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Information"
+msgstr "Information"
+
+msgid "Play"
+msgstr "Play"
+
+msgid "Remove from Playlist"
+msgstr "Remove from Playlist"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+msgstr "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+
+msgid "Local Music"
+msgstr "Local Music"
+
+msgid "What would you like to open?"
+msgstr "What would you like to open?"
+
+msgid "Searching for stations, please wait..."
+msgstr "Searching for stations, please wait..."
+
+msgid "Found {0} stations"
+msgstr "Found {0} stations"
