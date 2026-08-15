@@ -79,13 +79,16 @@ MediaPlayer3 plugin entry point.
 """
 
 import platform
+import traceback
 
 from Plugins.Plugin import PluginDescriptor
+from Screens.MessageBox import MessageBox
 
 from .compatibility import compatibility
 from .config import config_manager
 from .internetradio_manager import internetradio_manager
 from .localization import localization_manager
+from .localization import _
 from .logger import logger
 from .mainscreen import MainScreen
 from .playlist_manager import playlist_manager
@@ -178,7 +181,33 @@ def main(session, **kwargs):
 
     logger.info("Radio favorite lists: %s", ", ".join(internetradio_manager.getFavoriteListNames()) or "None")
 
-    main_screen = session.open(MainScreen)
+    # Build 0010 -- identified during the Build 0009 exception audit:
+    # this call had no top-level exception guard at all. Two real
+    # device crashes during Build 0009 (a malformed XML skin comment,
+    # an unverified onLayoutFinish API used to work around the first
+    # fix) both propagated straight to Enigma2's own crash handler
+    # because nothing here caught them -- every individual startup
+    # step *before* this point was already wrapped defensively, but
+    # MainScreen's own construction/layout was not. This does not
+    # prevent bugs in MainScreen itself; it only ensures that if one
+    # slips through despite everything MainScreen's own code already
+    # does defensively, the person sees a clear MediaPlayer3 error
+    # dialog instead of an uncontrolled Enigma2 traceback, and the
+    # failure is fully logged for diagnosis.
+    try:
+        main_screen = session.open(MainScreen)
+
+    except Exception as error:
+
+        logger.warning("MainScreen failed to start: %s\n%s", error, traceback.format_exc())
+
+        session.open(
+            MessageBox,
+            _("MediaPlayer3 could not start:\n%s") % error,
+            MessageBox.TYPE_ERROR,
+        )
+
+        return
 
     #
     # Opt-in: resume the last-played Internet Radio station
@@ -219,12 +248,53 @@ def main(session, **kwargs):
 # Plugin registration
 # ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
+# Main menu hook (Build 0010, BUILD_0010_PLAN.md "Main Menu
+# Integration")
+# ------------------------------------------------------------------------------
+
+def mainMenu(menuid, **kwargs):
+    """
+    WHERE_MENU's own calling convention -- different from
+    WHERE_PLUGINMENU's `fnc`, which Enigma2 calls directly when the
+    user selects the plugin. This one is called for every menu
+    Enigma2 builds (menuid identifies which one), and must return a
+    list of (name, function, unique_id, weight) tuples to contribute
+    an entry to that specific menu, or [] to contribute nothing --
+    getting this wrong (e.g. treating it like WHERE_PLUGINMENU's fnc)
+    either crashes menu construction or silently never shows an entry
+    anywhere, so this checks menuid explicitly rather than assuming
+    it's always called for the main menu.
+    """
+
+    if menuid != "mainmenu":
+        return []
+
+    return [("MediaPlayer3", main, "mediaplayer3", 50)]
+
+
 def Plugins(**kwargs):
     """
     Register plugin.
+
+    Build 0010, BUILD_0010_PLAN.md "Main Menu Integration": "Settings
+    shall provide an option to add MediaPlayer3 to the Enigma2 main
+    menu." Enigma2 calls this function once when the plugin list is
+    loaded (startup, or an explicit plugin-list rescan) -- not
+    something this file can re-trigger itself when the Settings value
+    changes later, so config_manager.get() here reads whatever was
+    saved the LAST time Enigma2 loaded plugins, meaning a GUI restart
+    (or reboot) is needed after toggling this Settings entry before
+    the main menu entry actually appears or disappears -- documented
+    directly in the Settings entry's own label ("restart required")
+    rather than left as a surprise.
+
+    The Extensions/Plugin menu entry (WHERE_PLUGINMENU) is always
+    registered regardless of this setting -- this only adds an
+    additional, optional WHERE_MENU entry alongside it.
     """
 
-    return [
+    descriptors = [
         PluginDescriptor(
             name="MediaPlayer3",
             description="Modern audio player for Enigma2",
@@ -233,6 +303,19 @@ def Plugins(**kwargs):
             fnc=main,
         ),
     ]
+
+    if config_manager.get("general.show_in_main_menu", False):
+
+        descriptors.append(
+            PluginDescriptor(
+                name="MediaPlayer3",
+                description="Modern audio player for Enigma2",
+                where=PluginDescriptor.WHERE_MENU,
+                fnc=mainMenu,
+            )
+        )
+
+    return descriptors
 
 
 #end_of_file

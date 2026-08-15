@@ -1012,3 +1012,217 @@ hyvaksytyt rajoitukset: Radio Nova/SuomiRock epaluotettavia
 palvelinpuolen syista (ei MediaPlayer3:n vika), CH+/CH- edelleen
 vahvistamaton oikealla laitteistolla (sama avoin kysymys Build
 0007:sta lahtien).
+
+Poikkeustenkasittelyn kattava tarkastus (2026-08-07, ei koodimuutoksia -- kayttajan pyynnosta talletettu seuraavaa versiota varten)
+------------------------------------------------------------------------------
+
+Kayttaja pyysi tarkistamaan koodista miten ohjelma reagoi erilaisiin
+poikkeustilanteisiin (levy ei kaytettavissa, verkkoyhteys puuttuu,
+RadioBrowser ei vastaa, Yle API epaonnistuu, vioittuneet ID3-tagit,
+vialliset kuvat, vaara URL) -- EI PYYDETTY KOODIMUUTOKSIA, VAIN
+TARKASTUS. Kaydty lapi systemaattisesti koko koodikanta.
+
+YHTEENVETO: valtaosa on JO ERINOMAISESTI suojattu, mutta LOYTYI KAKSI
+todellista, konkreettista aukkoa jotka kannattaa korjata seuraavassa
+versiossa.
+
+=== LOYDETYT AUKOT (korjattava seuraavassa versiossa) ===
+
+1. KRIITTINEN: BrowserScreen._initialize() kutsuu
+   compatibility.createFileList(startup_directory) ILMAN try/except-
+   suojausta. createFileList():n OMA dokumentaatio sanoo suoraan:
+   "only re-raises if even the minimal, two-argument form fails
+   (e.g. `directory` does not exist)". Jos kaynnistyshakemisto
+   (esim. irrotettu USB-levy, katkennut verkko-osoitejaon
+   kiintolevy) EI OLE saatavilla kun BrowserScreen avataan, TAMA
+   KAATAA KOKO RUUDUN. TASMALLEEN kayttajan kysyma "levy ei ole
+   kaytettavissa" -skenaario. KORJAUS: kaari try/except RuntimeError/
+   OSError taman kutsun ymparille, nayta virheilmoitus ja/tai
+   palaa oletushakemistoon (esim. storage_manager.getWorkingDirectory())
+   jos startup_directory ei ole kaytettavissa.
+
+2. RAKENTEELLINEN: plugin.py:n main()-funktiossa JOKAINEN yksittainen
+   kaynnistysvaihe ON huolellisesti kaaritty try/except:lla (device-
+   tunnistus, logging-asetukset, kieli/skin/teema-asetukset) --
+   MUTTA itse `session.open(MainScreen)` -kutsu EI OLE suojattu
+   MITENKAAN. Jos MainScreen.__init__()/​_initialize() heittaa
+   ODOTTAMATTOMAN poikkeuksen (jota mikaan sisainen suoja ei
+   nappaa), TAMA KAATAA KOKO PLUGININ Enigma2:n omaan
+   kaatumiskasittelyyn asti. TASMALLEEN TAMA tapahtui KAHDESTI
+   TALLA istunnolla (XML-kommenttivirhe, onLayoutFinish-kaatuminen)
+   -- molemmat olisivat NAKYNEET SELKEAMPANA, HALLITUMPANA virheena
+   (esim. MessageBox "MediaPlayer3 could not start: <virhe>") jos
+   TAMA ylimman tason turvaverkko olisi ollut paikallaan jo silloin.
+   KORJAUS: kaari `session.open(MainScreen)` (ja mieluiten koko
+   main()-funktion loppuosa) try/except Exception:lla, loki taysi
+   traceback (traceback.format_exc()), ja nayta kayttajalle selkea
+   MessageBox-virheilmoitus kaatumisen sijaan.
+
+=== TARKISTETUT, JO HYVIN SUOJATUT ALUEET ===
+
+Verkkoyhteys / RadioBrowser (internetradio_manager.py):
+    - _discoverServers(): DNS-haku (socket.getaddrinfo) JA jokainen
+      kaanteishaku omalla try/except:lla, palaa FALLBACK_SERVER:iin
+      jos DNS ei toimi lainkaan. "Never raises" -dokumentoitu ja
+      vahvistettu.
+    - _apiGet(): jokainen mirror-yritys omalla try/except:lla
+      (URLError/HTTPError/TimeoutError/OSError verkolle, ValueError
+      viallisille JSON-vastauksille), kokeilee KAIKKI peilipalvelimet
+      ennen luovuttamista. "Never raises" -dokumentoitu ja
+      vahvistettu.
+    - downloadFavicon(): erillinen try/except VERKKOLATAUKSELLE
+      (URLError/HTTPError/TimeoutError/ValueError/OSError) JA
+      erillinen try/except TIEDOSTOKIRJOITUKSELLE (OSError -- tama on
+      "levy ei kaytettavissa" -tapaus valimuistin tallennukselle,
+      jo hyvin katettu).
+    - _saveJSON()/_loadJSON(): molemmat OSError+ValueError-suojattuja
+      (kattaa seka levyongelmat etta vioittuneet JSON-tiedostot
+      historialle/suosikeille).
+
+YLE API (yle_teletext_provider.py):
+    - getSchedule(): erilliset try/except _fetchPage():lle JA
+      _parseSchedule():lle, molemmat kaappaavat KAIKKI Exception-
+      tyypit, palauttavat [] ja lokittavat TAYDEN traceback:in
+      (lisatty round 5:ssa, maksoi itsensa takaisin round 7:ssa
+      loytamalla tarkan http.client-tason virheen).
+    - EPGManager.getSchedule() lisaa VIELA YHDEN suojauskerroksen
+      provider-kutsun ymparille (defense in depth siltavaralta ettei
+      TULEVA/kolmannen osapuolen provider noudata "never raises"
+      -kaytantoa).
+
+Bauer API (bauer_nowplaying_provider.py):
+    - getNowPlaying(): sama malli, erilliset try/except haulle ja
+      jasennykselle, kaikki Exception-tyypit, palauttaa
+      {"available": False}.
+
+Vioittuneet ID3-tagit (metadata.py):
+    - KOLMIKERROKSINEN suojaus: MetadataReader.read() (julkinen
+      rajapinta, "Never raises" -dokumentoitu) kaarii KOKO
+      formaattikohtaisen lukijan try/except Exception:lla: PLUS
+      jokaisella yksittaisella formaattilukijalla (_readID3v2,
+      _readFLAC, _readOggVorbis, _parseID3Picture, _parseFlacPicture)
+      on OMAT tarkat poikkeuskasittelynsa (struct.error, IndexError,
+      UnicodeDecodeError) juuri niille virhetyypeille joita
+      VIOITTUNUT binaaridata todennakoisimmin tuottaa.
+
+Vialliset kuvat (mainscreen.py):
+    - _decodeCoverArt(): koko dekoodauksen KAYNNISTYS (setPara +
+      startDecode) try/except Exception:ssa, piilottaa widgetin
+      siististi virheella.
+    - _onCoverArtDecoded() (ePicLoad:n ASYNKRONINEN callback, jossa
+      VIOITTUNUT kuvatiedosto TODENNAKOISIMMIN nakyisi): MYOS
+      kokonaan try/except:ssa, tarkistaa eriksee etta pixmap ei ole
+      None ennen kayttoa.
+
+Vaara URL (internetradio_manager.py):
+    - _cleanUrlField(): keskitetty apufunktio joka kasittelee
+      RadioBrowserin tunnetun "null"-merkkijono-erikoistapauksen
+      (Build 0007:n OIKEA, dokumentoitu kaatuminen -- totuusarvoltaan
+      truthy Python-merkkijono jota "if not x" ei havainnut).
+      Kaytossa JOHDONMUKAISESTI KAIKKIALLA missa asema-URL luetaan:
+      stream_url/url-kentat, RadioBrowserin oman /json/url/{uuid}
+      -vastauksen url-kentta, JA favicon-url.
+    - ServiceController._startService(): navigation.playService()
+      kaaritty try/except Exception:iin, kattaa VAARAN/PUUTTUVAN
+      PAIKALLISEN tiedoston SYNKRONISEN epaonnistumisen.
+
+=== TIEDOSSA OLEVA, JO AIEMMIN LOYDETTY RAJOITUS (ei uusi) ===
+
+ASYNKRONISET palvelu-/striimivirheet (esim. GStreamer/ExtEplayer3
+raportoi virheen VASTA sen jalkeen kun playService()/play() on JO
+palauttanut onnistuneesti) EIVAT NAY tassa koodissa lainkaan --
+tama loydettiin JO AIEMMIN taman builsin laitetestauksessa (Radio
+Nova/SuomiRock-tutkimus, kierrokset 11-13): Enigma2:n omaa
+tapahtumakuuntelumekanismia (NavigationInstance.instance.event) EI
+OLE VIELA otettu kayttoon, koska sen tarkkaa, oikealla laitteistolla
+vahvistettua kayttaytymista ei ole voitu varmistaa tasta
+ymparistosta. Tama EI ole uusi loydos, mutta liittyy suoraan
+kayttajan kysymykseen "vaara URL"/"striimi ei toimi" -tilanteista --
+MEDIAPLAYER3 EI TALLA HETKELLA HAVAITSE tallaista ASYNKRONISTA
+epaonnistumista mitenkaan (kayttoliittyma nayttaa "soi" -tilan
+vaikka aani olisi jo hiljentynyt).
+
+Seuraavaan versioon suositellut toimenpiteet prioriteettijarjestyksessa:
+    1. BrowserScreen.createFileList()-kutsun suojaus (aukko #1,
+       konkreettinen, helppo korjata).
+    2. session.open(MainScreen) + main()-funktion lopun suojaus
+       (aukko #2, rakenteellinen, estaisi VASTAAVAT tulevat
+       kaatumiset nakymasta enaa Enigma2:n omana kaatumisena).
+    3. Enigma2:n oman tapahtumakuuntelun (NavigationInstance.event)
+       KAYTTOONOTON UUDELLEENHARKINTA nyt kun kaksi eri epavarmaa
+       Enigma2-API:a (onLayoutFinish, ja mahdollisesti tama) on
+       kohdattu -- TARVITSEE HUOLELLISTA, ERILLISTA laitetestausta
+       ennen kayttoonottoa, EI kiireella tehtava.
+
+Pieniresoluutioinen nayttokysely (2026-08-07, ei koodimuutoksia -- kayttajan pyynnosta talletettu)
+------------------------------------------------------------------------------
+
+Kayttaja kysyi mita tapahtuu jos naytto-/kayttoliittymaresoluutio on
+pienempi, esimerkkina "576". Tarkastettu koko skaalausmekanismi.
+
+VAHVISTETTU TURVALLINEN PERUSTA:
+    - JOKAINEN ruutu (MainScreen, BrowserScreen, PlaylistScreen,
+      RadioBrowserScreen, MusicLibraryScreen, SettingsScreen,
+      DeveloperScreen, HelpScreen, PlaybackInfoScreen, MainMenu)
+      kayttaa JOHDONMUKAISESTI joko getDesktop(0).size():a suoraan
+      (MainScreen) tai yhteista compatibility.getDesktopSize()-apu-
+      funktiota (kaikki muut) -- molemmat hyvin suojattuja
+      try/except:lla, palaavat DESIGN-resoluutioon jos oikean koon
+      selvittaminen epaonnistuu.
+    - Jokaisen widgetin sijainti/koko skaalautuu LINEAARISESTI
+      (sx = todellinen_leveys / DESIGN_WIDTH, vastaavasti sy)
+      suhteessa OMAAN, ruutukohtaiseen DESIGN_WIDTH/DESIGN_HEIGHT-
+      suunnittelukokoon -- SUHTEELLINEN asettelu (mika widget on
+      minka vieressa) sailyy AINA, riippumatta todellisesta koosta.
+    - Fontin minimikoko on suojattu: max(10, int(koko * sx)) --
+      teksti ei voi koskaan tulla lukukelvottoman pieneksi.
+    - Ei kaatumisriskia loydetty: Enigma2:n Label-widgetit rajaavat
+      ylivuotavan tekstin oletuksena hiljaisesti, eivat kaadu.
+
+TARKKA LASKELMA "576":lle (oletettu 720x576, PAL SD -- yleisin
+tulkinta):
+    MainScreenin DESIGN-koko on 700x520. 720x576 ON TODELLISUUDESSA
+    HIEMAN SUUREMPI kuin suunnittelukoko (sx=1.029, sy=1.108) --
+    kaikki widgetit ja fontit itse asiassa SUURENTUVAT hieman, EI
+    pienene. TALLA TULKINNALLA EI OLE ONGELMAA.
+
+LOYDETTY, EI-KRIITTINEN HAVAINTO (koskee GENERISESTI PIENEMPIA
+resoluutioita, esim. 480x272 -tyyppisia vanhempia/pienempia
+laitteita):
+    InformationPanel.DEFAULT_VISIBLE_LINES=14 (mainscreen.py),
+    HelpScreen.VISIBLE_LINES=20, DeveloperScreen.VISIBLE_LINES=14
+    ovat KAIKKI KOVAKOODATTUJA VAKIOITA, laskettu DESIGN-resoluution
+    widget-koon mukaan -- EIVAT SKAALAUDU dynaamisesti todellisen
+    naytON mukaan. Koska fontin koolla ON alaraja (10pt) mutta
+    widgetin koolla EI OLE alarajaa, PIENEMMALLA kuin design-
+    resoluutiolla widget kutistuu SUHTEESSA ENEMMAN kuin fontti --
+    esim. 480x272:lla widget kutistuu 52%:iin mutta fontti vain
+    67%:iin (osuu alarajaan) -- TAMA VOI aiheuttaa scrollattavan
+    sisallon (Information Panel / Help / Developer Screen) VIIMEISTEN
+    RIVIEN LEIKKAUTUMISEN nakymattomiin widgetin reunan takana.
+    TAMA ON KAYTETTAVYYSONGELMA, EI KAATUMISRISKI -- sisalto on
+    silti selattavissa (UP/DOWN), vain naytettavien rivien maara
+    saattaa olla optimistisempi kuin todellisuudessa mahtuu.
+
+    Sama kovakoodattu-vakio-malli on TOISTUVA koko projektissa (kolme
+    eri ruutua kayttaa samaa lahestymistapaa), eli kyseessa on
+    tietoinen, yksinkertaisuutta suosiva suunnitteluvalinta
+    aiemmista buildeista, ei uusi virhe -- mutta seuraavassa
+    versiossa voisi harkita VISIBLE_LINES:n laskemista dynaamisesti
+    todellisesta widget-koosta/fonttikoosta jaettuna arvioidulla
+    rivikorkeudella, jos pienten resoluutioiden tuki halutaan
+    parantaa taydellisemmaksi.
+
+EI MUITA LOYDOKSIA -- resoluutioskaalaus on muuten hyvin, johdon-
+mukaisesti ja turvallisesti toteutettu koko sovelluksessa.
+
+Tarkennus edelliseen (2026-08-07): kayttaja vahvisti tarkoittaneensa
+nimenomaan 720x576 PAL-SD -tarkkuutta, joka on jo vahvistettu
+turvalliseksi (katso edella). Kayttaja huomautti etta AIDOSTI
+pienempi resoluutio tulisi kyseeseen vain laitteen ETUPANEELI-
+NAYTOLLA (VFD/LCD, tyypillisesti pelkkaa tekstia, ei graafista
+kayttoliittymaa lainkaan) -- eri kayttoliittymakonsepti kokonaan,
+ei tamansuuntaisen skaalauksen jatke. EI TARVETTA TOIMENPITEILLE
+nyt; mainittu mahdollisena TULEVANA, ERILLISENA aiheena jos siihen
+joskus halutaan mennä. VISIBLE_LINES-havainto (edella) jaa silti
+voimaan yleisena, ei-kiireellisena parannusmahdollisuutena.

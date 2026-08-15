@@ -419,6 +419,7 @@ from Components.ProgressBar import ProgressBar
 from Screens.ChoiceBox import ChoiceBox
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
+from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from Components.AVSwitch import AVSwitch
 from enigma import ePicLoad, eTimer, getDesktop
@@ -438,6 +439,7 @@ from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
 from .musiclibraryscreen import MusicLibraryScreen
+from .podcastscreen import PodcastScreen
 from .paths import CACHE_PATH, RESOURCE_PATH
 from .playback_controller import PlaybackController
 from .playbackinfo_screen import PlaybackInfoScreen
@@ -595,15 +597,15 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="meta"
-                    {rect(200, 36, 480, 40)}
+                    {rect(200, 36, 480, 64)}
                     {font(18)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
             <widget name="media"
-                    {rect(200, 78, 480, 84)}
-                    {font(22)}
+                    {rect(200, 102, 480, 60)}
+                    {font(20)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
@@ -624,57 +626,13 @@ class MainScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
-            <!-- Middle area: Playlist | Information, the bulk of
-                 the screen, per MAINSCREEN_SPEC.md's "significantly
-                 more vertical space for the Information Panel" -->
-
-            <widget name="playlist_title_bg_normal"
-                    {rect(20, 185, 160, 24)}
-                    backgroundColor="{panel_background_color}"/>
-
-            <widget name="playlist_title_bg_active"
-                    {rect(20, 185, 160, 24)}
-                    backgroundColor="{selection_background_color}"/>
-
-            <widget name="playlist_title"
-                    {rect(20, 185, 160, 24)}
-                    {font(15)}
-                    halign="left"
-                    foregroundColor="{panel_text_color}"
-                    transparent="1"/>
-
-            <widget name="playlist_list"
-                    {rect(20, 213, 160, 252)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"
-                    scrollbarMode="showOnDemand"/>
-
-            <widget name="info_title_bg_normal"
-                    {rect(200, 185, 480, 24)}
-                    backgroundColor="{panel_background_color}"/>
-
-            <widget name="info_title_bg_active"
-                    {rect(200, 185, 480, 24)}
-                    backgroundColor="{selection_background_color}"/>
-
-            <widget name="info_title"
-                    {rect(200, 185, 480, 24)}
-                    {font(15)}
-                    halign="left"
-                    foregroundColor="{panel_text_color}"
-                    transparent="1"/>
-
-            <widget name="info_content"
-                    {rect(200, 213, 480, 252)}
-                    {font(15)}
-                    halign="left"
-                    foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
-
-            <!-- Bottom area: Progress Bar -->
+            <!-- Progress bar row (device test round 23: moved back
+                 above the Playlist/Information panels, having
+                 previously sat at the very bottom since Build 0009's
+                 MainScreen 2.0 redesign) -->
 
             <widget name="elapsed"
-                    {rect(20, 475, 100, 20)}
+                    {rect(20, 188, 100, 20)}
                     {font(16)}
                     halign="left"
                     valign="center"
@@ -682,25 +640,81 @@ class MainScreen(Screen):
                     foregroundColor="{panel_text_color}"/>
 
             <widget name="progressbar"
-                    {rect(130, 478, 440, 14)}
+                    {rect(130, 191, 440, 14)}
                     borderWidth="1"
                     backgroundColor="{progress_track_color}"
                     foregroundColor="{progress_color}"/>
 
             <widget name="remaining"
-                    {rect(580, 475, 100, 20)}
+                    {rect(580, 188, 100, 20)}
                     {font(16)}
                     halign="right"
                     valign="center"
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
+            <!-- Queue position (device test round 24: moved up to sit
+                 directly under the progress bar, no longer at the
+                 very bottom of the screen) -->
+
             <widget name="queueposition"
-                    {rect(20, 498, 660, 18)}
+                    {rect(20, 214, 660, 18)}
                     {font(13)}
                     halign="center"
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
+
+            <!-- Middle area: Playlist | Information, the bulk of
+                 the screen, per MAINSCREEN_SPEC.md's "significantly
+                 more vertical space for the Information Panel":
+                 shifted down again from the queue position row now
+                 sitting above it (device test round 24); each
+                 panel's own height is still unchanged, including
+                 info_content, so Lyrics/other Information pages keep
+                 exactly the same amount of space they had before. -->
+
+            <widget name="playlist_title_bg_normal"
+                    {rect(20, 238, 160, 24)}
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="playlist_title_bg_active"
+                    {rect(20, 238, 160, 24)}
+                    backgroundColor="{selection_background_color}"/>
+
+            <widget name="playlist_title"
+                    {rect(20, 238, 160, 24)}
+                    {font(15)}
+                    halign="left"
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
+
+            <widget name="playlist_list"
+                    {rect(20, 266, 160, 252)}
+                    backgroundColor="{panel_background_color}"
+                    foregroundColor="{panel_text_color}"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="info_title_bg_normal"
+                    {rect(200, 238, 480, 24)}
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="info_title_bg_active"
+                    {rect(200, 238, 480, 24)}
+                    backgroundColor="{selection_background_color}"/>
+
+            <widget name="info_title"
+                    {rect(200, 238, 480, 24)}
+                    {font(15)}
+                    halign="left"
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
+
+            <widget name="info_content"
+                    {rect(200, 266, 480, 252)}
+                    {font(15)}
+                    halign="left"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColor="{panel_background_color}"/>
 
         </screen>
     """
@@ -829,6 +843,20 @@ class MainScreen(Screen):
         # BrowserScreen folder queue) -- the top label falls back to
         # the folder name in that case (_updateTopLabel()).
         self._current_local_playlist_name = None
+
+        # Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" -- which
+        # browser screen ("radio"/"browser"/"playlist"/"podcast"/
+        # "music_library") playback most recently started from, so
+        # the OK-menu's "Back" item can return there. Set on a
+        # successful ("played") close of the relevant screen
+        # (_mediaScreenClosed()/_browserClosed()), or directly by
+        # playRadioStation() for radio playback that started without
+        # opening a screen at all (RADIO key resuming the last
+        # station, or the OK startup chooser's "Internet Radio"
+        # choice via _startRadioMode()). None means no known origin
+        # (e.g. nothing has played yet this session) -- _reopenSourceScreen()
+        # falls back to the Main Menu in that case.
+        self._last_source_screen = None
 
         # ePicLoad decodes and scales cover art asynchronously to fit
         # the "cover" widget exactly (fixes a real device bug where an
@@ -1087,9 +1115,9 @@ class MainScreen(Screen):
         # filename, per PLAYBACKINFO_SPEC.md's Metadata Priority rules
         # (and per user feedback after a real device test: the
         # filename was always shown even when a Title tag existed).
-        self["media"].setText(self._formatTitle(filename))
+        self["media"].setText(self._formatMediaLine(filename))
 
-        self["meta"].setText(self._formatArtistAlbum())
+        self["meta"].setText(self._formatMetaLines())
 
         self._statusbar.showState(self._playback.getState(), filename)
 
@@ -1356,23 +1384,29 @@ class MainScreen(Screen):
     def activePanelPressed(self) -> None:
         """
         Build 0009, MAINSCREEN_SPEC.md "Remote Control" -- EPG/INFO
-        cycles the active panel: Player -> Playlist -> Information ->
-        Player. Replaces Build 0008's INFO (view-mode toggle) and TEXT
-        (info-view cycle) entirely; both are gone.
+        cycles the active panel. Replaces Build 0008's INFO (view-mode
+        toggle) and TEXT (info-view cycle) entirely; both are gone.
 
-        Build 0009, device test round 9: while streaming Internet
-        Radio, the Playlist Panel is skipped entirely in this cycle
-        (Player -> Information -> Player) per user request ("Laitetaan
-        Player tilassa sivunuolilla suosikkilistan vaihto ja
-        poistetaan kokonaan siirtyminen playlist tilaan
-        radiokanavilla. Playlist nakyma voi silti paivittya kuten
-        tahankin asti.") -- LEFT/RIGHT in the Player Panel now covers
-        what the Playlist Panel offered for radio anyway (switching
-        favorite lists, see seekForwardShortPressed()), and seeking
-        never applied to a live stream regardless. playlist_list/
-        playlist_title keep updating in the background exactly as
-        before (_updatePlaylistPanel() doesn't check which panel is
-        active) -- only reachability via this cycle changes.
+        Build 0010, device test round 23: the Playlist Panel is now
+        skipped for every source, not just Internet Radio (Build 0009,
+        device test round 9, kept below) -- "Riittaa, etta vaihtaa
+        aktiivista otsaketta vain soitin-nakyman ja tiedot-nakyman
+        valilla, kun ok-napilla paasee takaisin edelliseen toimintoon."
+        Player <-> Information is now the whole cycle, for every
+        source. playlist_list/playlist_title keep updating in the
+        background regardless (_updatePlaylistPanel() doesn't check
+        which panel is active) -- only reachability via this key
+        changes, same as it already didn't change for radio.
+
+        Build 0009, device test round 9 (radio-only reasoning, now
+        generalised above): while streaming Internet Radio, the
+        Playlist Panel was skipped in this cycle per user request
+        ("Laitetaan Player tilassa sivunuolilla suosikkilistan vaihto
+        ja poistetaan kokonaan siirtyminen playlist tilaan
+        radiokanavilla.") -- LEFT/RIGHT in the Player Panel covers what
+        the Playlist Panel offered for radio anyway (switching
+        favorite lists), and seeking never applied to a live stream
+        regardless.
 
         Reuses _isDebounced() (Build 0008, device test round 8): a
         device log showed INFO firing on both the Make and Break
@@ -1388,12 +1422,12 @@ class MainScreen(Screen):
 
             return
 
-        order = ("player", "information") if self._playback.isPlayingStream() else ("player", "playlist", "information")
+        order = ("player", "information")
 
         if self._active_panel not in order:
 
-            # Was on "playlist" when radio playback started -- no
-            # longer reachable in the streaming cycle, land on Player.
+            # Was on "playlist" -- no longer reachable in this cycle
+            # for any source (device test round 23); land on Player.
             self._active_panel = "player"
 
         else:
@@ -1525,13 +1559,130 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def _formatTitle(self, filename) -> str:
+    def _formatMetaLines(self) -> str:
         """
-        Return the track's Title, preferring real tag metadata over
-        the filename (Build 0006, per user feedback after a real
-        device test) -- matches PLAYBACKINFO_SPEC.md's Metadata
-        Priority rules.
+        Build 0010, device test round 23 -- top box, now up to two
+        lines (the box itself grew to fit both -- see _buildSkin()):
+
+        - Radio: station name, empty second line ("kanavan nimi,
+          albumin kohta tyhjaksi").
+        - Podcast: the podcast's own show name, empty second line
+          ("podcastin nimi").
+        - Local file: Artist on line 1, Album on line 2 -- previously
+          a single "Artist - Album" line; split apart and Album moved
+          onto the box's new second line per direct request.
+
+        Replaces _formatArtistAlbum() (Build 0009) entirely -- that
+        method's own radio branch (Now Playing/programme/station-name
+        fallback chain) still exists, just relocated to
+        _formatMediaLine() below, since the *content* didn't change,
+        only which box shows it.
         """
+
+        if self._playback.isPlayingStream():
+
+            station = (
+                self._radio_list[self._radio_index]
+                if self._radio_list and 0 <= self._radio_index < len(self._radio_list)
+                else None
+            )
+
+            return station.get("name", "") if station is not None else ""
+
+        if self._last_source_screen == "podcast":
+
+            track = self._lookupCurrentPlaylistTrack()
+
+            podcast_title = track.get("artist", "") if track else ""
+
+            return podcast_title if podcast_title and podcast_title != "Unknown" else ""
+
+        metadata = self._playback.getMetadata()
+
+        if metadata is None:
+
+            return f"{_('Unknown Artist')}\n{_('Unknown Album')}"
+
+        artist = metadata.get("artist", "Unknown")
+
+        album = metadata.get("album", "Unknown")
+
+        return f"{artist}\n{album}"
+
+    # ------------------------------------------------------------------
+
+    def _formatMediaLine(self, filename) -> str:
+        """
+        Build 0010, device test round 23 -- second box, one line:
+
+        - Radio: Now Playing info (station's live stream metadata),
+          falling back to the current programme title, then the bare
+          station name -- unchanged content from Build 0009's own
+          _formatArtistAlbum(), just relocated here (see that
+          method's replacement, _formatMetaLines(), for the fuller
+          history of this fallback chain).
+        - Podcast: the episode's own title, with the "(Podcast)"
+          suffix _addEpisodeToPlaylist() stores it with (for the
+          Playlist/BrowserScreen views, unaffected) stripped back off
+          for this specific display.
+        - Local file: the track's Title tag (unchanged from Build
+          0006's own _formatTitle(), which this replaces).
+        """
+
+        if self._playback.isPlayingStream():
+
+            station = (
+                self._radio_list[self._radio_index]
+                if self._radio_list and 0 <= self._radio_index < len(self._radio_list)
+                else None
+            )
+
+            if station is None:
+                return ""
+
+            try:
+                now_playing = epg_manager.getNowPlaying(station)
+
+            except Exception as error:
+
+                logger.verbose(f"[MainScreen] Now-playing lookup failed for media line: {error}")
+
+                now_playing = {"available": False}
+
+            if now_playing.get("available"):
+
+                return epg_manager.formatNowPlaying(now_playing)
+
+            try:
+                programme = epg_manager.getCurrentProgramme(station)
+
+            except Exception as error:
+
+                logger.verbose(f"[MainScreen] Current-programme lookup failed for media line: {error}")
+
+                programme = None
+
+            if programme and programme.get("title"):
+
+                return programme["title"]
+
+            return station.get("name", "")
+
+        if self._last_source_screen == "podcast":
+
+            track = self._lookupCurrentPlaylistTrack()
+
+            if track:
+
+                title = track.get("title", "")
+
+                suffix = f" ({_('Podcast')})"
+
+                if title.endswith(suffix):
+
+                    title = title[: -len(suffix)]
+
+                return title or "Unknown"
 
         if not filename:
             return "Unknown"
@@ -1549,89 +1700,32 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def _formatArtistAlbum(self) -> str:
+    def _lookupCurrentPlaylistTrack(self):
         """
-        Return "Artist \u2013 Album" using real tag metadata when
-        available (Build 0006), falling back to the "Unknown Artist"/
-        "Unknown Album" placeholders MainScreen used before metadata
-        support existed.
-
-        Build 0009, device test round 9: while streaming Internet
-        Radio, local file metadata obviously never applies (always
-        "Unknown Artist \u2013 Unknown Album" for every station), so
-        this now shows the current station's Now Playing info
-        instead, per user request ("Radiolla ylhaalla lukee nyt
-        Unknown - Unknown. Siina voisi nakya now playing -tieto").
-        Falls back to the station's own name when now-playing data
-        isn't available for that station (not every station has a
-        registered provider or sends ICY tags), rather than an empty
-        or placeholder-looking line.
-
-        Build 0009, device test round 10: Yle stations only have a
-        schedule provider registered (Teksti-TV has no track-level
-        now-playing data, just programme titles -- see
-        finland_radio_epg_registry.py), so getNowPlaying() falls
-        through to generic ICY stream tags for them, which Yle's
-        streams evidently don't send either -- the meta line fell all
-        the way to the bare station name even though the Information
-        Panel's Radio EPG page clearly had the current programme's
-        title available. Added that as a middle fallback: current
-        programme title (from schedule data) when Now Playing itself
-        isn't available, before finally falling back to just the
-        station name when neither is.
+        Build 0010, device test round 23 -- finds the currently
+        playing file's own stored track dict (title/artist) within
+        the current working playlist, if any. Needed because
+        playlist_manager.generatePlaybackQueue() only ever hands
+        PlaybackController bare paths (see that method's own
+        docstring) -- once something is actually playing, the richer
+        per-track data (a podcast episode's own show name, stored via
+        addTrack()'s artist=) would otherwise be unreachable. Returns
+        None if there's no current working playlist, or the currently
+        playing path isn't found in it (e.g. the playlist changed
+        since playback started).
         """
 
-        if self._playback.isPlayingStream():
+        if not self._current_local_playlist_name:
+            return None
 
-            station = (
-                self._radio_list[self._radio_index]
-                if self._radio_list and 0 <= self._radio_index < len(self._radio_list)
-                else None
-            )
+        filename = self._playback.getCurrentFile()
 
-            if station is not None:
+        if not filename:
+            return None
 
-                try:
-                    now_playing = epg_manager.getNowPlaying(station)
+        tracks = playlist_manager.loadPlaylist(self._current_local_playlist_name)
 
-                except Exception as error:
-
-                    logger.verbose(f"[MainScreen] Now-playing lookup failed for meta line: {error}")
-
-                    now_playing = {"available": False}
-
-                if now_playing.get("available"):
-
-                    return epg_manager.formatNowPlaying(now_playing)
-
-                try:
-                    programme = epg_manager.getCurrentProgramme(station)
-
-                except Exception as error:
-
-                    logger.verbose(f"[MainScreen] Current-programme lookup failed for meta line: {error}")
-
-                    programme = None
-
-                if programme and programme.get("title"):
-
-                    return programme["title"]
-
-                return station.get("name", "")
-
-            return ""
-
-        metadata = self._playback.getMetadata()
-
-        if metadata is None:
-
-            return f"{_('Unknown Artist')} \u2013 {_('Unknown Album')}"
-
-        artist = metadata.get("artist", "Unknown")
-
-        album = metadata.get("album", "Unknown")
-
-        return f"{artist} \u2013 {album}"
+        return next((track for track in tracks if track.get("path") == filename), None)
 
     # ------------------------------------------------------------------
 
@@ -1972,13 +2066,16 @@ class MainScreen(Screen):
 
     def okPressed(self) -> None:
         """
-        Build 0009, MAINSCREEN_SPEC.md -- dispatches by active panel:
-        Playlist Panel plays the selected entry, Information Panel
-        does nothing ("OK: No action"), Player Panel keeps Build
-        0007/0008's existing behaviour (startup chooser / resume /
-        replay) plus the new "OK: Play/Pause" -- toggling pause when
-        something is actually playing, which the old behaviour never
-        did on its own (a dedicated PAUSE key handled that instead).
+        Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" --
+        dispatches by active panel: Playlist Panel plays the selected
+        entry, Information Panel does nothing ("OK: No action"),
+        Player Panel with no media loaded yet still opens the startup
+        chooser (unchanged, and reused directly by PVR -- see
+        pvrPressed()). Player Panel WITH media loaded now opens a
+        small action menu (Back / Stop-Resume / Cancel) instead of
+        Build 0009's direct pause/resume/replay toggle -- the
+        dedicated PAUSE key already covers pausing on its own
+        (pausePressed(), bound separately), so OK no longer needs to.
         """
 
         logger.verbose("[MainScreen] OK pressed.")
@@ -1999,23 +2096,293 @@ class MainScreen(Screen):
 
             return
 
-        if self._playback.isPaused():
+        self._openPlayerActionMenu()
 
-            self._resume()
+    # ------------------------------------------------------------------
+
+    def _openPlayerActionMenu(self) -> None:
+        """
+        Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu": "OK in
+        Player mode shall open a small action menu. The first item
+        shall always be: Back ... The remaining menu items shall be:
+        Stop/Resume, Cancel."
+
+        Device test round 9: three further items, radio-only (added
+        directly per user request, not literally in the plan's own
+        wording -- same class of "screen cannot do X yet without this"
+        addition as Round 6's BrowserScreen "Open directory"/"Play",
+        flagged here the same way rather than silently): Clear
+        history, Add to Favorites, Remove from Favorites (renamed from
+        "...playlist" in device test round 11 -- see
+        _addCurrentStationToFavorites()'s own docstring for why).
+        Placed after Back, before the always-present Stop/Resume/
+        Cancel so Back stays the first item exactly as the plan
+        requires.
+        """
+
+        resume_state = self._playback.isPaused() or self._playback.isStopped()
+
+        stop_resume_label = _("Resume") if resume_state else _("Stop")
+
+        choices = [(_("Back"), "back")]
+
+        if self._playback.isPlayingStream() and self._last_radio_station:
+
+            choices.append((_("Clear history"), "clear_radio_history"))
+
+            choices.append((_("Add to Favorites"), "add_to_favorites"))
+
+            choices.append((_("Remove from Favorites"), "remove_from_favorites"))
+
+        choices.append((stop_resume_label, "stop_resume"))
+
+        choices.append((_("Cancel"), "cancel"))
+
+        self.session.openWithCallback(
+            self._playerActionMenuChosen,
+            ChoiceBox,
+            title=_("Player"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _playerActionMenuChosen(self, choice) -> None:
+
+        if choice is None or choice[1] == "cancel":
+            return
+
+        if choice[1] == "back":
+
+            self._reopenSourceScreen()
+
+        elif choice[1] == "clear_radio_history":
+
+            self.session.openWithCallback(
+                self._radioHistoryClearConfirmed,
+                MessageBox,
+                _("Clear Internet Radio listening history?"),
+                MessageBox.TYPE_YESNO,
+            )
+
+        elif choice[1] == "add_to_favorites":
+
+            self._addCurrentStationToFavorites()
+
+        elif choice[1] == "remove_from_favorites":
+
+            self._removeCurrentStationFromFavorites()
+
+        elif choice[1] == "stop_resume":
+
+            if self._playback.isPaused():
+
+                self._resume()
+
+            elif self._playback.isStopped():
+
+                self._replayCurrent()
+
+            else:
+
+                self.stopPressed()
+
+    # ------------------------------------------------------------------
+
+    def _radioHistoryClearConfirmed(self, confirmed) -> None:
+        """
+        Device test round 9 -- same confirmation text and action as
+        SettingsScreen's own clearRadioHistoryPressed()/
+        _radioHistoryClearConfirmed(), just reachable from MainScreen's
+        Player OK-menu directly while radio is playing, without a
+        detour through Settings.
+        """
+
+        if not confirmed:
+            return
+
+        internetradio_manager.clearHistory()
+
+        self._log("Radio history cleared (from Player menu).")
+
+    # ------------------------------------------------------------------
+
+    def _addCurrentStationToFavorites(self) -> None:
+        """
+        Device test round 9 asked for "lisää soittolistaan" while radio
+        is playing; device test round 11 corrected the target: radio
+        stations belong in internetradio_manager's own favorite lists
+        (General + any others), never in a local file playlist -- "ei
+        tiedostot-soittolistaa, joka jää vain tiedostoselaimen
+        käyttöön" (not the Files playlist, which stays File-Browser-
+        only). Renamed from the original "Add to playlist"/"Remove
+        from playlist" to "Add to Favorites"/"Remove from Favorites"
+        to match, since this is exactly RadioBrowserScreen's own
+        existing terminology and mechanism
+        (_chooseFavoriteList()/addFavorite()) for the same action --
+        just reachable directly from the Player menu now too, without
+        a detour through RadioBrowserScreen.
+        """
+
+        station = self._last_radio_station
+
+        if not station:
+            return
+
+        names = internetradio_manager.getFavoriteListNames()
+
+        choices = [(name, name) for name in names]
+
+        choices.append((_("Create New"), "__new__"))
+        choices.append((_("Cancel"), "__cancel__"))
+
+        self.session.openWithCallback(
+            lambda choice: self._addStationToFavoritesChosen(choice, station),
+            ChoiceBox,
+            title=_("Select favorite list"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _addStationToFavoritesChosen(self, choice, station) -> None:
+
+        if choice is None or choice[1] == "__cancel__":
+            return
+
+        if choice[1] == "__new__":
+
+            self.session.openWithCallback(
+                lambda text: self._addStationToNewFavoriteList(text, station),
+                VirtualKeyBoard,
+                title=_("New favorite list name"),
+                text="",
+            )
 
             return
 
-        if self._playback.isStopped():
+        self._finishAddStationToFavorites(choice[1], station)
 
-            self._replayCurrent()
+    # ------------------------------------------------------------------
+
+    def _addStationToNewFavoriteList(self, list_name, station) -> None:
+
+        if not list_name:
+            return
+
+        internetradio_manager.createFavoriteList(list_name)
+
+        self._finishAddStationToFavorites(list_name, station)
+
+    # ------------------------------------------------------------------
+
+    def _finishAddStationToFavorites(self, list_name: str, station) -> None:
+
+        if internetradio_manager.addFavorite(station, list_name=list_name):
+
+            self.session.open(
+                MessageBox,
+                _("Added to favorites: %s") % list_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            self.session.open(MessageBox, _("Unable to add to favorites."), MessageBox.TYPE_ERROR)
+
+    # ------------------------------------------------------------------
+
+    def _removeCurrentStationFromFavorites(self) -> None:
+        """
+        See _addCurrentStationToFavorites()'s own docstring for why
+        this targets internetradio_manager's favorites, not
+        playlist_manager. Only existing favorite lists are offered
+        (nothing sensible to create here).
+        """
+
+        station = self._last_radio_station
+
+        if not station or not station.get("stationuuid"):
+            return
+
+        names = internetradio_manager.getFavoriteListNames()
+
+        if not names:
+
+            self.session.open(MessageBox, _("No favorite lists available."), MessageBox.TYPE_INFO, timeout=3)
 
             return
 
-        # Build 0009, device test round 12: pausePressed() itself now
-        # handles Internet Radio specially (stops cleanly rather than
-        # attempting a pause that doesn't actually work for a live
-        # stream) -- see its own docstring for the full reasoning.
-        self.pausePressed()
+        choices = [(name, name) for name in names]
+
+        choices.append((_("Cancel"), "__cancel__"))
+
+        self.session.openWithCallback(
+            lambda choice: self._removeStationFromFavoritesChosen(choice, station["stationuuid"]),
+            ChoiceBox,
+            title=_("Select favorite list"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _removeStationFromFavoritesChosen(self, choice, stationuuid: str) -> None:
+
+        if choice is None or choice[1] == "__cancel__":
+            return
+
+        list_name = choice[1]
+
+        if internetradio_manager.removeFavorite(stationuuid, list_name=list_name):
+
+            self.session.open(
+                MessageBox,
+                _("Removed from favorites: %s") % list_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            self.session.open(
+                MessageBox,
+                _("Station not found in favorites: %s") % list_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+    # ------------------------------------------------------------------
+
+    def _reopenSourceScreen(self) -> None:
+        """
+        Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu": "Selecting
+        Back returns the user to the view from which MainScreen was
+        opened." self._last_source_screen is set on a successful
+        ("played") close of the relevant screen -- see
+        _mediaScreenClosed()/_browserClosed() -- or directly by
+        playRadioStation() for radio playback that never opened a
+        screen at all. No known origin (nothing has played yet this
+        session) falls back to the Main Menu, always available.
+        """
+
+        reopeners = {
+            "radio": self.openRadioBrowserScreen,
+            "browser": self.openBrowser,
+            "playlist": self.openPlaylistScreen,
+            "podcast": self.openPodcastScreen,
+            "music_library": self.openMusicLibraryScreen,
+        }
+
+        reopener = reopeners.get(self._last_source_screen)
+
+        if reopener is not None:
+
+            reopener()
+
+        else:
+
+            self.openMainMenu()
 
     # ------------------------------------------------------------------
 
@@ -2034,6 +2401,7 @@ class MainScreen(Screen):
             (_("Local Music"), "local"),
             (_("Music Library"), "music_library"),
             (_("Playlists"), "playlists"),
+            (_("Podcasts"), "podcast"),
             (_("Cancel"), "cancel"),
         ]
 
@@ -2068,6 +2436,10 @@ class MainScreen(Screen):
         elif action == "playlists":
 
             self.openPlaylistScreen()
+
+        elif action == "podcast":
+
+            self.openPodcastScreen()
 
     # ------------------------------------------------------------------
 
@@ -2465,10 +2837,16 @@ class MainScreen(Screen):
     # ------------------------------------------------------------------
 
     def pvrPressed(self) -> None:
+        """
+        Build 0010, BUILD_0010_PLAN.md "PVR Button": "The PVR button
+        shall open the same source-selection query that is used when
+        entering playback through OK. PVR shall no longer directly
+        open BrowserScreen."
+        """
 
         logger.verbose("[MainScreen] PVR pressed.")
 
-        self.openBrowser()
+        self._openStartupChooser()
 
     # ------------------------------------------------------------------
 
@@ -2601,6 +2979,14 @@ class MainScreen(Screen):
             return False
 
         self._last_radio_station = result["station"]
+
+        # Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" -- set
+        # here (not only in _mediaScreenClosed(origin="radio")) since
+        # playRadioStation() is also reached directly, without ever
+        # opening RadioBrowserScreen (RADIO key resuming the last
+        # station, _startRadioMode()'s history/favorite shortcut) --
+        # "Back" should still make sense in those cases too.
+        self._last_source_screen = "radio"
 
         # Build 0009, device test round 2 -- the missing piece between
         # "Yle/Bauer EPG providers exist and are confirmed working"
@@ -2802,6 +3188,11 @@ class MainScreen(Screen):
 
         self._last_radio_station = result["station"]
 
+        # Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" -- see
+        # playRadioStation()'s own comment for why this is set here
+        # directly rather than only via _mediaScreenClosed().
+        self._last_source_screen = "radio"
+
         # Build 0009, device test round 3 -- this pathway (UP/DOWN
         # station stepping while the Player panel is active,
         # _radioStationStep()) never registered EPG providers at all,
@@ -2886,7 +3277,7 @@ class MainScreen(Screen):
         self._log("Opening PlaylistScreen.")
 
         self.session.openWithCallback(
-            self._mediaScreenClosed,
+            lambda result=None: self._mediaScreenClosed(result, origin="playlist"),
             PlaylistScreen,
             self._playback,
         )
@@ -2898,7 +3289,7 @@ class MainScreen(Screen):
         self._log("Opening MusicLibraryScreen.")
 
         self.session.openWithCallback(
-            self._mediaScreenClosed,
+            lambda result=None: self._mediaScreenClosed(result, origin="music_library"),
             MusicLibraryScreen,
             self._playback,
         )
@@ -2910,31 +3301,53 @@ class MainScreen(Screen):
         self._log("Opening RadioBrowserScreen.")
 
         self.session.openWithCallback(
-            self._mediaScreenClosed,
+            lambda result=None: self._mediaScreenClosed(result, origin="radio"),
             RadioBrowserScreen,
             self._playback,
         )
 
     # ------------------------------------------------------------------
 
-    def _mediaScreenClosed(self, result=None) -> None:
-        """
-        Shared close callback for PlaylistScreen/RadioBrowserScreen
-        (Build 0007) -- both close(None) on EXIT and close("played")
-        once they've started playback, exactly the same convention
-        BrowserScreen already uses (see _browserClosed()).
+    def openPodcastScreen(self) -> None:
 
-        PlaylistScreen additionally passes back
-        ("played", playlist_name) rather than a bare "played" (device
-        test round 3), so LEFT/RIGHT playlist cycling in favorites
-        view knows which stored playlist is now active.
+        self._log("Opening PodcastScreen.")
+
+        self.session.openWithCallback(
+            lambda result=None: self._mediaScreenClosed(result, origin="podcast"),
+            PodcastScreen,
+            self._playback,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _mediaScreenClosed(self, result=None, origin=None) -> None:
+        """
+        Shared close callback for PlaylistScreen/RadioBrowserScreen/
+        PodcastScreen/MusicLibraryScreen (Build 0007-0010) -- all
+        close(None) on EXIT and close("played") (or, for PlaylistScreen/
+        BrowserScreen, ("played", playlist_name)) once they've started
+        playback.
+
+        Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu": `origin`
+        identifies which of the four screens this callback instance
+        belongs to (each open*Screen() method passes its own),
+        recorded as self._last_source_screen only on an actual
+        "played" close -- browsing away without playing anything must
+        not change where a still-playing OK-menu "Back" would return
+        to.
         """
 
-        self._log("PlaylistScreen/RadioBrowserScreen closed.")
+        self._log("PlaylistScreen/RadioBrowserScreen/PodcastScreen/MusicLibraryScreen closed.")
+
+        played = result == "played" or (isinstance(result, tuple) and len(result) == 2 and result[0] == "played")
 
         if isinstance(result, tuple) and len(result) == 2 and result[0] == "played":
 
             self._current_local_playlist_name = result[1]
+
+        if played and origin is not None:
+
+            self._last_source_screen = origin
 
         self._applyUiSettings()
 
@@ -2942,15 +3355,37 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def _browserClosed(self, *args) -> None:
+    def _browserClosed(self, result=None) -> None:
 
         self._log("BrowserScreen closed.")
 
-        # BrowserScreen playback is always folder-based, never from a
-        # stored playlist (Build 0007, device test round 3) -- clear
-        # any stale playlist name so _updateTopLabel() falls back to
+        # Build 0010 -- BrowserScreen's new Playlist column can now
+        # start playback from a genuinely stored playlist too (not
+        # just folder/file-based playback as before), closing with
+        # ("played", playlist_name) exactly like PlaylistScreen's own
+        # convention (_mediaScreenClosed()) so the top label can show
+        # the playlist name and LEFT/RIGHT favorites-view cycling
+        # keeps working. Directory/file-based playback still closes
+        # with a bare "played" (or None on EXIT/MENU without playing),
+        # in which case the previous behaviour is unchanged: clear any
+        # stale playlist name so _updateTopLabel() falls back to
         # showing the folder name instead.
-        self._current_local_playlist_name = None
+        played = result == "played" or (isinstance(result, tuple) and len(result) == 2 and result[0] == "played")
+
+        if isinstance(result, tuple) and len(result) == 2 and result[0] == "played":
+
+            self._current_local_playlist_name = result[1]
+
+        else:
+
+            self._current_local_playlist_name = None
+
+        if played:
+
+            # Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" --
+            # File Browser is always "browser" regardless of which
+            # column (Directories/Files/Playlist) started playback.
+            self._last_source_screen = "browser"
 
         self._applyUiSettings()
 
@@ -2989,6 +3424,10 @@ class MainScreen(Screen):
         elif action_id == "radio":
 
             self.openRadioBrowserScreen()
+
+        elif action_id == "podcast":
+
+            self.openPodcastScreen()
 
         elif action_id == "playback_info":
 

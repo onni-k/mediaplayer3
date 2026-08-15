@@ -6,7 +6,7 @@
 #
 # Author      : MediaPlayer3 Project
 # Copyright   : (C) 2026 MediaPlayer3 Project
-# License     : GNU General Public License v2 (GPL-2.0)
+# License     : GNU General Public License v3 (GPL-3.0-or-later)
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -42,6 +42,13 @@
 #   - Version bumped to 0.8.0-dev / Build 0008 (Music Discovery &
 #     Help: LibraryManager, MusicLibraryScreen, LyricsManager,
 #     HelpManager, HelpScreen, MainScreen information views).
+#
+# 2026-08-11  Build 0010
+#   - Version bumped to 1.0.0-beta (BUILD_0010_PLAN.md fully
+#     implemented and device-confirmed; entering beta). BUILD stays
+#     "0010" -- the internal build/round-tracking identifier used
+#     throughout CHANGELOG.md and the per-build spec documents is
+#     unrelated to the user-facing VERSION string bumped here.
 # ------------------------------------------------------------------------------
 
 """
@@ -67,8 +74,8 @@ APPLICATION_ID = "org.enigma2.mediaplayer3"
 # Version information
 # ------------------------------------------------------------------------------
 
-VERSION = "0.9.0-dev"
-BUILD = "0009"
+VERSION = "1.0.0-beta"
+BUILD = "0010"
 
 # ------------------------------------------------------------------------------
 # Author information
@@ -78,7 +85,7 @@ AUTHOR = "MediaPlayer3 Project"
 
 COPYRIGHT = "Copyright (C) 2026 MediaPlayer3 Project"
 
-LICENSE = "GPL-2.0"
+LICENSE = "GPL-3.0-or-later"
 
 # ------------------------------------------------------------------------------
 # Project URLs

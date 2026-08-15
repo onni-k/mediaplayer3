@@ -233,7 +233,7 @@ class InformationPanel:
 
         if filename:
 
-            lyrics_page = self._buildLyricsPage(filename, elapsed, duration)
+            lyrics_page = self._buildLyricsPage(playback, filename, elapsed, duration)
 
             if lyrics_page is not None:
                 pages.append(lyrics_page)
@@ -289,7 +289,7 @@ class InformationPanel:
     # content is presented").
     # ------------------------------------------------------------------
 
-    def _buildLyricsPage(self, filename, elapsed, duration) -> Optional[Tuple[str, str]]:
+    def _buildLyricsPage(self, playback, filename, elapsed, duration) -> Optional[Tuple[str, str]]:
 
         try:
             lyrics = lyrics_manager.getLyrics(filename)
@@ -307,7 +307,34 @@ class InformationPanel:
 
         title = f"{_('Information')}: {_(source_label)}"
 
-        if lyrics.get("synchronized") and elapsed is not None:
+        # Build 0010, device test round 10 -- user request, two fixes:
+        #
+        # 1. getScrollWindow() (lyrics_manager.py) already computes a
+        #    proportional, first-line-at-track-start to last-line-at-
+        #    track-end scroll position for UNSYNCHRONIZED lyrics too
+        #    (embedded/.txt) -- see its own docstring. This method
+        #    just never called it for that case, only ever showing the
+        #    full static text instead ("joka oli aikaisemmin toiminut"
+        #    -- restoring, not adding, a working feature this method
+        #    itself failed to reach). Condition changed from
+        #    `lyrics.get("synchronized") and elapsed is not None` to
+        #    just `elapsed is not None` -- getScrollWindow() itself
+        #    already branches correctly on whether the lyrics are
+        #    actually synchronized.
+        #
+        # 2. Uses playback.getEstimatedElapsedTime() rather than the
+        #    passed-in `elapsed` -- GStreamer's own raw reading can
+        #    jump by a second or two while still within tick()'s own
+        #    "plausible" tolerance (accepted for the elapsed/remaining
+        #    time display, which is a coarser, once-a-second label
+        #    unaffected by this), which was visibly enough to make a
+        #    synced lyric line skip forward and back
+        #    ("Gstreamerin aika hyppii välillä ja silloin myös
+        #    sanoitusten ajoitus hyppii"). See PlaybackController.
+        #    getEstimatedElapsedTime()'s own docstring.
+        estimated_elapsed = playback.getEstimatedElapsedTime() if elapsed is not None else None
+
+        if estimated_elapsed is not None:
 
             # Build 0009, device test round 4: user-adjustable offset
             # (_lyrics_offset_seconds, adjustSyncOffset()) applied
@@ -318,10 +345,14 @@ class InformationPanel:
             # knows to route UP/DOWN to offset adjustment instead of
             # normal line-scrolling while this page is active -- the
             # two would otherwise conflict (auto-following playback
-            # position vs. a fixed manual scroll window).
+            # position vs. a fixed manual scroll window). Applies to
+            # unsynchronized lyrics too now (see above) -- an offset
+            # still shifts a proportional scroll meaningfully (earlier/
+            # later relative to track position), same as for a timed
+            # one.
             self._synchronized_lyrics_title = title
 
-            adjusted_elapsed = max(0.0, elapsed + self._lyrics_offset_seconds)
+            adjusted_elapsed = max(0.0, estimated_elapsed + self._lyrics_offset_seconds)
 
             text = lyrics_manager.getScrollWindow(
                 lyrics, adjusted_elapsed, duration, window_size=self._visible_lines

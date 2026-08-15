@@ -61,6 +61,7 @@ WORKING_DIRECTORY_NAME = ".mediaplayer3"
 SUBDIRECTORIES = (
     "playlists",
     "radio",
+    "podcast",
     "artwork",
     "cache",
     "logs",
@@ -247,6 +248,9 @@ class StorageManager:
 
     def getRadioPath(self) -> str:
         return self._getSubdirectory("radio")
+
+    def getPodcastPath(self) -> str:
+        return self._getSubdirectory("podcast")
 
     def getArtworkPath(self) -> str:
         return self._getSubdirectory("artwork")

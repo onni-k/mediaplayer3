@@ -1335,6 +1335,36 @@ every fix.
 
 ---
 
+## BUILD 0010 -- CONFIRMED COMPLETE
+
+Closing note (19 rounds of real device testing, across OpenViX and
+Vu+ Duo2): Build 0010 delivered a three-column browsing model
+(Podcasts, Local Files) to match Radio/Music Library's existing
+pattern; a full redesign of the File Browser around it; a local
+RadioBrowser station database (offline-capable search, manual/
+automatic updates); a bundled default Podcast Index and Yle Teksti-TV
+API key (obfuscated, matching each other's pattern, always overridable
+by a user's own key in Settings); Light/Dark themes; MainScreen's OK
+Menu (Back/Stop-Resume/Cancel, plus radio-specific Favorites/history
+actions); and Enigma2 main menu integration.
+
+Two real, previously-invisible bugs were found and fixed purely as a
+side effect of this work, not reported by any user first: a podcast
+episode's URL silently failing every local-file-assuming playlist
+validation check (round 5), and every three-column/panel screen's
+column-header highlight colours never actually varying by theme at
+all since the keys involved were never defined in any theme file
+(round 14). One real crash reached a device (round 10 -- a missing
+import) and was fixed the same session it was reported. One
+deliberate limitation is documented rather than silently accepted or
+silently risked: Dark theme does not darken panel content areas,
+to avoid reintroducing a real, Build-0007-confirmed rendering bug on
+darker panel colours (see THEME_SPEC.md "Dark Theme").
+
+See Claude_notes_build0010.txt for the full, round-by-round record.
+
+---
+
 # Build History
 
 | Build | Version | Status |
@@ -1348,6 +1378,7 @@ every fix.
 | 0007 | 0.7.0-dev | Media collections: playlists, Internet Radio (RadioBrowser), storage management |
 | 0008 | 0.8.0-dev | Music discovery & help: Music Library, lyrics, MainScreen info views, context-sensitive help |
 | 0009 | 0.9.0-dev | MainScreen 2.0 & Radio EPG: three-panel navigation, Finland (Yle/Bauer) radio EPG, ExtEplayer3 option |
+| 0010 | 1.0.0-beta | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys, Light/Dark themes, MainScreen OK Menu, main menu integration |
 
 ---
 

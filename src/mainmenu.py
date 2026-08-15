@@ -142,6 +142,7 @@ MENU_ENTRIES = [
     ("Playlists", "playlists"),
     ("Music Library", "music_library"),
     ("Internet Radio", "radio"),
+    ("Podcasts", "podcast"),
     ("Playback Information", "playback_info"),
     ("Settings", "settings"),
     ("Developer Tools", "developer"),

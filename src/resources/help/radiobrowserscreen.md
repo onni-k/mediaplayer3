@@ -1,17 +1,18 @@
 # Internet Radio
 
 Search and browse Internet Radio stations from RadioBrowser, filtered
-by region and language.
+by language and region.
 
 ## Keys
 
-- LEFT / RIGHT: switch between the stations, region and language
+- LEFT / RIGHT: switch between the stations, language and region
   panels.
 - UP / DOWN: move within the active panel.
 - CH+ / CH-: jump 10 entries at a time in the active panel (may not
   work on every remote/image).
 - OK: open options for the selected station -- play, add to
-  favorites, or view station information.
+  favorites, view station information, update the station database,
+  or clear the station list.
 - INFO: search stations by name.
 - MENU: open the Main Menu.
 - HELP: show this help.

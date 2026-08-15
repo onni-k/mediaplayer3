@@ -123,6 +123,8 @@ _FALLBACK_THEME = {
     "highlight": "#FF6A00",
     "progress": "#E6E6E6",
     "accent": "#4C4449",
+    "inactive_highlight": "#ADD8E6",
+    "selection_background": "#0056B3",
 }
 
 _FALLBACK_SKIN_INFO = {
@@ -557,8 +559,16 @@ class SkinManager:
     def getColor(self, key: str, default: str = "#0A0A0A") -> str:
         """
         Return the current theme's color for `key`
-        ("background"/"text"/"highlight"/"progress"/"accent"), or
-        `default` when the current theme doesn't define it.
+        ("background"/"text"/"highlight"/"progress"/"accent"/
+        "inactive_highlight"/"selection_background"), or `default`
+        when the current theme doesn't define it.
+
+        Build 0010, THEME_SPEC.md "Active Area" -- inactive_highlight/
+        selection_background back every three-column/panel screen's
+        column-header highlighting (Round 6 onward). Every existing
+        theme file now defines both; a theme that doesn't (a custom
+        or hand-edited one) simply falls back to whatever `default`
+        the caller passed, exactly as before this round.
         """
 
         return self._theme_colors.get(key, default)

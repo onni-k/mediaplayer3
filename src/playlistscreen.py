@@ -161,6 +161,12 @@ from .skin import (
     to_opaque_skin_color,
 )
 
+# Build 0010, device test round 6 -- named for _updateColumnHighlighting()'s
+# loop, matching RadioBrowserScreen/MusicLibraryScreen/PodcastScreen's own
+# PANELS/COLUMNS convention (this screen previously used the "playlists"/
+# "tracks" string literals directly everywhere else, which is unaffected).
+PANELS = ("playlists", "tracks")
+
 
 class PlaylistScreen(Screen):
     """
@@ -187,12 +193,36 @@ class PlaylistScreen(Screen):
         background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
         panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
         panel_text_color = PANEL_TEXT_COLOR
+        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
+        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
             return f'font="Regular;{max(10, int(size * sx))}"'
+
+        # Build 0010, device test round 6 -- BUILD_0010_PLAN.md "Visual
+        # Refinement", same fix and reasoning as MusicLibraryScreen/
+        # RadioBrowserScreen's own _buildSkin() comments.
+        panel_rects = {
+            "playlists": (20, 45, 320, 25),
+            "tracks": (360, 45, 320, 25),
+        }
+
+        highlight_xml = ""
+
+        for panel_name, (x, y, w, h) in panel_rects.items():
+
+            highlight_xml += f"""
+            <widget name="{panel_name}_title_bg_normal"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{inactive_color}"/>
+
+            <widget name="{panel_name}_title_bg_active"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{active_color}"/>
+            """
 
         return f"""
         <screen name="MediaPlayer3PlaylistScreen"
@@ -208,17 +238,19 @@ class PlaylistScreen(Screen):
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
+            {highlight_xml}
+
             <widget name="playlists_title"
                     {rect(20, 45, 320, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="tracks_title"
                     {rect(360, 45, 320, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="playlists"
                     {rect(20, 75, 320, 360)}
@@ -289,6 +321,15 @@ class PlaylistScreen(Screen):
         self._log("Initializing")
 
         self["status"] = Label("")
+
+        # Build 0010, device test round 7 -- see MusicLibraryScreen's
+        # own _initialize() comment for why bg widgets must be added
+        # before the title widgets here.
+        for panel_name in PANELS:
+
+            self[f"{panel_name}_title_bg_normal"] = Label("")
+            self[f"{panel_name}_title_bg_active"] = Label("")
+
         self["playlists_title"] = Label(_("Playlists"))
         self["tracks_title"] = Label(_("Tracks"))
         self["playlists"] = MenuList([])
@@ -413,10 +454,36 @@ class PlaylistScreen(Screen):
     # ------------------------------------------------------------------
 
     def _updateFocusIndicator(self) -> None:
+        """
+        Build 0010, device test round 7 -- see MusicLibraryScreen's
+        identical fix/reasoning.
+        """
 
-        active = _("Playlists") if self._focus == "playlists" else _("Tracks")
+        self["status"].setText(_("Playlists"))
 
-        self["status"].setText(f"{active}")
+        self._updateColumnHighlighting()
+
+    # ------------------------------------------------------------------
+
+    def _updateColumnHighlighting(self) -> None:
+        """
+        Build 0010, device test round 6 -- see this file's own
+        _buildSkin() comment / MusicLibraryScreen/RadioBrowserScreen's
+        identical fix.
+        """
+
+        for panel_name in PANELS:
+
+            is_active = panel_name == self._focus
+
+            try:
+                self[f"{panel_name}_title_bg_normal"].hide() if is_active else self[f"{panel_name}_title_bg_normal"].show()
+
+                self[f"{panel_name}_title_bg_active"].show() if is_active else self[f"{panel_name}_title_bg_active"].hide()
+
+            except Exception as error:
+
+                logger.verbose(f"[Playlist] Unable to set column highlight visibility: {error}")
 
     # ------------------------------------------------------------------
     # Navigation (PLAYLISTSCREEN_SPEC.md "Navigation")

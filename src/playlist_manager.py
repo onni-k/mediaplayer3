@@ -91,6 +91,17 @@ class PlaylistManager:
 
         self._initialized = False
 
+        # Build 0010, device test round 20 (OpenPLI, disk-full test
+        # box): savePlaylist() already logged the specific OSError on
+        # failure, but every caller collapsed "genuinely no files to
+        # add" and "found files, but the save itself failed" into the
+        # same falsy return value -- so a real disk-full condition
+        # showed the user a misleading "Nothing was added"/"No
+        # playable files found" instead of the actual reason. Set
+        # whenever savePlaylist() fails, cleared on success; see
+        # getLastSaveError().
+        self._last_save_error: Optional[str] = None
+
         self._log("Created")
 
         self._initialize()
@@ -250,35 +261,174 @@ class PlaylistManager:
 
             self._log(f"Playlist saved: {name} ({len(tracks)} track(s))")
 
+            self._last_save_error = None
+
             return True
 
         except OSError as error:
 
             self._log(f"Playlist saving failed: {name} ({error})")
 
+            self._last_save_error = str(error)
+
             return False
+
+    # ------------------------------------------------------------------
+
+    def getLastSaveError(self) -> Optional[str]:
+        """
+        The OSError message from the most recent failed savePlaylist()
+        call, or None if the most recent call (if any) succeeded.
+        Build 0010, device test round 20 -- lets a caller distinguish
+        "nothing to save" from "tried to save, but it failed" without
+        savePlaylist()'s own return type needing to change.
+        """
+
+        return self._last_save_error
 
 # End of Part 1
     # ------------------------------------------------------------------
     # Track / folder operations
     # ------------------------------------------------------------------
 
-    def addTrack(self, name: str, filepath: str) -> bool:
+    def addTrack(self, name: str, filepath: str, title: Optional[str] = None, artist: Optional[str] = None) -> bool:
         """
         Append `filepath` to playlist `name`, creating the playlist
         first if it doesn't exist yet.
+
+        Args:
+            title: Build 0010 -- use this as the stored track's
+                display title instead of deriving one from `filepath`
+                via os.path.basename(). Needed for anything that isn't
+                a local file path with a sensible filename -- a
+                podcast episode's playback_url, for instance, may
+                carry query-string parameters (confirmed from a real
+                device log: Bauer's own podcast CDN does exactly
+                this), which os.path.basename() would include
+                verbatim in the derived title. Callers that already
+                have a real title (PodcastScreen does, from the
+                episode's own metadata) should always pass it.
+            artist: Build 0010, device test round 23 -- use this as
+                the stored track's artist instead of the "Unknown"
+                default. PodcastScreen passes the podcast's own show
+                name here so MainScreen can display it (a queue built
+                from a playlist otherwise only ever carries a bare
+                path -- see generatePlaybackQueue() -- with no way to
+                recover which show an episode belongs to once it's
+                playing).
         """
 
         tracks = self.loadPlaylist(name) if self._playlistExists(name) else []
 
-        tracks.append(self._trackFromPath(filepath))
+        tracks.append(self._trackFromPath(filepath, title=title, artist=artist))
 
         ok = self.savePlaylist(name, tracks)
 
         if ok:
-            self._log(f"Track added: {os.path.basename(filepath)} -> {name}")
+            self._log(f"Track added: {title or os.path.basename(filepath)} -> {name}")
 
         return ok
+
+    # ------------------------------------------------------------------
+
+    def addFilesInDirectory(self, name: str, directory: str, from_filename: Optional[str] = None) -> int:
+        """
+        Add the supported audio files directly inside `directory`
+        (non-recursive -- deliberately distinct from addFolder()'s
+        recursive os.walk()) to playlist `name`, creating the playlist
+        first if it doesn't exist yet.
+
+        Build 0010 -- File Browser's three-column redesign
+        (BUILD_0010_PLAN.md "File Browser Actions"): backs both
+        "Add all files from directory" (from_filename=None, everything
+        in the directory) and "Add this file and remaining files in
+        directory" (from_filename set -- only that file and whatever
+        sorts after it, alphabetically, the same ordering
+        BrowserScreen's own queue-building already uses). Matching by
+        basename, not full-path equality, for the same reason
+        BrowserScreen._buildQueueFromCurrentDirectory() already does
+        (see its own docstring / Claude_notes_build0005.txt) -- a real
+        device test showed FileList-derived paths don't reliably
+        string-match an os.path.join()-built listing.
+
+        Returns the number of tracks actually added.
+        """
+
+        files = self.listDirectoryAudioFiles(directory)
+
+        if from_filename:
+
+            target_basename = os.path.basename(from_filename)
+
+            start = 0
+
+            for index, path in enumerate(files):
+
+                if os.path.basename(path) == target_basename:
+
+                    start = index
+
+                    break
+
+            files = files[start:]
+
+        if not files:
+
+            self._log(f"No supported audio files found in directory: {directory}")
+
+            return 0
+
+        tracks = self.loadPlaylist(name) if self._playlistExists(name) else []
+
+        tracks.extend(self._trackFromPath(path) for path in files)
+
+        if self.savePlaylist(name, tracks):
+
+            self._log(f"Directory files added: {directory} ({len(files)} track(s)) -> {name}")
+
+            return len(files)
+
+        return 0
+
+    # ------------------------------------------------------------------
+
+    def listDirectoryAudioFiles(self, directory: str) -> List[str]:
+        """
+        Non-recursive, alphabetically sorted list of supported audio
+        files directly inside `directory` (subdirectories and hidden
+        dotfiles excluded) -- the same listing convention
+        BrowserScreen's queue-building already uses, moved here so
+        addFilesInDirectory() can share it without BrowserScreen
+        needing to duplicate playlist_manager's own file-writing.
+        """
+
+        try:
+            entries = os.listdir(directory)
+
+        except OSError as error:
+
+            self._log(f"Unable to scan directory: {directory} ({error})")
+
+            return []
+
+        result = []
+
+        for entry in sorted(entries, key=str.lower):
+
+            if entry.startswith("."):
+                continue
+
+            full_path = os.path.join(directory, entry)
+
+            if os.path.isdir(full_path):
+                continue
+
+            if not entry.lower().endswith(SUPPORTED_AUDIO_EXTENSIONS):
+                continue
+
+            result.append(full_path)
+
+        return result
 
     # ------------------------------------------------------------------
 
@@ -312,6 +462,71 @@ class PlaylistManager:
             return len(collected)
 
         return 0
+
+    # ------------------------------------------------------------------
+
+    def createPlaylistFromFolder(self, name: str, directory: str) -> int:
+        """
+        Build 0010, device test round 5 -- BrowserScreen's Directories-
+        column "Play" action (user request: "Jos valitsee kansion
+        kohdalla soita, niin se voisi luoda suoraan soittolistan koko
+        kansiosta ja alkaa soittamaan"). Unlike addFolder(), this
+        REPLACES playlist `name`'s entire content with exactly the
+        supported audio files recursively under `directory` -- a
+        fresh, single-purpose playlist matching that folder right now,
+        not an accumulation across repeated presses. Creates the
+        playlist if it doesn't exist yet. Any existing playlist of the
+        same name is overwritten, by design (this is a "play this
+        folder" shortcut, not an archival add) -- worth knowing if a
+        folder's name happens to match an existing hand-curated
+        playlist.
+
+        Returns the number of tracks in the resulting playlist (0 if
+        the folder had no supported audio files -- in which case
+        nothing is written, the same as addFolder()'s own "no files
+        found" case).
+        """
+
+        collected = self._collectAudioFiles(directory)
+
+        if not collected:
+
+            self._log(f"No supported audio files found in folder: {directory}")
+
+            return 0
+
+        tracks = [self._trackFromPath(path) for path in collected]
+
+        if self.savePlaylist(name, tracks):
+
+            self._log(f"Playlist created from folder: {directory} ({len(collected)} track(s)) -> {name}")
+
+            return len(collected)
+
+        return 0
+
+    # ------------------------------------------------------------------
+
+    def createPlaylistFromFile(self, name: str, filepath: str, title: Optional[str] = None) -> bool:
+        """
+        Build 0010, device test round 5 -- BrowserScreen's Files-column
+        "Play" action (user request: "Tiedoston kohdalla voisi luoda
+        soittolistan vain siitä tiedostosta ja alkaa soittamaan").
+        Unlike addTrack(), this REPLACES playlist `name`'s entire
+        content with just `filepath` -- see createPlaylistFromFolder()'s
+        own docstring for why (same "fresh, single-purpose, overwrites
+        by design" reasoning, just for one file instead of a folder).
+        """
+
+        tracks = [self._trackFromPath(filepath, title=title)]
+
+        ok = self.savePlaylist(name, tracks)
+
+        if ok:
+
+            self._log(f"Playlist created from file: {title or os.path.basename(filepath)} -> {name}")
+
+        return ok
 
     # ------------------------------------------------------------------
 
@@ -383,13 +598,13 @@ class PlaylistManager:
 
     # ------------------------------------------------------------------
 
-    def _trackFromPath(self, filepath: str) -> Dict[str, Any]:
+    def _trackFromPath(self, filepath: str, title: Optional[str] = None, artist: Optional[str] = None) -> Dict[str, Any]:
 
         return {
             "path": filepath,
             "file_name": os.path.basename(filepath),
-            "title": os.path.basename(filepath),
-            "artist": "Unknown",
+            "title": title or os.path.basename(filepath),
+            "artist": artist or "Unknown",
             "album": "Unknown",
             "duration": None,
         }
@@ -600,6 +815,27 @@ class PlaylistManager:
         treated as an error (PLAYLIST_MANAGER_SPEC.md "Missing files
         shall be skipped." / "Playlist playback shall continue
         whenever possible.").
+
+        Build 0010, device test round 2 (test_2_openvix.log): a
+        podcast episode added via PodcastScreen._addEpisodeToPlaylist()
+        stores an http(s):// URL as `path` (this is the same
+        os.path.isfile()-hostile URL playback_controller.py's own
+        playStream()/play() docstrings already describe as resolved
+        transparently by Enigma2's GStreamer/MP3 service factory, same
+        as a local path). os.path.isfile() unconditionally returns
+        False for a URL, so every podcast episode in a playlist was
+        being silently validated out on every single playback attempt
+        -- confirmed from the log: a one-track playlist consisting of
+        just a podcast episode produced "1 missing file(s) skipped"
+        and an empty playback queue, with no error shown to the user.
+        Local playlists were URL-only-content-free before podcasts
+        existed, so this never surfaced until now. Fixed: a path
+        starting with http:// or https:// is treated as always valid
+        (existence isn't checkable/meaningful for a remote URL the way
+        it is for a local file); only local paths still go through
+        os.path.isfile(). Tested: the exact URL from the device log
+        now passes validation; local missing-file skipping is
+        unaffected (a nonexistent local path is still skipped).
         """
 
         valid = []
@@ -608,7 +844,9 @@ class PlaylistManager:
 
             path = track.get("path", "")
 
-            if path and os.path.isfile(path):
+            is_remote_url = path.startswith("http://") or path.startswith("https://")
+
+            if path and (is_remote_url or os.path.isfile(path)):
 
                 valid.append(track)
 

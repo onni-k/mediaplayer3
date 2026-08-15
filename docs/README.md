@@ -208,7 +208,8 @@ These principles guide all future development.
 
 # License
 
-MediaPlayer3 is released under the GNU General Public License (GPL).
+MediaPlayer3 is released under the GNU General Public License v3.0 or
+later (GPL-3.0-or-later).
 
 Some implementation ideas are inspired by existing Enigma2 projects.
 Where source code is derived from existing GPL software, original

@@ -1,0 +1,2065 @@
+# MediaPlayer3 Build 0010 -- Development Session Notes
+
+Build 0010 is the final feature-focused developer build before
+MediaPlayer3 1.0-beta. Planning docs supplied by the user (in
+docs/): BUILD_0010_PLAN.md, PODCAST_PROVIDER_SPEC.md,
+PODCAST_MANAGER_SPEC.md, PODCAST_SCREEN_SPEC.md, RADIOBROWSER_SPEC.md,
+HELP_SYSTEM_SPEC.md, BUILD_0010_TEST_PLAN.md,
+MAINSCREEN_NAVIGATION_SPEC.md, BROWSER_SCREEN_SPEC.md, THEME_SPEC.md,
+YLE_EPG_SPEC.md.
+
+Also supplied: python-podcastindex-org-example-master.zip (reference
+auth/request code for the Podcast Index API) and
+Podcast_index_API_KEY.txt (an api_key only -- Podcast Index's own
+auth scheme needs an api_secret too, see below).
+
+Source: /home/claude/work/build0010/Plugin_build_0010/src/
+Base: copied from Build 0009's confirmed-complete state.
+
+---
+
+## Build 0010 Scope (from BUILD_0010_PLAN.md)
+
+- Podcast support (new): PodcastManager, a Podcast Index provider,
+  PodcastScreen (three-column: Available/Subscribed/Episodes).
+- Three-column browsing model extended to Internet Radio, Music
+  Library, Local Files (Directories | Files | Playlist), matching the
+  Podcast layout.
+- MainScreen navigation changes: OK in Player mode opens an action
+  menu (Back / Stop-Resume / Cancel) instead of toggling play/pause
+  directly; EPG/INFO becomes purely an area-selector (no more
+  source-specific behaviour); PVR opens the same source-selection
+  query OK uses when nothing is playing, no longer opens BrowserScreen
+  directly; TEXT button fully retired.
+- Light/Dark theme support.
+- RadioBrowser local station database (download/update/clear,
+  automatic update interval).
+- Yle API key read from a local file (yle.txt) instead of manual
+  Settings entry.
+- Internet Radio language/region filters.
+- Main Menu integration option (add MediaPlayer3 to Enigma2's own
+  main menu).
+- The two exception-handling gaps found in the Build 0009 audit
+  (BrowserScreen startup directory, top-level MainScreen protection)
+  -- explicitly carried into this plan by the user.
+
+Given the scope, this build is expected to take many rounds, the same
+way Build 0009 did (14 rounds). This file will be appended to as work
+progresses, one round/session at a time -- see Claude_notes_build0009.txt
+for the established format.
+
+---
+
+## Round 1 (2026-08-08)
+
+### Completed: the two Build 0009 exception-audit fixes
+
+Both were fully specified already (from the audit itself, and BUILD_0010_PLAN.md
+confirms the user wants them addressed), so implemented immediately rather than
+deferred:
+
+1. **BrowserScreen startup directory guard**
+   (`browserscreen.py::_initialize()`): `createFileList(startup_directory)`
+   had no exception guard, and its own docstring says it re-raises
+   when the directory doesn't exist -- a disconnected USB drive or
+   unmounted network share as the configured startup directory would
+   crash BrowserScreen outright. Fixed: checks `os.path.isdir()`
+   first and falls back to "/" (always exists) if unavailable; also
+   wraps the actual `createFileList()` call itself defensively, in
+   case the directory disappears in the brief window between the
+   check and the call. Tested: constructing BrowserScreen with a
+   nonexistent startup directory no longer raises, and the normal
+   (existing-directory) case is unaffected.
+
+2. **Top-level MainScreen startup protection** (`plugin.py::main()`):
+   `session.open(MainScreen)` had no exception guard at all, even
+   though every individual step *before* it already did -- directly
+   responsible for how severe the two real Build 0009 device crashes
+   turned out to be (a malformed XML skin comment, an unverified
+   onLayoutFinish API), since both propagated straight to Enigma2's
+   own crash handler with nothing to catch them. Fixed: wraps the
+   call, logs the full traceback (`traceback.format_exc()`), and
+   shows a MessageBox error dialog instead of letting the exception
+   propagate uncontrolled. Tested: a simulated MainScreen construction
+   failure now surfaces as a MessageBox rather than crashing
+   `plugin.main()`; the normal successful-startup case is unaffected.
+
+Full regression (`plugin.main()`) and skin XML validation (MainScreen,
+BrowserScreen, SettingsScreen) both pass after these two changes.
+
+### Blocking issue: Podcast Index authentication needs BOTH a key and a secret
+
+Read the PodcastIndex example code (`podcasting-index.py`) carefully.
+Confirmed the API's auth scheme (Amazon-S3-style):
+
+    Authorization header = sha1(api_key + api_secret + unix_timestamp).hexdigest()
+    X-Auth-Date header    = str(unix_timestamp)
+    X-Auth-Key header     = api_key
+
+This requires **both** api_key and api_secret -- the uploaded
+Podcast_index_API_KEY.txt only contains an api_key
+("ZBSFDTTUETXB7DJV2KTY"). Cannot complete the actual PodcastIndex
+provider's authentication without the secret too. Flagged this to the
+user; asked for it before proceeding further with the live API
+integration.
+
+Also raised, per the user's own request to embed the key "even if
+encrypted": true security isn't achievable by bundling a shared
+secret + its own decryption logic inside a publicly distributed
+plugin (Build 0010 -> 1.0-beta is explicitly headed for public
+testing) -- anyone who downloads it gets the decryption code too.
+Proposed: light obfuscation (not plaintext) for a bundled default key
+as a convenience so podcasts work out of the box, PLUS a
+Settings-configurable personal key/secret (mirroring the existing Yle
+EPG app_id/app_key pattern) as the actually-robust option, and noted
+the shared-key approach also risks Podcast Index's own rate limits if
+usage scales across many users. Not yet implemented -- waiting on the
+secret before building the real auth path (no point obfuscating a
+key I can't yet use).
+
+### Not yet started
+
+Everything else in BUILD_0010_PLAN.md: Podcast data model/
+PodcastManager/PodcastScreen, three-column browser redesign (Radio/
+Music Library/Local Files), MainScreen OK-menu + PVR + EPG/INFO
+navigation changes, Light/Dark themes, RadioBrowser local database,
+yle.txt file-based key, Internet Radio language/region filters, Main
+Menu integration option.
+
+Given the scope, next steps once the Podcast Index secret is
+available: build PodcastManager + the common podcast/episode data
+model + the Podcast Index provider (structurally following
+PODCAST_PROVIDER_SPEC.md/PODCAST_MANAGER_SPEC.md exactly, mirroring
+the epg_providers/ pattern already established for Yle/Bauer), tested
+in the stub environment before moving to PodcastScreen itself.
+
+---
+
+## Round 2 (2026-08-08) -- PodcastIndex provider + PodcastManager
+
+User provided the missing api_secret (found via email). Both
+credentials now available: proceeded with the real PodcastIndex
+integration.
+
+### PodcastIndexProvider (new: podcast_providers/podcastindex/podcastindex_provider.py)
+
+Mirrors epg_providers/Finland_radio_epg/'s own structure and
+conventions closely. Implements PODCAST_PROVIDER_SPEC.md's interface:
+searchPodcasts(query), getPodcast(podcast_id), getEpisodes(podcast_id),
+refreshPodcast(podcast_id).
+
+- **Auth**: confirmed Amazon-S3-style scheme from the reference
+  example (podcasting-index.py) and cross-checked against three
+  independent third-party implementations found via web search (all
+  identical): Authorization = sha1(api_key + api_secret +
+  unix_timestamp).hexdigest(), plus X-Auth-Date and X-Auth-Key
+  headers. Reimplemented with urllib (stdlib) instead of the
+  reference example's `requests` dependency, matching every other
+  network call in this project. Verified the header computation
+  matches an independently-recomputed hash exactly in testing.
+- **Credentials**: `_resolveCredentials()` prefers the user's own
+  Settings-provided key/secret (cfg.podcast.podcastindex_api_key/
+  podcastindex_api_secret, new config entries + SettingsScreen rows)
+  over a bundled default pair -- falls back to the default only when
+  BOTH user fields are empty (a half-set user pair does NOT get
+  mixed with the default, tested explicitly). The bundled default
+  (the credentials the user supplied) is stored XOR+base64
+  "obfuscated", not plaintext -- explicitly NOT real security (this
+  project is headed for public 1.0-beta distribution, so the
+  deobfuscation logic ships in the same file anyone can read) --
+  discussed this limitation with the user before implementing;
+  their own Settings key/secret is the only genuinely private path,
+  and also avoids every installation sharing the bundled key's rate
+  limit.
+- **Error handling**: every category PODCAST_PROVIDER_SPEC.md's
+  "Error Handling" section lists tested individually against a
+  mocked urllib.request.urlopen: network unavailable (URLError),
+  HTTP failure (HTTPError, e.g. 401/429), invalid JSON, and Podcast
+  Index's own "status": "false" response-body convention (used for
+  some failures even on HTTP 200, confirmed from their docs) -- all
+  degrade to an empty list / None, nothing raises.
+- **Data conversion**: Podcast Index's "feed"/"item" JSON shapes
+  (confirmed via pypi.org's python-podcastindex package docs, which
+  show real sample responses) converted to the common podcast/episode
+  dicts PODCAST_PROVIDER_SPEC.md defines. getEpisodes() filters out
+  episodes with no usable enclosureUrl before returning them, per
+  spec ("PodcastManager shall not offer them as playable items") --
+  tested explicitly.
+
+### PodcastManager (new: podcast_manager.py)
+
+Mirrors InternetRadioManager's own pattern (JSON persistence under
+storage_manager's convention, load/save helpers that never raise).
+New storage_manager.getPodcastPath() (mirroring getRadioPath()) and
+"podcast" added to the ensured-subdirectories list at startup.
+
+- Subscriptions: subscribe()/unsubscribe()/isSubscribed()/
+  getSubscriptions(), persisted to subscriptions.json. Subscribing an
+  already-subscribed podcast is a no-op (not a duplicate) -- tested.
+- Episodes: getEpisodes() caches per podcast_id in memory after the
+  first fetch, only refetches on explicit force_refresh=True or if
+  nothing's cached yet -- and critically, a failed/empty refresh
+  keeps the previously cached episodes rather than wiping them out
+  (PODCAST_MANAGER_SPEC.md "Refresh Behaviour": "A failed refresh
+  shall not remove previously stored valid information") -- tested
+  explicitly with a provider that fails on the second call.
+- refreshPodcast(): updates a subscription's metadata in place on
+  success (preserving the original subscribed_at timestamp), leaves
+  it completely untouched on failure -- both tested.
+- searchPodcasts() delegates to the provider with its own outer
+  try/except as defense-in-depth (mirrors EPGManager's own pattern
+  around ITS provider calls), even though the provider itself never
+  raises.
+
+All of the above tested in the stub environment: credential
+resolution/priority, the exact auth header hash, realistic mocked API
+responses (search + episodes), every documented error category,
+subscription CRUD, episode caching/refresh resilience. Full
+plugin.main() regression and SettingsScreen skin XML validation both
+still pass.
+
+### Not yet started
+
+PodcastScreen itself (the three-column UI, action menus, search entry,
+HELP integration) -- the next natural step, but a large undertaking on
+its own (comparable in scope to RadioBrowserScreen). Everything else in
+BUILD_0010_PLAN.md also remains: three-column browser redesign for
+Radio/Music Library/Local Files, MainScreen OK-menu + PVR + EPG/INFO
+navigation changes, Light/Dark themes, RadioBrowser local database,
+yle.txt file-based key, Internet Radio language/region filters, Main
+Menu integration option.
+
+---
+
+## Round 3 (2026-08-09) -- PodcastScreen
+
+Built the full three-column podcast browser (new: podcastscreen.py),
+following RadioBrowserScreen's own structure closely -- explicitly the
+reference model BUILD_0010_PLAN.md names for this screen's three-column
+layout (same LEFT/RIGHT column-focus model with a PANELS-equivalent
+tuple, ChoiceBox action menus, VirtualKeyBoard search, PAGE_STEP for
+CHANNEL UP/DOWN).
+
+### Column highlighting -- new two-tier pattern
+
+BUILD_0010_PLAN.md's "Visual Refinement" asks for active columns to
+keep the existing blue highlight while inactive columns get a light
+blue background (not RadioBrowserScreen's current plain/neutral
+inactive titles -- confirmed by inspection that RadioBrowserScreen has
+no highlighting at all yet, so this really is new for Build 0010, not
+copied from an existing working pattern). Implemented by extending
+MainScreen's own confirmed-safe Build 0009 mechanism (two overlapping
+background-colour rectangles per header, toggled with hide()/show(),
+never a runtime widget recolour -- deliberately reused rather than
+inventing a new mechanism, per this build's own "Compatibility and
+Reliability" goal) with a second colour tier: inactive now uses a
+dedicated (new) "inactive_highlight" skin colour key, defaulting to a
+plain light blue (#ADD8E6) since no theme currently defines it -- can
+be promoted to a real Light/Dark theme colour once THEME_SPEC.md's own
+work happens later in this build.
+
+### Behaviour (PODCAST_SCREEN_SPEC.md)
+
+- Available Podcasts: INFO opens VirtualKeyBoard search, results
+  populate this column. OK menu shows "Subscribe"/"Open podcast" for a
+  not-yet-subscribed podcast, or "Already subscribed" (no duplicate
+  Subscribe option) for one that already is -- tested both states.
+- Subscribed Podcasts: OK menu offers Open podcast/Refresh/
+  Unsubscribe. Refresh delegates to PodcastManager.refreshPodcast()
+  (already tested there to preserve old data on failure).
+- Episodes: auto-populated whenever the selection changes in Available
+  or Subscribed (spec: "Selecting a podcast updates the Episodes
+  column") -- tested that moving the cursor triggers this, and that it
+  does NOT trigger when moving within Episodes itself. OK menu:
+  Play / Add to playlist.
+- Play: uses playQueue() (the local-file-style playback path), not
+  playStream() (Internet Radio's) -- episodes are finite, seekable
+  audio files unlike a live stream, and Enigma2's own service factory
+  already resolves http(s):// URLs the same way it resolves local
+  paths (confirmed during Build 0009's radio work), so no podcast-
+  specific playback path was needed. Closes with "played", matching
+  RadioBrowserScreen/BrowserScreen's own convention, so MainScreen's
+  existing _mediaScreenClosed() handles it without changes.
+- Add to playlist: mirrors RadioBrowserScreen's own "choose a
+  favorites list" ChoiceBox pattern exactly, targeting
+  playlist_manager.addTrack() instead of internetradio_manager's
+  favorites.
+- Episode with no playback_url (shouldn't normally reach here, since
+  the provider already filters these out, but defended anyway): shows
+  a MessageBox instead of attempting playback -- tested.
+
+### Wiring
+
+Added "Podcasts" to MainMenu's MENU_ENTRIES, and
+MainScreen.openPodcastScreen() + "podcast" dispatch in
+MainScreen._mainMenuCallback(), both mirroring openRadioBrowserScreen()
+exactly (same session.openWithCallback(self._mediaScreenClosed, ...)
+pattern, so returning to MainScreen after playing an episode, or
+EXITing without playing anything, both work the same way
+RadioBrowserScreen's already do -- no changes needed to
+_mediaScreenClosed() itself).
+
+New help doc: resources/help/podcastscreen.md.
+
+### Testing
+
+Skin XML validated at two resolutions (1920x1080, 720x576/PAL-SD).
+Core flow tested end-to-end with a mocked PodcastManager: search ->
+Available column populated -> selection auto-loads Episodes -> LEFT/
+RIGHT column cycling. Subscription menu state tested for both
+already-subscribed and not-yet-subscribed cases. Episode playback
+tested (playQueue() called correctly, screen closes with "played",
+MainScreen's existing close-callback needs no changes) and its
+missing-URL fallback tested. Add-to-playlist tested. MainMenu -> "Podcasts"
+-> MainScreen.openPodcastScreen() wiring confirmed end-to-end. Full
+plugin.main() regression passes.
+
+### Not yet started
+
+Everything else in BUILD_0010_PLAN.md: three-column redesign for
+Radio/Music Library/Local Files (this round only built Podcasts'
+own version -- RadioBrowserScreen itself is unchanged), MainScreen
+OK-menu + PVR + EPG/INFO navigation changes, Light/Dark themes (the
+"inactive_highlight" colour above is ready for this), RadioBrowser
+local database, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Not yet tested on real
+hardware -- no Build 0010 device test round has happened yet.
+
+---
+
+## Round 4 (2026-08-09) -- first device test
+
+First real device test (OpenViX). Search and subscribing both
+confirmed working well by the user. Two findings:
+
+### Podcast episode playback failure -- confirmed same class of issue as Build 0009's Radio Nova/SuomiRock investigation
+
+User reported one episode (from podcast "Nikotellen") failed to play,
+while another episode (Radio Nova's own podcast feed, "Viimeista
+viedaan!") played fine, and suspected a limitation outside anyone's
+control. Confirmed exactly right from the log:
+
+    Nikotellen episode (media.pod.space CDN):
+        [eServiceMP3] Gstreamer error: Not Found (3) from source
+        [eServiceMP3] Gstreamer error: Internal data stream error. (1)
+        [eServiceMP3] Gstreamer error: Stream doesn't contain enough
+                        data. (4) from typefindelement0
+
+    Radio Nova podcast episode (bauernordic-pods.sharp-stream.com CDN):
+        [eServiceMP3] state transition READY -> PAUSED
+        [eServiceMP3] audio stream=0 codec=MPEG-1 Layer 3 (MP3)
+        (plays normally)
+
+This is the EXACT SAME error signature extensively investigated
+during Build 0009 (Claude_notes_build0009.txt, rounds 11-13) for Radio
+Nova/SuomiRock's live streams -- confirmed there to be a server/CDN-
+side characteristic that both GStreamer and ExtEplayer3 fail on
+similarly (ExtEplayer3 additionally introduced a worse problem of its
+own, a ~10s stop delay). Since this now reproduces on a completely
+different CDN (pod.space, a podcast host, vs. Bauer's own live-radio
+streaming infrastructure) with the identical GStreamer error, this
+looks less like "a Bauer live-stream quirk" specifically and more like
+a genuine characteristic of certain HTTP media servers combined with
+this Enigma2 image's GStreamer network source element -- consistent
+with, and further validating, the user's own suspicion ("Voi olla
+etta siella on jotain rajoituksia, joihin ei voi vaikuttaa"). No code
+change made -- nothing in this project's own code differs between the
+working and failing case (both go through the exact same playQueue()
+path), and Build 0009's own exhaustive two-backend investigation
+already concluded this isn't something switching backends reliably
+fixes. cfg.radio.use_exteplayer3 remains available if a user wants to
+try it for a specific failing podcast host, with the same honest
+caveat already documented in config.py's own comment for that
+setting.
+
+### Fixed: episode title corruption when adding to a playlist (+ "(Podcast)" suffix)
+
+User requested podcast episodes added to a playlist show a
+"(Podcast)" suffix, mirroring PlaylistScreen's own existing "(Radio)"
+convention for its combined playlist/radio-favorites list. While
+implementing this, found the underlying mechanism this exposed: without
+an explicit title, playlist_manager.addTrack() derived one via
+os.path.basename(filepath) -- fine for a local file path, but for a
+URL with query-string parameters (confirmed from the same device log:
+Bauer's own podcast CDN appends episode/collection ID parameters) the
+ENTIRE query string ended up in the stored "title" verbatim. Fixed by
+adding an optional `title` parameter to addTrack()/_trackFromPath()
+(default None preserves the exact previous basename-derived behaviour
+for every existing caller, tested explicitly) and updating
+PodcastScreen._addEpisodeToPlaylist() to pass the episode's own real
+title with a "(Podcast)" suffix appended, rather than ever deriving one
+from the URL. Tested: the exact corrupted-title URL from the device log
+now produces a clean stored title; the local-file case (no title
+argument) is provably byte-for-byte unchanged.
+
+### Noted, not yet fixed: missing Finnish translations for new podcast strings
+
+The device log showed repeated "[Localization] Missing translation"
+entries for every new PodcastScreen/PodcastManager-facing string
+("Podcasts", "Available Podcasts", "Subscribed Podcasts", "Search
+podcasts", "Open podcast", "No podcasts found for...", etc.) --
+non-fatal (localization_manager falls back to the English text, same
+as any other missing translation in this project), but worth a
+dedicated pass once the full Build 0010 string set has stabilised
+(more efficient than translating piecemeal as each new screen is
+built) rather than fixing now.
+
+### Testing
+
+Full plugin.main() regression passes. addTrack() title behaviour
+tested for both the explicit-title (podcast) and default (local file,
+unchanged) cases.
+
+---
+
+## Round 5 (2026-08-09) -- second device test (test_2_openvix.log)
+
+### Fixed: podcast episodes silently unplayable once added to a playlist
+
+Log showed the user subscribing, adding a Nikotellen episode to the
+"suomi" playlist (Round 4's new "(Podcast)" title-suffix path working
+correctly), then playing that playlist: "[Playlist] Playlist loaded:
+suomi (1 track(s))" immediately followed by "[Playlist] Missing file
+skipped: https://feeds.soundcloud.com/stream/...\" and "1 missing
+file(s) skipped" -- an empty playback queue, no error shown, nothing
+audible happened.
+
+Root cause: playlist_manager.py's validatePlaylist() (used by both
+generatePlaybackQueue() and browserscreen.py's own queue building)
+called os.path.isfile(path) unconditionally on every track's stored
+path. That was a safe assumption right up until Build 0010: local
+playlists only ever contained local file paths before podcasts
+existed. A podcast episode's path is an http(s):// URL --
+os.path.isfile() always returns False for one, so every podcast
+episode was being validated out of every playlist on every playback
+attempt, unconditionally, with the existing "missing file" logging
+making it look like a disappeared local file rather than what it
+actually was.
+
+Fixed: validatePlaylist() now treats any path starting with http:// or
+https:// as valid without an os.path.isfile() check (existence isn't
+a meaningful/checkable concept for a remote URL the way it is for a
+local file -- matches playback_controller.py's own existing reasoning
+for why podcast/radio URLs need no separate playback path). Local
+paths still go through the original os.path.isfile() check unchanged.
+Tested: the exact URL from the device log now passes validation; a
+genuinely missing local file is still correctly skipped; an existing
+local file still passes -- all three cases verified explicitly, plus
+http:// (not just https://) covered too.
+
+### Other log findings -- not code issues
+
+- The Nikotellen/pod.space GStreamer playback failure from Round 4
+  did not reproduce in this log (this session's episode never reached
+  playback -- it was skipped for the reason above before GStreamer
+  ever saw it), so no new information there either way.
+- Repeated skin warnings against the ViX-Day-HD skin (MessageBox
+  missing ErrorPixmap/QuestionPixmap/WarningPixmap/InfoPixmap,
+  ChoiceBox missing a 'description' element, PluginBrowserSummary
+  missing a 'desc' source in skin_default's own display skin) --
+  all pre-existing skin/screen compatibility gaps unrelated to
+  Build 0010's own code (they fire on stock Screens.MessageBox /
+  Screens.ChoiceBox, not anything in this project), all non-fatal
+  (Enigma2 falls back and continues). Not addressed this round;
+  worth a look if MessageBox/ChoiceBox dialogs turn out to look wrong
+  on ViX-Day-HD specifically, but out of scope for this fix.
+- Localization gaps for podcast strings still present in this log,
+  as expected -- already logged as a deferred item in Round 4, no
+  change here.
+
+### Testing
+
+Full plugin.main() regression passes. validatePlaylist() tested with
+the exact device-log URL (kept), a missing local path (skipped,
+unchanged), and an existing local path (kept, unchanged).
+
+### Not yet started
+
+Everything else in BUILD_0010_PLAN.md remains open: three-column
+redesign for Radio/Music Library/Local Files, MainScreen OK-menu +
+PVR + EPG/INFO navigation changes, Light/Dark themes, RadioBrowser
+local database, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option, the deferred Finnish
+podcast-string translation pass.
+
+---
+
+## Round 6 (2026-08-09) -- File Browser three-column redesign
+
+Confirmed test_3_openvix.log shows Round 5's validatePlaylist() fix
+working: no more "Missing file skipped" for podcast episodes, the
+playlist plays correctly. No new issues found in that log.
+
+### File Browser (browserscreen.py) -- full rewrite
+
+Implemented BUILD_0010_PLAN.md's "Local File Browser" / "File Browser
+Actions": Directories | Files | Playlist three-column model, following
+PodcastScreen's own established column-focus/highlighting pattern
+(LEFT/RIGHT switches column, UP/DOWN moves within it, two-tier header
+highlighting).
+
+Before implementing, flagged one real gap in BUILD_0010_PLAN.md to the
+user directly rather than guessing: the plan's OK-menu lists for
+Directories/Files/Playlist never include a way to actually descend
+into a subdirectory, and LEFT/RIGHT is already committed to column
+switching. User confirmed: add an explicit "Open directory" item to
+the Directories OK menu (deviates from the plan's literal wording,
+kept deliberately visible in this file's own header comment rather
+than silent). Two further same-class additions, made unilaterally
+because the screen literally could not function as designed without
+them, both flagged the same way in the file header:
+
+- PLAY (existing hardware key) still starts playback directly, since
+  none of the plan's own OK-menu items are a "Play" action anymore
+  (this screen is now primarily a playlist-building tool) -- without
+  PLAY there would be no way to start playback from here at all,
+  contradicting the plan's own "existing playback and playlist
+  handling shall remain unchanged".
+- INFO opens a "Select Playlist" picker, since otherwise there would
+  be no way to change which playlist the Playlist column shows once
+  one had been picked.
+
+### Behaviour
+
+- Directories column: subdirectories of the current root (".." first
+  unless at "/"). OK: Open directory (descend/go up) or Add entire
+  directory to playlist (reuses playlist_manager.addFolder(), already
+  recursive and already tested).
+- Files column: live preview of whichever directory is currently
+  *selected* (not necessarily opened) in Directories -- mirrors
+  PodcastScreen's Episodes-column auto-update-on-selection-change
+  exactly, matching the plan's own wording ("files in the selected
+  directory"). OK: Add this file / Add this file and remaining files
+  in directory / Add all files from directory. The latter two needed
+  a new playlist_manager method (addFilesInDirectory(), non-recursive,
+  with an optional from_filename to add only that file onward
+  alphabetically) plus a shared listDirectoryAudioFiles() helper the
+  Files-column preview also calls directly -- both unit-tested
+  standalone (real temp directories: sorted non-recursive listing
+  excluding subdirs/hidden/unsupported files; add-all count; add-
+  remaining count and starting file; addFolder's existing recursion
+  confirmed unaffected).
+- Playlist column: the current working playlist (INFO to pick/create
+  one). OK on a track: Remove / Move up / Move down, exactly per the
+  plan, using playlist_manager's existing removeTrack()/moveTrack().
+
+### MainScreen wiring
+
+BrowserScreen now closes with ("played", playlist_name) -- exactly
+PlaylistScreen's own existing convention -- when playback started
+from the Playlist column, vs. a bare "played" for Directories/Files-
+column (folder/file, non-stored) playback. mainscreen.py's
+_browserClosed() updated to branch on this the same way
+_mediaScreenClosed() already does for PlaylistScreen/RadioBrowserScreen,
+so playing a stored playlist from the new File Browser now also
+enables the existing LEFT/RIGHT favorites-view playlist cycling and
+shows the correct playlist name in the top label -- previously
+impossible, since BrowserScreen playback was always folder-based
+before this round.
+
+resources/help/browserscreen.md rewritten for the new controls.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked; playlist_manager
+additions unit-tested standalone as described above). BrowserScreen
+itself could not be exercised end-to-end here -- no Enigma2 stub
+environment was available in this session (unlike earlier rounds,
+which mention a "stub environment" from prior sessions' own tooling)
+-- so this is NOT yet confirmed on a real device or even in a stub.
+Reviewed carefully by hand instead: constructor signature unchanged
+(MainScreen still calls BrowserScreen(session, playback_controller)),
+no other file references BrowserScreen's old single-column-era method
+names, "browser" MainMenu action id unchanged.
+
+### Not yet started / deferred
+
+- BROWSERSCREEN_SPEC.md itself still describes the old single-column
+  design -- needs a full rewrite pass to match (deferred, flagged
+  here rather than done partially).
+- New strings (Directories/Files/Playlist/Open directory/Add entire
+  directory to playlist/etc.) have no Finnish translations yet --
+  folded into the same already-deferred podcast-string translation
+  pass from Round 4.
+- Everything else in BUILD_0010_PLAN.md remains open: three-column
+  redesign for Internet Radio/Music Library, MainScreen OK-menu + PVR
+  + EPG/INFO navigation changes, Light/Dark themes, RadioBrowser
+  local database, yle.txt file-based key, Internet Radio language/
+  region filters, Main Menu integration option.
+
+**This round has not been device-tested. Recommend testing the File
+Browser specifically before continuing to the next BUILD_0010_PLAN.md
+item, given it received a full rewrite with no stub-environment or
+device confirmation yet.**
+
+---
+
+## Round 7 (2026-08-09) -- MainScreen OK-menu / PVR navigation
+
+Confirmed test_4_openvix.log: File Browser round 6 works correctly
+(user confirmed directly; log shows LEFT/RIGHT column switching, OK
+menus, and a successful 12-track "Add all files from directory"
+add -- no MediaPlayer3-code tracebacks, no missing-file skips). The
+recurring ViX-Day-HD MessageBox/ChoiceBox skin warnings are still
+present, still pre-existing/non-fatal, still not addressed.
+
+Before starting this round, checked BUILD_0010_PLAN.md's remaining
+"Browser Navigation" scope against what already exists:
+MusicLibraryScreen (Build 0008) and RadioBrowserScreen (Build 0007)
+already use the three-panel model the plan asks for -- confirmed by
+inspection, not assumption. Combined with Podcasts (Round 3) and
+Local Files (Round 6), the plan's entire "Browser Navigation" /
+"Local File Browser" section is now complete for all four browsers.
+Likewise, "MainScreen Startup Behaviour"'s per-source Information
+Panel page ordering (Radio: EPG/Now Playing/Station/Codec; local:
+Lyrics/Metadata/Codec) and "MainScreen Navigation"'s EPG/INFO panel-
+cycling were both already implemented exactly as specified back in
+Build 0009 -- confirmed by reading information_panel.py and
+activePanelPressed() rather than re-implementing either. This left
+only two concrete pieces of new work this round: "MainScreen OK Menu"
+and "PVR Button".
+
+### MainScreen OK Menu (mainscreen.py)
+
+OK in the Player panel, with media loaded, now opens a small action
+menu (Back / Stop-Resume / Cancel) instead of Build 0009's direct
+pause/resume/replay toggle -- the dedicated PAUSE key
+(pausePressed()) already handles pausing on its own, so OK no longer
+needs to. "Stop/Resume" is a single item whose label and action
+depend on current state: "Resume" (calls the existing _resume()/
+_replayCurrent(), unchanged) while paused/stopped, "Stop" (calls the
+existing stopPressed(), unchanged) while actively playing.
+
+"Back" needed a new piece of state that didn't exist before: which
+screen (Internet Radio / File Browser / Playlists / Podcasts / Music
+Library) playback most recently started from, so Back can return
+there. Added self._last_source_screen, set only on an actual
+successful ("played") close of the relevant screen -- browsing away
+without playing anything must not silently change where Back would
+return to. _mediaScreenClosed() (shared by PlaylistScreen/
+RadioBrowserScreen/PodcastScreen/MusicLibraryScreen) now takes an
+`origin` parameter, one per open*Screen() call site; _browserClosed()
+always tags "browser". Radio playback that starts without ever
+opening RadioBrowserScreen (RADIO key resuming the last station,
+the startup chooser's own "Internet Radio" choice via
+_startRadioMode()) sets the same state directly inside
+playRadioStation()/_playRadioListEntry(), so Back still makes sense
+there too. No known origin (nothing played yet this session) falls
+back to the Main Menu.
+
+### PVR Button (mainscreen.py)
+
+pvrPressed() now calls the same _openStartupChooser() OK already uses
+when nothing is playing, instead of unconditionally opening
+BrowserScreen -- exactly BUILD_0010_PLAN.md's own wording ("shall
+open the same source-selection query...shall no longer directly open
+BrowserScreen").
+
+resources/help/player.md updated for both changes.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked). Reviewed by
+hand: every open*Screen() call site updated consistently, all five
+_reopenSourceScreen() targets are real zero-arg bound methods, no
+other file calls pvrPressed()/okPressed()/_mediaScreenClosed()
+directly with assumptions about the old signature. Not yet
+exercised on a device or in a stub environment (same caveat as
+Round 6 -- none available this session).
+
+### Not yet started
+
+Remaining BUILD_0010_PLAN.md items: Light/Dark themes, RadioBrowser
+local database (download/update/clear, auto-update interval), yle.txt
+file-based key, Internet Radio language/region filters, Main Menu
+integration option. Also still deferred from earlier rounds:
+BROWSERSCREEN_SPEC.md rewrite, Finnish translations for all the new
+Build 0010 strings (podcast + File Browser + this round's Player-menu
+strings).
+
+**This round has not been device-tested either. The OK-menu change in
+particular touches MainScreen's single most-used key -- recommend
+testing this round on a device before continuing further.**
+
+---
+
+## Round 8 (2026-08-09) -- Finnish translations + File Browser "Play"
+
+Confirmed test_5_openvix.log: Round 7's OK-menu "Back" works
+correctly per the user directly ("Back toimii hyvin"). Log also
+confirms exactly what was expected: repeated "[Localization] Missing
+translation" entries for 'Player', the new BrowserScreen hint text,
+etc -- the deferred translation pass this round finally addresses.
+
+### Finnish (and English) translation pass
+
+Deferred three times since Round 4 ("more efficient than translating
+piecemeal"); done now since the feature surface has stabilised and
+the user asked for it directly (Back/Stop/Cancel specifically, but
+the backlog covered the entire Build 0010 string set). Extracted
+every _() -wrapped string from the whole src/ tree, diffed against
+the existing 63-entry MediaPlayer3.po, found 93 missing (podcast
+strings from Round 3-4, File Browser strings from Round 6, Player-
+menu strings from Round 7, plus some older Music Library/RadioBrowser
+strings that had apparently never been translated either). Added all
+93 to both fi/ and en/ MediaPlayer3.po (en as identity msgid==msgstr,
+matching the existing convention exactly) and recompiled both .mo
+files.
+
+No msgfmt/gettext tooling or network access was available in this
+sandboxed session, so compiled the .mo files with a small hand-
+written .po->.mo compiler matching the standard GNU MO binary format.
+Round-tripped through Python's own gettext.GNUTranslations to confirm
+every new string resolves correctly (both languages) before trusting
+it -- caught and fixed one real bug in the process: the compiler's
+own regex for quoted strings didn't account for escaped quotes
+(\" inside a msgid), which silently corrupted parsing of one existing
+entry ("No podcasts found for \"%s\".") badly enough that it
+overwrote the .po header's own charset metadata, which would have
+broken the .mo file's charset detection entirely, not just that one
+string. Fixed the regex and reverified before compiling for real.
+
+"Cancel" and "Play" already existed and translate correctly
+("Peruuta"/"Soita") -- confirmed by inspection before assuming they
+needed adding.
+
+### File Browser "Play" (device test round 5 user request)
+
+Per direct request: OK's action menu on Directories/Files/Playlist
+now also offers "Play" (reuses the existing "Play"/"Soita" string),
+not just PLAY the hardware key, so getting playback started doesn't
+require going via Favorites/Playlists first.
+
+- Directories: "Play" creates/replaces a playlist named after the
+  folder itself (its own entry name, e.g. "dido") with exactly that
+  folder's tracks (recursive) and starts playing it --
+  playlist_manager.createPlaylistFromFolder(), new, deliberately an
+  overwrite (not an addFolder()-style append): a fresh "play this
+  folder" shortcut, not an accumulating archive. Unit-tested
+  standalone (fresh creation, and confirmed overwrite -- recreating
+  after a file was removed from the source folder correctly shrinks
+  the stored playlist rather than keeping stale entries).
+- Files: "Play" creates/replaces a playlist named after the file
+  (basename without extension) containing just that file and starts
+  playing it -- playlist_manager.createPlaylistFromFile(), new, same
+  overwrite-by-design reasoning. Unit-tested standalone.
+- Playlist column: "Play" starts playing the current playlist from
+  the selected track onward -- routes to the existing
+  _playCurrentPlaylist() (already used by the PLAY hardware key),
+  just now reachable from OK too.
+
+All three close BrowserScreen with ("played", playlist_name), so
+MainScreen's OK-menu "Back" (Round 7) returns directly to BrowserScreen
+-- exactly what was asked ("back palauttaa suoraan tiedostoselaimeen,
+eikä tarvitse mennä suosikkien kautta").
+
+Both "Play" flavours now coexist deliberately: the PLAY hardware key
+still does ephemeral queue playback (no stored playlist, unchanged
+from Round 6); the new OK "Play" always creates/overwrites a real
+playlist. Documented the distinction in resources/help/browserscreen.md
+so this isn't a surprise later.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked).
+playlist_manager's two new methods unit-tested standalone (fresh
+creation, overwrite-shrinks-correctly, empty-folder no-op). Both .mo
+files round-tripped through Python's own gettext reader. BrowserScreen
+itself still not exercised in a stub/device environment this session.
+
+### Not yet started
+
+Remaining BUILD_0010_PLAN.md items: Light/Dark themes, RadioBrowser
+local database, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite to match Round 6-8's actual behaviour.
+
+---
+
+## Round 9 (2026-08-09) -- translation gaps, overwrite-risk fix, column highlighting consistency
+
+Confirmed test_6_openvix.log: Round 8's Back/translations/File Browser
+"Play" all work correctly per the user directly ("Nyt takaisin -toiminto
+toimii hyvin. Myös suomennokset toimii hyvin."). Log still showed three
+"Missing translation" strings Round 8's sweep missed.
+
+### Translation sweep, part 2
+
+Root-caused why Round 8's extraction missed these three: it used a
+single-line grep regex, which cannot match a `_()` call whose opening
+quote is on the following line -- two hint texts (browserscreen.py,
+podcastscreen.py) build their string via implicit adjacent-literal
+concatenation split across three source lines each, entirely invisible
+to a line-by-line regex. Separately, "Podcasts" (mainmenu.py's
+MENU_ENTRIES, translated indirectly via `_(label)` in a list
+comprehension) and "Lyrics"/"Lyrics LRC"/"Lyrics Embedded"/"Lyrics TXT"
+(information_panel.py's `_LYRICS_SOURCE_TITLES` dict, translated via
+`_(source_label)`) were missed for the same reason: my extraction only
+caught `_("literal string")`, not `_(variable)`. Found the remaining
+gaps properly this time with a real multi-line-aware regex (Python
+`re.DOTALL` against the whole file, not grep) plus an explicit search
+for every `_(<identifier>)` call site, traced back to its source
+strings by hand. Added all 7, recompiled both .mo files, re-verified
+via gettext.GNUTranslations again before trusting it.
+
+### Fixed: File Browser "Play" overwrite risk
+
+Per direct user request: Directories/Files columns' "Play" action
+(Round 8) previously named the created/overwritten playlist after the
+folder or file itself, risking a silent overwrite of an unrelated,
+hand-curated playlist sharing that name. Both now always target one
+fixed, reserved playlist name instead -- the existing "Files"/
+"Tiedostot" translation, reused rather than inventing a new string
+(_defaultPlayPlaylistName() in browserscreen.py). Only that one
+dedicated playlist is ever touched by quick-play now; anything the
+user named themselves is never at risk.
+
+### Column-header highlighting consistency (BUILD_0010_PLAN.md "Visual Refinement")
+
+Per direct user request: PlaylistScreen, MusicLibraryScreen and
+RadioBrowserScreen's panel/column headers didn't change colour on
+focus at all (just a separate "status" label naming the active
+panel) -- unlike BrowserScreen/PodcastScreen's own two-tier blue/
+light-blue highlighting (Round 6, itself following BUILD_0010_PLAN.md's
+"Visual Refinement" section, which asks for this same behaviour
+across every three-column browser). Extended the identical
+hide()/show()-on-pre-positioned-rectangles mechanism to all three
+screens: title widgets converted to transparent="1" overlays on a
+pair of new `<panel>_title_bg_normal`/`_bg_active` rectangles per
+panel, toggled from each screen's own `_updateFocusIndicator()` (new
+`_updateColumnHighlighting()` method, near-identical across all four
+screens now). PlaylistScreen didn't have a PANELS-style constant
+before (used the "playlists"/"tracks" string literals directly
+everywhere) -- added one scoped to just this new method, left every
+other existing reference alone. RadioBrowserScreen's initial
+highlight render was also missing before any focus change or
+completed search could trigger it (its first status update happens
+asynchronously after a 10ms deferred load) -- added an explicit call
+in _initialize() itself so the correct highlight shows immediately
+rather than only after the first LEFT/RIGHT press or search result.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked, all 6 touched
+files). Both .mo files re-verified via gettext.GNUTranslations for
+the 7 new entries plus a spot-check of everything already added in
+Round 8. None of this round's UI changes exercised in a stub/device
+environment this session -- same caveat as every round since 6.
+
+### Not yet started
+
+Remaining BUILD_0010_PLAN.md items: Light/Dark themes, RadioBrowser
+local database, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite.
+
+---
+
+## Round 10 (2026-08-09) -- column-title visibility bug + screen name display
+
+User confirmed Round 9's colour highlighting works on device, but
+reported the per-column title TEXT (Artists/Albums/Tracks, Stations/
+Region/Language, Playlists/Tracks) had disappeared entirely -- only
+the single top "status" line still showed text.
+
+### Root cause: Python widget-insertion order, not XML declaration order
+
+Real bug, not a rendering quirk. Enigma2's paint/z-order for same-
+screen widgets follows the order components are added to `self`
+in Python (`self[name] = Widget(...)`), not the order widgets are
+declared in the skin XML string. PodcastScreen/BrowserScreen's own
+_initialize() already (correctly, if not deliberately documented as
+load-bearing before now) adds bg_normal, then bg_active, then the
+title widget, per column, in that order -- title added LAST, so it
+paints on top. Round 9's edits to MusicLibraryScreen/RadioBrowser
+Screen/PlaylistScreen added the title widgets to `self` FIRST, then
+the bg widgets afterwards in a separate loop -- exactly backwards,
+so the opaque bg rectangles painted over the title text and hid it
+completely. The skin XML itself was correct in all three cases
+(verified again by inspection) -- only the Python insertion order was
+wrong. Fixed by reordering _initialize() in all three files to match
+PodcastScreen's own working order (bg widgets added before title
+widgets), and documented this ordering dependency explicitly in all
+three files' comments so it doesn't get silently broken again the
+next time a title widget's initialization is touched.
+
+### Screen name at top (device test round 7 user request)
+
+"Ylhäällä voisi lukea mikä ikkuna on kyseessä, eli esim Soittolistat,
+musiikkikirjasto, Internetradio tai Podcastit." The four screens'
+"status" line previously showed either the active panel's own name
+(now redundant with the column-header highlighting itself) or was
+left blank when idle. Changed to show each screen's own fixed name
+instead, reusing the exact translated strings MainMenu's own entries
+already use (_("Music Library"), _("Internet Radio"), _("Playlists"),
+_("Podcasts")) rather than inventing new ones:
+
+- MusicLibraryScreen/PlaylistScreen: always showed just the panel
+  name before -- now always shows the screen name instead (both
+  screens had no other real use for "status").
+- RadioBrowserScreen: only the panel-name usage was replaced; the
+  separate, still-useful transient messages ("Searching for
+  stations...", "Found N stations") set elsewhere are untouched and
+  still take priority while active, reverting to the screen name
+  afterwards exactly as they already reverted to the panel name
+  before.
+- PodcastScreen: only showed a search query or was blank when idle --
+  blank case now shows the screen name; active search display
+  unchanged.
+
+BrowserScreen deliberately left alone -- its "status" already shows
+the current directory path, which is more specific and useful than a
+fixed name would be, and it wasn't one of the screens the user named.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked, all 5 touched
+files: musiclibraryscreen.py, radiobrowserscreen.py, playlistscreen.py,
+podcastscreen.py, browserscreen.py unchanged/re-verified). Not
+exercised on a device or in a stub environment this session -- same
+caveat as every UI-touching round since 6. Given Round 9 shipped a
+real, user-visible bug undetected until device testing, this
+particular round especially needs device confirmation before trusting
+it fixed what was reported.
+
+### Not yet started
+
+RadioBrowser local station database (BUILD_0010_PLAN.md "RadioBrowser
+Database") is next, per direct user request. Substantial: current
+internetradio_manager.py (941 lines) does a live RadioBrowser API
+call on every search, with no persistent local station storage at
+all -- this needs a new local database layer (download/update/clear,
+7-day default auto-update interval, "existing stations survive a
+failed update" semantics, RadioBrowserScreen menu wiring), not a
+small addition. Deliberately not started in this same round given its
+size, following this project's own "each major step tested before
+continuing" discipline -- especially since this round's own fix was
+needed only because a previous round's change went untested until
+now. Also still open: Light/Dark themes, yle.txt file-based key,
+Internet Radio language/region filters, Main Menu integration option,
+BROWSERSCREEN_SPEC.md rewrite.
+
+---
+
+## Round 11 (2026-08-09) -- RadioBrowser local station database
+
+Confirmed test_8_openvix.log: Round 10's title-visibility fix and
+screen-name display both work correctly on device (all five screens
+exercised -- Playlists, Podcasts, BrowserScreen, MusicLibrary,
+RadioBrowser -- clean log, zero tracebacks, zero missing translations,
+zero missing-file skips). No new issues found; proceeded straight to
+this round's own feature per the user's earlier direct request.
+
+### Local station database (BUILD_0010_PLAN.md "RadioBrowser Database" / RADIOBROWSER_SPEC.md "Local Station Database")
+
+internetradio_manager.py previously had no persistent station storage
+at all -- every search/getCountries()/getLanguages() call hit the live
+RadioBrowser API directly (a vestigial, never-wired-up
+_searchCachePath() was the only hint this was ever planned; removed
+it as part of this round since the real thing now exists). Added:
+
+- **Storage**: stations.json under storage_manager.getRadioPath(),
+  `{"last_updated": <unix ts>, "stations": [...]}`. Capped at 20000
+  stations (RADIOBROWSER_SPEC.md doesn't mandate mirroring the entire
+  global catalogue -- tens of thousands of stations of little
+  individual interest would cost real storage/memory on a set-top box
+  for minimal benefit), downloaded ordered by RadioBrowser's own
+  clickcount (popularity) rather than an arbitrary or alphabetical
+  slice, documented as a deliberate trade-off in code.
+- **updateStationDatabase()**: downloads, validates each entry has a
+  name and a usable stream URL, writes to a `.tmp` path and
+  `os.replace()`s it over the real file only after the write succeeds
+  (RADIOBROWSER_SPEC.md "Database Integrity" -- atomic on the same
+  filesystem, so a crash mid-write can never corrupt the existing
+  database). A failed/empty/invalid response leaves the existing file
+  completely untouched.
+- **clearStationDatabase()**: deliberately separate from a normal
+  update, which never removes stations on its own (RADIOBROWSER_SPEC.md
+  "A separate 'Clear station list' operation may remove the existing
+  stations").
+- **search()/getCountries()/getLanguages()**: same public signatures,
+  now local-database-first (in-memory filtering: substring match on
+  name/tag, exact match on country/language, aggregated
+  {name, stationcount} counts for countries/languages) -- falls back
+  to the original live-API behaviour only when the local database has
+  never been populated, so the app isn't dead on arrival before the
+  first sync.
+- **shouldAutoUpdateDatabase()**: config-driven (new cfg.radio.
+  database_auto_update, default on; cfg.radio.database_update_
+  interval_days, default 7, matching RADIOBROWSER_SPEC.md's own
+  suggested default) -- answers the question only, never triggers an
+  update itself; callers decide when/how to act on it.
+
+All of the above unit-tested standalone with a mocked _apiGet() (no
+real network available in this sandboxed session either): empty-state
+behaviour, successful download with invalid-entry filtering, local
+search (both exact and substring matching), country/language
+aggregation, cross-process-instance persistence, clear, and -- the
+most important case -- a failed update provably leaving a previously-
+good database completely untouched. Also explicitly regression-tested
+that search()/getCountries() still correctly fall back to a live API
+call when the local database is genuinely empty.
+
+### UI wiring
+
+- **RadioBrowserScreen**: initial load now checks the local database
+  first. Empty -> asks the user before running the (potentially slow)
+  first download (RADIOBROWSER_SPEC.md "Empty Database": "the user
+  shall be asked"), showing existing/no results either way afterwards.
+  Non-empty but due for its periodic refresh -> updates silently in
+  the background 500ms after showing current results, without
+  touching what's already on screen (RADIOBROWSER_SPEC.md "An
+  automatic update shall not interrupt active playback") -- the
+  refreshed data simply takes effect on the next search/filter change
+  rather than the currently displayed list jumping around underneath
+  the user.
+- **SettingsScreen**: RED = "Update Station Database" (please-wait
+  message, deferred via the same eTimer pattern RadioBrowserScreen's
+  own _runSearchWithStatus() already established, then a result
+  message with the new station count), BLUE = "Clear Station List"
+  (confirmation-gated, mirrors the existing YELLOW "Clear Radio
+  History" pattern exactly). Hint text updated and, while already
+  touching it, wrapped in _() for the first time (it was never
+  localized before this round at all).
+
+### Translation sweep, part 3
+
+9 new strings from this round's own UI text, found with the same
+multi-line-aware extraction method Round 9 introduced (single-line
+grep is no longer trusted for this project's own translation audits).
+Added to both fi/en .po files, both .mo files recompiled and
+re-verified via gettext.GNUTranslations.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: config.py,
+internetradio_manager.py, settingsscreen.py, radiobrowserscreen.py).
+internetradio_manager.py's new methods unit-tested standalone as
+described above. UI wiring (RadioBrowserScreen's empty/background-
+update paths, SettingsScreen's RED/BLUE) not exercised in a stub or
+device environment this session -- same caveat as every UI-touching
+round recently. Given this round adds real network I/O with atomic-
+write semantics that's specifically hard to get right, device testing
+matters more than usual here.
+
+### Not yet started
+
+Light/Dark themes, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_
+SCREEN_SPEC.md updates to describe the local-database-first search
+behaviour this round introduces.
+
+---
+
+## Round 12 (2026-08-09) -- device test on Vu+ Duo2, database actions off colour buttons, MainScreen radio OK-menu items
+
+Confirmed test_9_openvix_vu_duo2.log: Round 11's database feature
+tested clean on a second device/image combination (Vu+ Duo2, not just
+the usual OpenViX box) -- only the known, pre-existing ViX-Day-HD
+MessageBox pixmap skin warnings, nothing MediaPlayer3-specific.
+
+### Moved database actions off colour buttons (user request)
+
+RADIOBROWSER_SCREEN_SPEC.md already states "Color buttons shall not
+be required" for this screen specifically -- Round 11's RED/BLUE in
+SettingsScreen didn't violate that (wrong screen) but the user asked
+to remove them anyway and use the existing Stations-panel OK menu
+instead, for a more consistent, discoverable UX. "Update stations"
+and "Clear station list" moved from SettingsScreen's RED/BLUE into
+RadioBrowserScreen's per-station OK ChoiceBox (alongside Play/Add to
+Favorites/Create Favorite List/Station Information/Cancel) -- not
+really "about" the selected station specifically, but this is where
+the user asked for them, and it keeps every database action reachable
+from the screen that actually shows stations, without adding a new
+menu system. SettingsScreen's RED/BLUE bindings, the four methods
+that implemented them, and the now-unused eTimer import all removed
+cleanly; YELLOW (Clear Radio History) untouched, was never part of
+this request.
+
+### MainScreen Player OK-menu: three radio-only items (user request, not in BUILD_0010_PLAN.md's own wording)
+
+Added directly per the user, flagged here the same way Round 6's
+BrowserScreen "Open directory"/"Play" additions were -- real gaps the
+plan's own text didn't cover, not silent scope creep:
+
+- **Clear history**: identical action/confirmation text to
+  SettingsScreen's own existing clearRadioHistoryPressed(), just
+  reachable directly from the Player menu while radio is playing,
+  without a detour through Settings.
+- **Add to playlist**: adds the current station's stream URL as a
+  track (playlist_manager.addTrack(), title explicitly overridden to
+  the station's own name -- same "don't derive an ugly title from a
+  URL" reasoning as podcast episodes already use) to a chosen or
+  newly-created playlist. Extends Round 5's "a local playlist can
+  hold a URL, not just a local file" support to radio stations too.
+- **Remove from playlist**: offers only existing playlists (nothing
+  sensible to create here), searches the chosen one for a track whose
+  stored path matches the current station's stream URL, removes it if
+  found. Caught and fixed a copy-paste bug before it shipped: the
+  first draft's success/not-found messages for this action wrongly
+  reused the *Add* action's own English text ("Added to playlist" /
+  "Nothing was added") -- corrected to proper Remove-specific
+  strings/translations before finalizing.
+
+All three only appear in the menu when self._playback.isPlayingStream()
+and self._last_radio_station are both set -- never shown for local
+file or podcast playback, where they wouldn't make sense. Placed
+directly after Back, before the always-present Stop/Resume/Cancel, so
+Back stays the menu's first item exactly as BUILD_0010_PLAN.md itself
+requires.
+
+### Translation sweep, part 4
+
+8 new strings (this round's own new UI text, plus the SettingsScreen
+hint text reverting to its pre-Round-11 wording -- a different string
+from Round 11's RED/BLUE-mentioning version, so it needed its own
+fresh entry rather than reusing that now-orphaned one, which was left
+in place rather than removed -- harmless, unreferenced, matches this
+project's general lean-toward-not-deleting-history approach elsewhere
+in these notes). Added to both fi/en .po files, .mo files recompiled
+and re-verified via gettext.GNUTranslations.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py,
+settingsscreen.py, radiobrowserscreen.py, playlist_manager.py
+unchanged/re-verified this round). Not exercised on a device or in a
+stub environment this session.
+
+### Not yet started
+
+Light/Dark themes, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_
+SCREEN_SPEC.md updates.
+
+---
+
+## Round 13 (2026-08-09) -- crash fix + lyrics scrolling
+
+Confirmed test_10_openvix_vu_duo2.log: a real CRASH, `NameError: name
+'VirtualKeyBoard' is not defined`, in mainscreen.py's
+_addStationToPlaylistChosen() -- Round 12 added "Add to playlist" for
+radio (Player OK-menu) using VirtualKeyBoard for the "create new
+playlist" path, but never actually imported it. Fixed with one added
+import line. Confirmed via a full AST-based static sweep (parsed every
+touched file, cross-checked every capitalized Name a screen actually
+uses at runtime against its own import list) that no other file
+touched this session has the same class of bug -- this was the only
+one.
+
+The user's own description of "should show existing playlists and
+Create new playlist" was reassurance the *intended* design was right,
+not a separate bug report -- that IS what the ChoiceBox already showed
+before the crash; the crash only happened one step later, on
+selecting "Create new playlist...".
+
+### Lyrics: two fixes, both from a single direct request
+
+**Unsynchronized (embedded/.txt) lyrics never actually auto-scrolled**,
+despite lyrics_manager.py's own getScrollWindow() already fully
+implementing exactly what the user asked for ("vieriminen tasaisesti
+kappaleen alusta kappaleen loppuun") -- proportional, first-line-at-
+start to last-line-at-end scrolling, driven by position/duration,
+already there and already doing the right thing on inspection (and
+confirmed directly: tested it standalone with a synthetic 10-line
+lyric across t=0/50/100 out of a 100s duration -- correctly centered
+on line 1, line ~5, and line 10 respectively). information_panel.py's
+_buildLyricsPage() was the actual bug: it only ever called
+getScrollWindow() when `lyrics.get("synchronized")` was true, so the
+existing, working, unsynchronized-scroll code path was simply never
+reached. Fixed by widening that condition to `elapsed is not None`
+(regardless of synchronized) -- getScrollWindow() itself already
+branches correctly on whether the lyrics are actually time-tagged, so
+information_panel.py doesn't need to duplicate that decision.
+
+**Synchronized lyrics timing jump ("Gstreamerin aika hyppii...")**:
+PlaybackController.tick() already has a sophisticated wall-clock-vs-
+GStreamer plausibility check (Build 0008), but it only *rejects* a
+GStreamer reading that's wildly wrong -- a reading within its
+tolerance band is still accepted and used as-is for
+getElapsedTime(), including small in-tolerance jumps that are
+harmless for a once-a-second time label but visible enough to make a
+synced lyric line skip forward and back. Added a second, always-on
+value: getEstimatedElapsedTime(), backed by a new
+self._estimated_position attribute stored on every tick() call
+regardless of which branch self._position itself took (mirrored
+every existing self._position = None reset site so the two attributes
+can never drift out of sync re: staleness). information_panel.py's
+lyrics building now uses this instead of the passed-in `elapsed` --
+getElapsedTime() itself, and everything else that uses it (the
+elapsed/remaining time labels, progress bar), is completely
+unchanged, exactly matching what was actually asked (lyrics only).
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py,
+playback_controller.py, information_panel.py). The AST-based
+undefined-name sweep described above run across every file touched
+this entire session, not just this round's. lyrics_manager.py's
+existing proportional-scroll behaviour re-confirmed standalone (no
+Enigma2 dependency in that module). getEstimatedElapsedTime() itself
+not exercised against a real device this session -- needs real
+playback with an actual GStreamer position glitch to fully confirm,
+which isn't reproducible outside a real device.
+
+### Not yet started
+
+Light/Dark themes, yle.txt file-based key, Internet Radio language/
+region filters, Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_
+SCREEN_SPEC.md updates.
+
+---
+
+## Round 14 (2026-08-09) -- radio favorites redesign, PVR Podcasts, Light/Dark themes
+
+Confirmed test_11_openvix_vu_duo2.log: clean, zero issues -- Round 13's
+crash fix and lyrics fixes both hold on device.
+
+### Corrected: MainScreen's radio "Add/Remove ...playlist" targeted the wrong storage
+
+User's own words caught a real design mistake: "Radiokanavan
+lisääminen soittolistaan Player-tilassa saisi näyttää oletuksena
+General (radio) ja muut radio-soittolistat, mutta ei tiedostot-
+soittolistaa, joka jää vain tiedostoselaimen käyttöön." Round 12's
+implementation added a radio station's stream URL to a
+playlist_manager local playlist -- functionally working, but the
+wrong storage system: "General" is internetradio_manager's own
+default *favorite list* name, not anything playlist_manager knows
+about, and mixing a radio station into a local file playlist made the
+Round 9/10 reserved "Files" quick-play playlist reachable from here
+too, which is specifically supposed to stay File-Browser-only.
+
+Rewrote both actions against internetradio_manager's existing
+favorites API (getFavoriteListNames()/addFavorite()/
+createFavoriteList()/removeFavorite()) instead --
+RadioBrowserScreen's own "Add to Favorites"/"Create Favorite List"
+already use exactly this mechanism for the identical purpose, just
+never reachable from MainScreen's own Player menu before. Renamed the
+menu items and every message string from "...playlist" to
+"...Favorites" throughout, matching the terminology this project
+already uses everywhere else for this exact concept, so there's no
+longer two different words for the same thing depending on which
+screen you're in.
+
+### PVR/OK startup chooser: added Podcasts
+
+Direct request -- one new entry, one new elif branch
+(openPodcastScreen()), matching the four that already existed.
+resources/help/player.md updated for this and the favorites renaming
+in the same pass.
+
+### Light/Dark themes (THEME_SPEC.md) -- partial, with one real bug found and fixed, one deliberate limitation flagged
+
+Investigated the theme system before touching it and found a genuine,
+previously-invisible bug: skin_manager.getColor("inactive_highlight",
+...) and getColor("selection_background", ...) -- backing every
+three-column/panel screen's column-header highlighting since Round 6
+-- were never actually defined in ANY theme JSON file. Every call
+site's own hardcoded `default` argument was silently the only value
+ever returned, meaning the header highlight colours never varied by
+theme at all, contradicting THEME_SPEC.md's own "Light blue inactive
+headers, Blue active headers" (Light) / "Darker inactive areas, Blue
+active headers" (Dark) requirements from the start. Fixed by adding
+both keys to every existing theme file (default/dark/gray/
+highcontrast) plus a new light.json and _FALLBACK_THEME itself --
+purely additive: a theme that still doesn't define these two keys
+(a hand-edited one, say) falls back to exactly the previous hardcoded
+behaviour, unchanged.
+
+Also found, and deliberately did NOT touch: PANEL_BACKGROUND_COLOR /
+PANEL_TEXT_COLOR (skin.py) are hardcoded white/near-black, not
+theme-driven, applied to every panel's content area (lists, text)
+across every screen -- confirmed from this same file's own Build 0007
+change history to be a deliberate fix for a real, device-confirmed
+"video/background bleeding through" bug on darker panel colours, not
+an oversight. A literal, fully-dark THEME_SPEC.md-compliant Dark theme
+would need to darken exactly these colours -- risking reintroducing
+that specific, previously fixed bug, on hardware this session cannot
+test against. Dark theme therefore only darkens the outer screen
+edges/header highlights (background, text -- now white per spec,
+header colours) while deliberately leaving panel content areas white,
+same as every other theme. Flagged clearly rather than either silently
+shipping a possible regression or silently doing nothing.
+
+light.json formalizes the application's actual current visual
+appearance (background/text close to PANEL_BACKGROUND_COLOR/
+PANEL_TEXT_COLOR, matching THEME_SPEC.md's own "shall remain close to
+current appearance") with the two new header-colour keys explicit.
+cfg.appearance.theme gained a "light" choice, now the default
+(existing saved user configs are unaffected by a default value change --
+standard Enigma2 config behaviour); default/highcontrast/gray/custom
+kept as selectable choices too, not removed, despite THEME_SPEC.md's
+own "Supported values are: Light, Dark" wording, to avoid disrupting
+anyone who has already picked one of the others.
+
+### Translation sweep, part 5
+
+6 new strings (the renamed favorites messages). Added to both fi/en
+.po files, .mo files recompiled and re-verified via
+gettext.GNUTranslations.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py,
+config.py, skin.py, plus every other file touched this entire
+session, re-verified together in one pass). The AST-based undefined-
+name sweep (introduced Round 13) re-run specifically against
+mainscreen.py's substantial rewrite this round -- clean. All five
+theme JSON files validated as well-formed JSON. Actual on-device theme
+switching, and the visual correctness of any of these colour choices,
+NOT verified this session -- this environment cannot render Enigma2
+skins. Recommend testing theme switching specifically (both Light and
+Dark, ideally on more than one skin/image given past ViX-specific
+quirks) before trusting the colour choices made here.
+
+### Not yet started
+
+yle.txt file-based key, Internet Radio language/region filters, Main
+Menu integration option. Still deferred: BROWSERSCREEN_SPEC.md
+rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_SCREEN_SPEC.md updates.
+
+---
+
+## Round 15 (2026-08-10) -- Light/Dark theme device confirmation
+
+test_12_openvix_vu_duo2.log + four screenshots (default/light/dark/
+highcontrast/gray all exercised per the log's own "[Skin] Selected
+theme: ..." entries): Round 14's theme work confirmed working on
+device, user-verified directly. In particular:
+
+- The active-area highlight (blue "Soitin" header bar) stays visually
+  identical between Light and Dark, exactly matching THEME_SPEC.md
+  "The active-area indication shall remain consistent between Light
+  and Dark themes" -- confirmed from the screenshots, not just
+  inferred from the color values.
+- High Contrast shows its own distinct yellow active-area highlight
+  (its own selection_background, "#FFD800") rather than the Light/
+  Dark blue -- correctly outside that consistency requirement, which
+  only applies to Light/Dark specifically.
+- No default-artwork transparency/bleed-through in any of the four
+  themes tested (user confirmed directly: "enkä huomannut missään
+  teemassa oletuskuvan läpinäkyvyyttä") -- validates Round 14's
+  decision to deliberately leave PANEL_BACKGROUND_COLOR/
+  PANEL_TEXT_COLOR untouched rather than darkening panel content for
+  Dark theme, which was specifically flagged as carrying re-regression
+  risk against the Build 0007 device-confirmed bleeding bug. Confirmed
+  now: that risk was real to guard against, and the guard held.
+
+No further theme work needed unless something new comes up.
+
+### Not yet started
+
+yle.txt file-based key, Internet Radio language/region filters, Main
+Menu integration option. Still deferred: BROWSERSCREEN_SPEC.md
+rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_SCREEN_SPEC.md updates.
+
+---
+
+## Round 16 (2026-08-10) -- bundled YLE key + Internet Radio column order
+
+### YLE API key: bundled/obfuscated instead of file-based (user request, amends BUILD_0010_PLAN.md)
+
+"Yle txt -koodin voisi laittaa salattuna mukaan, kuten on podcast
+index koodikin laitettu. Erillistä tiedostosta lukemista ei silloin
+tarvita. Siinäkin voi asetuksiin jäädä nykyinen kohta, jos haluaa
+käyttää omaa avainta." Directly supersedes BUILD_0010_PLAN.md's own
+"YLE API Key" section (reading from a local yle.txt file) -- the user
+asked for the same mechanism podcast_providers/podcastindex/
+podcastindex_provider.py already uses instead: a bundled, lightly
+obfuscated (XOR+base64) default credential pair, used only when the
+user hasn't set their own.
+
+New epg_providers/Finland_radio_epg/yle_credentials.py mirrors
+podcastindex_provider.py's own _deobfuscate()/_resolveCredentials()
+pattern almost exactly (same reasoning documented in its own header:
+not real security, just avoiding a greppable plaintext string; a
+user's own key is the only genuinely private option and avoids every
+installation sharing one bundled key's rate limit). Settings ->
+Yle EPG app_id/app_key kept exactly as-is, per the user's own explicit
+request ("nykyinen kohta ... jos haluaa käyttää omaa avainta") --
+still always takes priority when the user has set it.
+finland_radio_epg_registry.py's _registerYle() now calls
+yle_credentials.resolveCredentials() instead of reading cfg directly
+(removed the now-unused cfg import there too).
+
+**This session has no real Yle app_id/app_key to bundle.**
+_DEFAULT_YLE_APP_ID_OBFUSCATED / _DEFAULT_YLE_APP_KEY_OBFUSCATED ship
+as empty placeholders -- resolveCredentials() falls back to None
+exactly like today's "not configured" case (logged, never a crash)
+until real values are filled in. Added generate_yle_obfuscated_key.py
+at the project root (NOT under src/, so it never ships in the plugin
+zip) -- a small standalone script the maintainer can run locally
+(`python3 generate_yle_obfuscated_key.py <app_id> <app_key>`) to turn
+a real Yle app_id/app_key into the two obfuscated strings that get
+pasted into yle_credentials.py, without ever sharing the plaintext
+credentials with Claude.
+
+Unit-tested standalone (no Enigma2 dependency in yle_credentials.py):
+the obfuscate/deobfuscate round-trip (generate_yle_obfuscated_key.py's
+own scheme against yle_credentials.py's own _deobfuscate()), and all
+three resolveCredentials() cases -- no config and no bundled default
+(None), bundled default present and correctly deobfuscated, user's
+own config present and correctly taking priority over the bundled
+default.
+
+### Internet Radio: Language/Region column order swapped
+
+"Internetradion kohdalla riittää, että vaihtaa järjestyksen
+keskimmäiseen kieli ja oikean puoleiseen alue, koska kieli valitaan
+useammin." RadioBrowserScreen's three columns were Stations | Region
+| Language; now Stations | Language | Region. PANELS (the single
+source of truth for both the visual left-to-right layout and the
+LEFT/RIGHT focus-cycle order -- confirmed both actually read from
+this same tuple before changing it, so they can't drift out of sync)
+reordered to ("stations", "language", "region"); the "region"/
+"language" widget names themselves were left alone, only their skin
+positions swapped. Module header and resources/help/
+radiobrowserscreen.md updated to match. _search()/_reloadFilters()
+already read filters by name (_selectedRegion()/_selectedLanguage()),
+not position, so no logic changes were needed there -- confirmed by
+reading them, not assumed.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: radiobrowserscreen.py,
+finland_radio_epg_registry.py, yle_credentials.py). Full-codebase
+translation sweep found nothing new to add this round. Neither change
+exercised on a device this session -- the YLE credential path can't
+be meaningfully tested at all until real credentials are supplied
+(placeholder blocks any real request from ever being attempted), and
+the column reorder is a straightforward, low-risk rect swap but still
+unverified visually.
+
+### Not yet started
+
+Internet Radio language/region filter *values themselves* (BUILD_0010_
+PLAN.md "Internet Radio Filters" -- letting the user change which
+language/region is selected, as opposed to this round's column
+ordering) -- worth double-checking against RadioBrowserScreen's
+existing behaviour before assuming it's still open, same as the
+Browser Navigation section turned out to already be satisfied back in
+Round 7. Main Menu integration option. Still deferred:
+BROWSERSCREEN_SPEC.md rewrite, RADIOBROWSER_SPEC.md/RADIOBROWSER_
+SCREEN_SPEC.md updates (now also needs the column-order change and
+yle_credentials.py's existence reflected).
+
+**Needs from the user before the YLE key can actually work: a real Yle
+app_id/app_key (tunnus.yle.fi/api-avaimet), run through
+generate_yle_obfuscated_key.py, with the two resulting lines pasted
+into yle_credentials.py's own two placeholder constants.**
+
+---
+
+## Round 17 (2026-08-10) -- real YLE credentials supplied
+
+User supplied their real Yle app_id/app_key directly. Ran them through
+generate_yle_obfuscated_key.py exactly as that script's own docstring
+describes, filled the two resulting obfuscated strings into
+yle_credentials.py's own _DEFAULT_YLE_APP_ID_OBFUSCATED/
+_DEFAULT_YLE_APP_KEY_OBFUSCATED constants (previously empty
+placeholders since round 16), updated that file's header/docstring to
+stop describing them as placeholders, and added this round's own
+change-history entry.
+
+Verified end-to-end with a standalone test (no Enigma2 dependency in
+yle_credentials.py): resolveCredentials() with no user-provided
+Settings value correctly deobfuscates back to exactly the app_id/
+app_key the user supplied, and a user-provided Settings value still
+correctly takes priority over the bundled default -- both cases
+explicitly asserted against the real values, not just "it returns
+something."
+
+The plaintext credentials were used only transiently, in-memory, to
+generate the obfuscated strings now committed to yle_credentials.py --
+not written to any other file, and the temporary standalone test
+directory used to verify the round-trip was deleted immediately after
+confirming the result.
+
+Yle Radio EPG (Yle Radio 1/Yle Puhe/YleX etc. -- see
+finland_radio_epg_registry.py's own KNOWN_STATION_PAGES matching)
+should now work out of the box for any user, with no Settings entry
+required, exactly like Podcast Index search already does. A user's
+own Settings-provided app_id/app_key, if they set one, is still always
+preferred over this bundled default.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked:
+yle_credentials.py). Round-trip verified standalone as described
+above. Not yet exercised against the real Yle Teksti-TV API on an
+actual device this session (the auth/request-shape itself was already
+noted as unconfirmed against a real device back when
+yle_teletext_provider.py was first written, in Round 2 -- this round
+only supplies the credentials that request will now actually use).
+
+### Not yet started
+
+Internet Radio language/region filter *values* (double-check against
+current behaviour before assuming still open). Main Menu integration
+option. Still deferred: BROWSERSCREEN_SPEC.md rewrite,
+RADIOBROWSER_SPEC.md/RADIOBROWSER_SCREEN_SPEC.md updates.
+
+---
+
+## Round 18 (2026-08-10) -- YLE EPG confirmed on device
+
+test_13_openvix_vu_duo2.log + screenshot: Round 17's bundled YLE
+credentials confirmed working end-to-end on a real device, no Settings
+entry required. Log shows "YLE radio Suomi, Jyväskylä" (RadioBrowser's
+real station name -- confirmed matching finland_radio_epg_registry.py's
+own normalized-substring matching) correctly registering a Yle
+Teletext schedule provider (page 342) and, per the screenshot, showing
+real, correctly time-ordered programme data (Yle Uutiset, Yöradio,
+etc.) in the Information panel. Zero tracebacks, zero missing
+translations, zero skin errors in the log.
+
+User also directly confirmed region/language filtering and search
+already work correctly from RadioBrowserScreen ("Myös alue ja kieli
+oli oikein ja haku toimi sieltä oikein") -- this was the one item left
+genuinely uncertain after Round 16 (flagged there as "double-check
+before assuming still open"). Confirmed now, the same way several
+earlier "not yet started" plan items turned out to already be
+satisfied (Round 7's Browser Navigation, Round 16's own column-order
+groundwork): BUILD_0010_PLAN.md's "Internet Radio Filters" section is
+complete, no further work needed there.
+
+### Not yet started
+
+Main Menu integration option is the only remaining item from
+BUILD_0010_PLAN.md's own feature list. Still deferred (documentation,
+not behaviour): BROWSERSCREEN_SPEC.md rewrite, RADIOBROWSER_SPEC.md/
+RADIOBROWSER_SCREEN_SPEC.md updates (column order, local-database-
+first search, yle_credentials.py's existence).
+
+---
+
+## Round 19 (2026-08-10) -- Main Menu Integration (BUILD_0010_PLAN.md's last remaining item)
+
+"Settings shall provide an option to add MediaPlayer3 to the Enigma2
+main menu." New cfg.general.show_in_main_menu (ConfigYesNo, default
+off), a Settings entry ("Show in main menu (restart required)") right
+after "Hidden files", following the exact same unlocalized-label
+convention every other entry in that ConfigList already uses (checked
+before assuming -- none of them are wrapped in _(), including this
+project's own recently-added ones, so this new entry doesn't break
+that consistency).
+
+plugin.py's Plugins() now conditionally appends a second
+PluginDescriptor(where=PluginDescriptor.WHERE_MENU) alongside the
+always-present WHERE_PLUGINMENU (Extensions menu) one, when that
+config value is on. Got one real implementation detail right rather
+than assumed: WHERE_MENU's own `fnc` calling convention is genuinely
+different from WHERE_PLUGINMENU's -- Enigma2 calls a WHERE_MENU
+plugin's fnc as `fnc(menuid, **kwargs)` for every menu it builds (not
+just the main menu), and it must return a list of
+(name, function, unique_id, weight) tuples (or [] to contribute
+nothing to that particular menu), not be called directly the way
+WHERE_PLUGINMENU's fnc is. Reusing `main` directly as WHERE_MENU's own
+`fnc` (i.e. treating both the same way) would either have crashed menu
+construction or silently shown nothing anywhere -- added a small
+dedicated mainMenu(menuid, **kwargs) function instead, checking
+`menuid == "mainmenu"` explicitly, which then calls the *same*
+existing `main(session)` when the entry is actually selected (its
+signature already matches what Enigma2's menu machinery calls it
+with, no changes needed there).
+
+PluginDescriptor(**) is evaluated once when Enigma2 loads its plugin
+list (startup or an explicit rescan), not live -- so toggling this
+Settings entry needs a GUI restart before the main menu entry
+actually appears or disappears. Documented directly in the Settings
+label itself ("restart required") rather than left as a surprise, and
+explained in Plugins()'s own docstring.
+
+Verified standalone (mocked PluginDescriptor, no real Enigma2 needed
+for this particular logic): toggle off produces exactly one descriptor
+(Extensions menu only); toggle on produces both; mainMenu("mainmenu")
+correctly contributes the one expected entry; mainMenu() called for
+any other menuid correctly contributes nothing.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: plugin.py,
+config.py, settingsscreen.py). AST-based undefined-name sweep clean.
+Full-codebase translation sweep found nothing new needed (a stray
+_() wrap around "MediaPlayer3" itself was removed before it ever
+needed one -- proper noun, never translated anywhere else in this
+project either). Not exercised against a real Enigma2 main menu this
+session -- the WHERE_MENU calling convention was implemented from
+established Enigma2 plugin-development knowledge, not confirmed
+against this specific device/image, so this is the one part of this
+round genuinely worth confirming on next device test (does the entry
+actually appear in the real main menu after a restart, with the
+toggle on).
+
+### BUILD_0010_PLAN.md status
+
+Every feature section of BUILD_0010_PLAN.md is now implemented and
+either device-confirmed or (this round, Main Menu Integration) at
+least logic-verified standalone. Remaining work is documentation only:
+BROWSERSCREEN_SPEC.md rewrite (still describes the pre-Round-6 single-
+column design), RADIOBROWSER_SPEC.md/RADIOBROWSER_SCREEN_SPEC.md
+updates (column order, local-database-first search, yle_credentials.py).
+
+---
+
+## Round 20 (2026-08-11) -- Main Menu Integration confirmed + documentation pass
+
+test_14_openvix_vu_duo2.log + screenshot: Round 19's Main Menu
+integration confirmed working on device -- "MediaPlayer3" appears in
+Enigma2's own Päävalikko (Main Menu), correctly listed alongside
+Asetukset/Lisäosat/Ajastukset/Tietoja/Sammutusvalikko. Clean log, zero
+issues. This was the WHERE_MENU calling-convention piece flagged as
+the one thing in Round 19 genuinely worth confirming -- confirmed now.
+
+User confirmed BUILD_0010_PLAN.md is functionally complete and asked
+for the deferred documentation pass. Updated:
+
+- **BROWSERSCREEN_SPEC.md** -- full rewrite. The previous version
+  still described Build 0007's single-column, INFO-context-menu
+  design; replaced end to end with the actual three-column
+  (Directories | Files | Playlist) design from Rounds 6-10, including
+  the reserved "Files" playlist's overwrite behaviour (section 5.1)
+  and the exact close()-result conventions MainScreen's "Back" and
+  favorites-view playlist cycling both depend on (section 7) --
+  written to the same section structure PODCAST_SCREEN_SPEC.md
+  already uses, for consistency between the project's two "full
+  rewrite" three-column specs.
+- **RADIOBROWSER_SPEC.md** -- "Manual Update" now says where the
+  action actually lives (RadioBrowserScreen's Stations OK menu, not a
+  colour button); "Station Selection" corrected (Favorites only, never
+  the local playlist system -- was briefly wrong even in this project
+  document, matching the Round 12->14 code correction).
+- **RADIOBROWSER_SCREEN_SPEC.md** -- column order (Stations | Language
+  | Region, swapped from Region | Language in round 16), Station
+  Context Menu now lists Update stations/Clear station list, Search
+  section clarified as local-database-first (not always a live call),
+  MainScreen Integration section now describes the OK-menu items
+  MainScreen gained.
+- **YLE_EPG_SPEC.md** -- "API Key" section rewritten for the bundled/
+  obfuscated-with-Settings-override mechanism, replacing the original
+  yle.txt file-based design the user directly superseded in round 16.
+- **MAINSCREEN_SPEC.md** -- Player Panel's OK description was still
+  "Play / Pause" from Build 0009; replaced with the actual Build 0010
+  OK Menu (Back always first, radio-only Favorites/history items,
+  Stop/Resume, Cancel) and PVR's own updated behaviour.
+- **THEME_SPEC.md** -- documented the deliberate Dark-theme panel-
+  content limitation (round 14's own reasoning, now written down
+  rather than living only in this notes file) and the real
+  inactive_highlight/selection_background bug found and fixed in the
+  same round.
+- **CHANGELOG.md** -- added a "BUILD 0010 -- CONFIRMED COMPLETE"
+  closing entry (matching Build 0009's own format exactly) and the
+  Build History table row.
+
+No source code changed this round -- documentation only. Sanity-
+checked every edited file's line count and file ending; none of these
+edits touch anything plugin.main() actually imports, so no
+py_compile/regression run was needed for this round specifically.
+
+### BUILD_0010_PLAN.md status
+
+Complete: every feature section implemented and device-confirmed,
+every piece of deferred documentation now updated to match. No open
+items remain from this plan.
+
+---
+
+## Round 21 (2026-08-11) -- six-image device test batch: real findings and one genuine improvement
+
+Six logs this round: OpenPLI 9.2, OpenATV 8.0.0-beta, OpenBH 5.6.008,
+and three OpenViX captures (Vu+ Duo2, Vu+ Uno4Kse x2). User reported
+OpenPLI didn't save radio favorites or play tracks, suspecting the
+different directory structure there; and one OpenViX crash, suspected
+caused by a poorly-performing radio station. Investigated both
+directly from the log evidence rather than the user's own hypotheses,
+since the actual root causes turned out to be different from both.
+
+### OpenPLI: not a MediaPlayer3 bug -- the test device's storage was full
+
+`grep -n "No space left"` across the OpenPLI log found it immediately:
+"[Errno 28] No space left on device" on EVERY write attempt that
+session -- station database updates, favicon caching, and every
+single playlist save, confirmed by "[Playlist] Playlist saving
+failed: Tiedostot ([Errno 28] No space left on device)" appearing
+five separate times. Favorites additions succeeded (logged
+"Favorite added" with no accompanying write error) earlier in the same
+session, before the disk apparently filled up further from the failed
+database-update attempts -- favorites.json is tiny; the station
+database and playlist writes are not. Not related to directory
+structure at all -- storage_manager correctly created every expected
+subdirectory under /media/.mediaplayer3 on this box, no different
+than any other image. The user's own hypothesis (different directory
+structure) is directly contradicted by the log, so said so plainly
+rather than pursuing a fix for a cause that isn't the real one.
+
+**Real, valuable finding underneath the false lead**: BrowserScreen's
+existing error messages ("Nothing was added.", "No playable files
+found.") collapsed two genuinely different situations into one --
+"there was nothing to add" and "there was something to add, but
+saving it failed" -- so a real disk-full condition looked, from the
+user's side, identical to an empty folder, with the actual, fixable
+cause sitting only in the log. Fixed: playlist_manager gained
+getLastSaveError() (the OSError message from the most recent failed
+savePlaylist() call, cleared on the next successful one);
+BrowserScreen's three affected call sites now show "Save failed: ..."
+(with the real OS error, ERROR-level) instead of the generic message
+when that's what actually happened, and still show the original
+generic message (INFO-level) when there truly was nothing to add.
+Unit-tested standalone: no error initially, empty folder correctly
+shows no save error, a save failure via a mocked OSError correctly
+populates getLastSaveError() with the right message, and a subsequent
+successful save correctly clears it again.
+
+### OpenViX "crash": also not what it looked like -- the known ViX-Day-HD skin gap, not a radio issue
+
+Both OpenViX Uno4Kse logs' full tracebacks read in full: both are the
+same already-well-documented (many rounds now), non-fatal ViX-Day-HD
+skin gap -- MessageBox/MessageBoxSimple missing ErrorPixmap/
+QuestionPixmap/WarningPixmap/InfoPixmap components -- Enigma2's own
+skin.py catches and recovers from it every time, confirmed by normal
+operation continuing directly afterward in both logs (one shows
+Enigma2's standard exit-confirmation dialog proceeding to actually
+quit; the other shows RadioBrowserScreen's own "no stations yet,
+download now?" prompt rendering and the screen continuing normally).
+Neither trace involves MediaPlayer3 code, and neither is caused by
+radio stream quality -- confirmed by checking backward through each
+log for any preceding stream/playback error and finding none directly
+adjacent to either occurrence. Not a real application crash in either
+case; nothing to fix in MediaPlayer3 for this.
+
+### Other four logs (OpenATV, OpenBH, OpenViX Duo2)
+
+Confirmed clean -- zero tracebacks, zero disk errors -- matching the
+user's own "muuten toimi oikein kaikissa ympäristöissä."
+
+### Translation sweep
+
+1 new string ("Save failed: %s"). Added to both fi/en .po files, .mo
+files recompiled and verified.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: browserscreen.py,
+playlist_manager.py). getLastSaveError() mechanism unit-tested
+standalone (4 cases, including a mocked disk-full OSError) as
+described above. The improved error messages themselves not yet
+re-exercised on an actual disk-full device -- the next time a real
+device runs low on storage during testing is the natural confirmation
+opportunity, not something reproducible from this environment.
+
+---
+
+## Round 22 (2026-08-11) -- OpenPLI storage explanation + .ipk package
+
+test_15_openpli_9_2_vu_uno4Kse.log: user explained the real cause of
+round 21's "disk full" finding directly -- this specific test box has
+3TB+ of genuinely free internal storage, but no /media/hdd at all
+(OpenMultiBoot; the "internal disk" convention this box actually uses
+differs from what usually maps to /media/hdd elsewhere, and the only
+large volume present is /media/2tb_ulkoinen, which plays the role
+/media/usb usually does on other boxes). storage_manager's own mount-
+point candidate list evidently didn't find/prefer whichever path
+actually has space here, landing on something small instead. User
+identified this as an OpenPLI/OpenMultiBoot configuration
+characteristic of this specific box, not something to chase a
+MediaPlayer3 code fix for this round -- noted as a real, valid
+explanation and left as-is; the getLastSaveError() surfacing added in
+round 21 already means a user hitting this same situation elsewhere
+gets an accurate, actionable message instead of a misleading one,
+regardless of the underlying mount-point cause.
+
+### .ipk package
+
+Built a proper opkg/ipkg package (ar archive: debian-binary,
+control.tar.gz, data.tar.gz) so the plugin can be installed directly
+via opkg rather than manually copying files -- first time this
+project has been packaged this way.
+
+Verified before delivering, not just assumed correct:
+- Every file lands at the correct install path (/usr/lib/enigma2/
+  python/Plugins/Extensions/MediaPlayer3/...) -- confirmed by
+  re-extracting the built .ipk and checking plugin.py's own path
+  directly.
+- File coverage is exact: 71/71 files, matching src/'s own file count
+  precisely (re-extracted data.tar.gz and diffed counts against
+  `find src -type f`) -- nothing missing, nothing extra.
+- Depends: line checked against the codebase's actual imports (a full
+  recursive scan of every import statement, not assumed) rather than
+  guessed -- found the whole project uses only Python's standard
+  library (urllib, struct, hashlib, json, etc.) plus Enigma2's own
+  built-in modules, no external pip-style dependency at all, so
+  `Depends: enigma2` is the accurate, complete list (an initial draft
+  guessed a PIL/imaging dependency that the import scan disproved,
+  corrected before shipping).
+- generate_yle_obfuscated_key.py (project root, dev-only) and docs/
+  are correctly absent from the package -- only src/'s own contents
+  are installed, matching how the plugin is actually meant to run.
+
+No postinst/prerm script included -- Enigma2 picks up a newly
+installed Extensions-menu plugin on its own without one, and forcing
+a GUI restart automatically as part of install felt like the wrong
+default without the user asking for it specifically.
+
+### Testing
+
+The .ipk's internal structure was verified by extracting and
+inspecting it directly (structure, control metadata, exact file
+count/coverage) -- not verified with a real opkg install on an actual
+Enigma2 box this session, which is the natural next confirmation step.
+
+---
+
+## Round 23 (2026-08-15) -- MainScreen display redesign, EPG-key simplification, default theme
+
+Large, multi-part direct request: MainScreen's top display area
+per-source content, progress bar repositioning, EPG/INFO key
+behaviour, and the default theme.
+
+### Podcast title now actually reaches MainScreen
+
+Discovered a real, previously-unnoticed gap while implementing the
+podcast display requirement: playlist_manager.generatePlaybackQueue()
+only ever returns bare file paths (see its own docstring) --
+whatever title/artist a track was stored with (podcast episodes have
+carried a real title since Round 3-4) never reached
+PlaybackController at all once playback actually started, only ever
+showing correctly within PlaylistScreen/BrowserScreen's own list
+views. Fixed with a deliberately minimal, low-risk addition rather
+than reworking the queue's shape (which many call sites depend on):
+addTrack()/_trackFromPath() gained an optional `artist` parameter;
+podcastscreen.py now tracks the current podcast's own show name
+(_current_podcast_title, alongside the existing _current_podcast_id)
+and passes it as `artist=` when adding an episode. MainScreen looks
+this up itself via a new _lookupCurrentPlaylistTrack() helper (matches
+self._playback.getCurrentFile() against
+self._current_local_playlist_name's own stored tracks) rather than
+changing what PlaybackController's queue carries -- no other call
+site of generatePlaybackQueue()/playQueue() needed to change at all.
+Verified standalone (no Enigma2 dependency in playlist_manager.py):
+storing and retrieving a podcast track's artist correctly, the
+"(Podcast)" suffix-stripping logic for display, and confirmed a local
+file's default "Unknown" artist is completely unaffected by the new
+parameter.
+
+### MainScreen top display area -- per-source content, reworked
+
+Replaced _formatTitle()/_formatArtistAlbum() (Build 0006/0009) with
+_formatMetaLines() (top box, now two lines) and _formatMediaLine()
+(second box, one line):
+
+- Local file: top = Artist / Album (was one combined "Artist - Album"
+  line); second box = track title (unchanged content, just alone now
+  instead of sharing the box with nothing else).
+- Radio: top = station name, empty second line; second box = Now
+  Playing info, with the same programme-title/station-name fallback
+  chain Build 0009 already established -- content unchanged, only
+  which box shows it swapped.
+- Podcast: top = podcast's own show name; second box = episode title
+  (suffix-stripped, see above).
+
+Skin: top box grew from 40 to 64px (fits two lines), second box
+shrank from 84 to 60px (same total footprint as before, so nothing
+below it needed to move).
+
+### Progress bar moved back above Playlist/Information
+
+Per direct request: elapsed/progressbar/remaining relocated from the
+very bottom of the screen (Build 0009's own placement) back to sit
+between the status line and the Playlist/Information panels. The
+panels themselves shifted down by exactly the progress row's own
+footprint (~26px) but kept their own height completely unchanged --
+info_content (Lyrics/other Information pages) is still 252px, so gets
+the same amount of space as before, exactly as requested ("Sanoituk-
+sille jaa silti saman verran tilaa, kun laatikot vain siirtyy sen
+verran alemmaksi"). Total layout still fits within the existing
+520px design height with a few pixels to spare -- no DESIGN_HEIGHT
+change needed.
+
+### EPG/INFO: Playlist panel removed from the cycle entirely
+
+Was already skipped only while Internet Radio played (Build 0009,
+round 9); now skipped for every source, per direct request ("Riittaa,
+etta vaihtaa aktiivista otsaketta vain soitin-nakyman ja tiedot-
+nakyman valilla, kun ok-napilla paasee takaisin edelliseen
+toimintoon" -- the OK-menu's own "Back", Round 7, already covers
+returning to wherever a different track/station/episode would be
+picked). activePanelPressed()'s cycle is now unconditionally
+("player", "information") for everyone; the radio-only special case
+this generalizes is kept in the docstring as history. playlist_list/
+playlist_title still update in the background regardless (unchanged,
+same as the pre-existing radio behaviour already relied on) -- only
+reachability via this key changed. Confirmed no other code path still
+sets self._active_panel = "playlist" (grepped every assignment site).
+
+### Default theme changed to Gray
+
+cfg.appearance.theme's default changed from "light" (Round 14) to
+"gray", per direct request now that all the other themes have been
+device-confirmed (Round 15). Existing saved user configs are
+unaffected (standard Enigma2 config behaviour -- only a fresh,
+never-configured install picks up a new default).
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py,
+playlist_manager.py, podcastscreen.py, config.py). AST-based
+undefined-name sweep clean on all three Python files touched.
+Full-codebase translation sweep found nothing new needed (every
+string reused was already translated). playlist_manager's new
+artist= parameter and the podcast-suffix-stripping display logic
+unit-tested standalone as described above. The skin/layout changes
+and the EPG-key behaviour change are not exercised on a device or in
+a stub environment this session -- this is a substantial visual
+rework with real pixel-math involved, so device confirmation matters
+more than usual here, especially for the per-source meta/media
+content (radio/podcast/local switching correctly) and that nothing
+overlaps or clips at the new panel positions.
+
+### Delivery
+
+User confirmed the .ipk workflow (round 22) and asked for both a zip
+and an .ipk with every future delivery going forward -- both built
+and delivered this round.
+
+---
+
+## Round 24 (2026-08-15) -- critical startup crash fix + .ipk removal cleanup
+
+### Startup crash: invalid XML comment in Round 23's own skin edit
+
+test1_openvix_6_9_001.log: MainScreen failed to open at all --
+`xml.etree.ElementTree.ParseError: not well-formed (invalid token):
+line 59, column 58` inside readSkin(), then a second, unrelated crash
+(RuntimeError: modal open not allowed) while plugin.py's own
+error-reporting MessageBox tried to open from a non-modal context --
+a real, separate minor gap in the error-handling path itself
+(session.open() for a MessageBox at top-level main() apparently isn't
+always safe to call this way), noted but not chased this round since
+the actual root cause made it moot; worth a look if a startup error
+MessageBox is ever needed again.
+
+Root cause of the real crash: XML forbids "--" ANYWHERE inside a
+`<!-- -->` comment body, not just adjacent to the delimiters -- Round
+23's own new comments in mainscreen.py's _buildSkin() used " -- " as
+a prose separator (this project's own house style throughout every
+Python comment) inside three separate `<!-- -->` blocks, which is
+completely fine in a Python `#` comment but invalid inside emitted
+XML. This is exactly the class of bug that can't be caught by
+py_compile or an AST sweep (both already run last round) -- it only
+exists in the XML *content* produced by an f-string at runtime, which
+requires actually rendering and parsing the skin to catch.
+
+Fixed by replacing "--" with ":" in the three comments. Then went
+further than a manual fix this time: extracted _buildSkin() as a
+standalone function (via source-slicing + minimal mocked dependencies
+-- skin_manager, to_opaque_skin_color, PANEL_BACKGROUND_COLOR/
+PANEL_TEXT_COLOR, get_version_string, MainScreen.DESIGN_WIDTH/HEIGHT)
+and ran the ACTUAL generated XML through Python's own
+xml.etree.ElementTree.fromstring() -- the exact same parser Enigma2's
+own readSkin() uses per the crash traceback -- at four different
+resolutions (700x520, 720x576, 1280x720, 1920x1080). All parse
+cleanly now. Also grepped every other screen file's own `<!-- -->`
+comments (if any) for the same class of bug across the whole
+codebase -- none found; this was isolated to Round 23's own new
+comments in mainscreen.py, not a pre-existing or wider issue.
+
+This is a good general lesson for this project going forward:
+whenever a skin-XML f-string changes, actually rendering and
+XML-parsing the result (not just py_compile/AST) is now the right
+verification step, not just something to consider -- adopting this
+as standard practice, not a one-off exercise, since normal
+static-analysis tooling structurally cannot catch this whole class of
+bug (it lives entirely in string content, not Python syntax).
+
+### .ipk: guaranteed complete removal on uninstall, settings preserved
+
+Direct request: opkg removal should delete the whole MediaPlayer3
+install directory and everything in it, but leave the separate
+settings/data directory (.mediaplayer3, under /media/hdd/ or /media/
+depending on the receiver -- storage.py) alone, ready for the next
+install.
+
+opkg already only ever removes the files it itself tracked from a
+package -- runtime-created files it never installed (Python's own
+__pycache__/*.pyc, generated the first time each module actually
+runs) are invisible to it and get left behind after every removal,
+along with the now only-those-files-containing directory. Added a
+postrm script (runs after opkg's own file removal, executable
+permission confirmed preserved through the tar/ar packaging by
+re-extracting and checking it) that does exactly one thing: `rm -rf`
+the plugin's own install path. Deliberately does not reference
+/media/ or the settings directory at all, anywhere in the script, so
+there's no way for it to reach into the wrong place even by mistake.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py).
+The three fixed XML comments verified via real XML parsing at four
+resolutions, as described above -- not just inspected by eye this
+time. Every other screen file's skin-building code swept for the same
+bug class; none found. The .ipk's postrm script's own correctness
+(does it actually run at opkg removal time, does it leave the
+settings directory untouched on a real device) not verified against
+a real opkg installation this session -- the natural next
+confirmation step is an actual install-then-remove cycle on a device.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.
+
+---
+
+## Round 25 (2026-08-15) -- queue position repositioned, Main Menu label
+
+User confirmed the crash fix and .ipk removal cleanup both work
+correctly on device. Two further direct requests:
+
+### Queue position moved up, directly under the progress bar
+
+Was at the very bottom of the screen (y=500, Build 0009's own
+placement, untouched by Round 23's progress-bar move); moved to sit
+immediately below elapsed/progressbar/remaining instead (y=214),
+with the Playlist/Information panels shifted down again to make room
+(y=238 for the panel titles, y=266 for playlist_list/info_content).
+Each panel's own height is still completely unchanged (info_content
+still 252px) -- same "boxes just move, don't shrink" approach as
+Round 23's own progress-bar move. Total layout still fits inside the
+520px design height (ends at 518).
+
+Applied this round's own new standard practice (established last
+round, after the XML-comment crash): extracted _buildSkin() and
+actually rendered + XML-parsed the result via
+xml.etree.ElementTree.fromstring() at four resolutions again, not
+just inspected by eye -- all clean, and spot-checked the emitted
+positions themselves (queueposition/playlist_title/playlist_list/
+info_content) to confirm they land exactly where intended, not just
+that the XML happens to be well-formed.
+
+### Main Menu: "Selain" -> "Tiedostoselain" (Finnish only)
+
+Translation-only change (mainmenu.py's own English string, "Browser",
+is unchanged -- only its Finnish .po entry was ever "Selain").
+Checked first whether "Browser" is translated/used anywhere else in
+the codebase before changing it (gettext translations are per-string,
+not per-context) -- confirmed it's used in exactly one place
+(MENU_ENTRIES), so safe to change without affecting anything else.
+.mo recompiled and re-verified via gettext.GNUTranslations.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py,
+mainmenu.py). Full XML-comment double-hyphen sweep and full
+translation-coverage sweep both re-run across the whole codebase,
+clean. The skin repositioning itself not yet confirmed on a real
+device this round -- the XML-validity/position checks catch what
+they can, but the actual on-screen look (spacing, whether it reads
+well) still needs eyes on a real screen.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.

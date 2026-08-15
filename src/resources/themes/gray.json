@@ -4,5 +4,7 @@
     "text": "#1A1A1A",
     "highlight": "#0056B3",
     "progress": "#1A1A1A",
-    "accent": "#707070"
+    "accent": "#707070",
+    "inactive_highlight": "#C9D8E6",
+    "selection_background": "#0056B3"
 }

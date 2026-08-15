@@ -13,7 +13,10 @@ switching favorite lists here instead.
 ## Keys
 
 - OK: if nothing is playing, opens a chooser (Internet Radio / Local
-  Music / Music Library / Playlists). Otherwise, Play/Pause.
+  Music / Music Library / Playlists / Podcasts). Otherwise, opens a
+  small menu: Back (return to wherever playback was started from),
+  Stop/Resume, Cancel -- plus, while listening to Internet Radio:
+  Clear history, Add to Favorites, Remove from Favorites.
 - PLAY / PAUSE / STOP: control playback directly.
 - LEFT / RIGHT: seek a short step back/forward for local files.
   Switches the active favorite list instead while listening to
@@ -22,7 +25,8 @@ switching favorite lists here instead.
 - UP / DOWN: previous/next track (or previous/next radio station,
   while listening to Internet Radio).
 - CH+ / CH-: previous/next track (may not work on every remote/image).
-- PVR: open Browser.
+- PVR: opens the same chooser as OK (Internet Radio / Local Music /
+  Music Library / Playlists / Podcasts).
 - RADIO: switch between radio and local playback, or open the radio
   station search.
 - EPG / INFO: switch to the Playlist panel (local music) or

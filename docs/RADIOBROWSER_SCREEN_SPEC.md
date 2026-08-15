@@ -2,9 +2,10 @@
 
 MediaPlayer3
 
-Build 0007
+Build 0010
 
-Status: Build 0007 CONFIRMED COMPLETE (device test round 13 -- OpenViX, OpenATV, openPLI, OpenBH)
+Status: Build 0010 CONFIRMED COMPLETE (device test rounds 12, 14, 16
+-- OpenViX, Vu+ Duo2)
 
 ---
 
@@ -51,11 +52,15 @@ Stations
 
 Center panel:
 
-Region
+Language
 
 Right panel:
 
-Language
+Region
+
+(Center/right swapped from Region/Language in device test round 16 --
+"kieli valitaan useammin" (language is picked more often than
+region), so it sits in the more reachable middle position.)
 
 Example:
 
@@ -73,18 +78,6 @@ Radio Nova
 
 ...
 
-Region
-
-↓
-
-Finland
-
-Sweden
-
-Norway
-
-...
-
 Language
 
 ↓
@@ -94,6 +87,18 @@ Finnish
 Swedish
 
 English
+
+...
+
+Region
+
+↓
+
+Finland
+
+Sweden
+
+Norway
 
 ...
 
@@ -203,18 +208,23 @@ round 8)
 
 "Nyt on joskus auennut ikkuna ennen kuin on kanavat saatu haettua" --
 the initial search (and every subsequent one: a filter change or a
-name search) makes a blocking network call. Calling it synchronously
-meant the screen could finish opening, with an empty list, well
-before Enigma2 actually painted anything -- the user saw a blank
-screen with no indication anything was happening.
+name search) originally always made a blocking network call. Calling
+it synchronously meant the screen could finish opening, with an empty
+list, well before Enigma2 actually painted anything -- the user saw a
+blank screen with no indication anything was happening.
 
-Every search now goes through _runSearchWithStatus(): the status
-label immediately shows "Searching for stations, please wait...",
-the actual (blocking) search is deferred to the next event-loop
-iteration via a 10ms singleshot eTimer so that message is guaranteed
-to render first, and once results arrive the status label shows
-"Found N stations" for 1.5 seconds before reverting to the normal
-panel-focus indicator.
+Every search still goes through _runSearchWithStatus(), even though a
+search now usually reads the local station database instead of the
+network (RADIOBROWSER_SPEC.md "Local Station Database", device test
+round 11) and is normally fast enough that the deferred pattern is no
+longer strictly load-bearing for the common case: the status label
+immediately shows "Searching for stations, please wait...", the
+actual search is deferred to the next event-loop iteration via a 10ms
+singleshot eTimer so that message is guaranteed to render first, and
+once results arrive the status label shows "Found N stations" for 1.5
+seconds before reverting to the normal panel-focus indicator. This
+still matters for the genuinely-live-network fallback path (local
+database empty) and keeps one consistent code path either way.
 
 Default language position (Build 0007, device test round 2)
 
@@ -252,6 +262,15 @@ Add to Favorites
 Create Favorite List
 
 Station Information
+
+Update stations (device test round 12 -- manual local station
+database refresh, RADIOBROWSER_SPEC.md "Manual Update". Placed here,
+not on a colour button, per this spec's own "Color buttons shall not
+be required")
+
+Clear station list (device test round 12 -- RADIOBROWSER_SPEC.md
+"Database Integrity"; removes the local station database, never
+Favorites)
 
 Cancel
 
@@ -328,6 +347,14 @@ Next station
 Playback continues while navigating between stations.
 
 The navigation mode is configurable from Settings.
+
+OK (device test rounds 7, 9, 12, 14) opens a small action menu while
+radio is playing: Back (returns here to RadioBrowserScreen if that's
+where playback was started from -- MAINSCREEN_SPEC.md "MainScreen OK
+Menu"), Clear history, Add to Favorites, Remove from Favorites (both
+using the same Favorites mechanism as this screen's own Station
+Context Menu, not the local playlist system -- see
+RADIOBROWSER_SPEC.md "Station Selection"), Stop/Resume, Cancel.
 
 ---
 

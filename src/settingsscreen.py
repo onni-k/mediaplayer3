@@ -342,7 +342,7 @@ class SettingsScreen(Screen, ConfigListScreen):
         from Components.Label import Label
 
         return Label(
-            "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+            _("OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back")
         )
 
 # End of Part 1
@@ -365,6 +365,7 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry("Startup directory", cfg.general.startup_directory),
             getConfigListEntry("Music Library directory", cfg.library.scan_directory),
             getConfigListEntry("Hidden files", cfg.general.hidden_files),
+            getConfigListEntry("Show in main menu (restart required)", cfg.general.show_in_main_menu),
             getConfigListEntry("Language", cfg.general.language),
             getConfigListEntry("Skin", cfg.appearance.skin),
             getConfigListEntry("Theme", cfg.appearance.theme),
@@ -393,6 +394,8 @@ class SettingsScreen(Screen, ConfigListScreen):
             ),
             getConfigListEntry("Yle EPG app_id", cfg.epg.yle_app_id),
             getConfigListEntry("Yle EPG app_key", cfg.epg.yle_app_key),
+            getConfigListEntry("Podcast Index API key", cfg.podcast.podcastindex_api_key),
+            getConfigListEntry("Podcast Index API secret", cfg.podcast.podcastindex_api_secret),
             getConfigListEntry("Show progress bar", cfg.ui.show_progress_bar),
             getConfigListEntry("Show elapsed time", cfg.ui.show_elapsed_time),
             getConfigListEntry("Show remaining time", cfg.ui.show_remaining_time),

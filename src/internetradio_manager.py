@@ -164,6 +164,13 @@ class InternetRadioManager:
         # first rather than a random one every time.
         self._servers: List[str] = []
 
+        # Build 0010 -- local station database cache (see
+        # _loadStationDatabase()). None means "not yet loaded from
+        # disk this process"; [] means "loaded, and genuinely empty".
+        self._stations_db: Optional[List[Dict[str, Any]]] = None
+
+        self._stations_db_updated: Optional[float] = None
+
         self._log("Created")
 
         self._initialize()
@@ -197,9 +204,6 @@ class InternetRadioManager:
 
     def _historyPath(self) -> str:
         return os.path.join(storage_manager.getRadioPath(), "history.json")
-
-    def _searchCachePath(self) -> str:
-        return os.path.join(storage_manager.getRadioPath(), "search_cache.json")
 
     # ------------------------------------------------------------------
 
@@ -410,17 +414,40 @@ class InternetRadioManager:
         limit: int = DEFAULT_SEARCH_LIMIT,
     ) -> List[Dict[str, Any]]:
         """
-        Search RadioBrowser for stations matching any combination of
+        Search for stations matching any combination of
         `name`/`country`/`language`/`tag`.
+
+        Build 0010, BUILD_0010_PLAN.md "RadioBrowser Database" /
+        RADIOBROWSER_SPEC.md "Local Station Database": searches the
+        local station database first, so browsing works without a
+        live RadioBrowser round-trip on every keystroke/filter change
+        (and works at all when the network is unavailable). Falls
+        back to a live RadioBrowser search only if the local database
+        has never been populated yet (getStationDatabaseInfo()'s own
+        "count" is 0) -- once populated, the local copy is
+        authoritative for search; updateStationDatabase() is the only
+        method that talks to the live API for station data.
 
         Returns a list of station dicts (RadioBrowser's own field
         names -- stationuuid, name, url, url_resolved, homepage,
         favicon, tags, country, language, codec, bitrate, votes,
-        lastcheckok, ...), or an empty list if the request failed or
-        matched nothing. Never raises.
+        lastcheckok, ...), or an empty list if nothing matched (or,
+        pre-first-sync, the request failed). Never raises.
         """
 
         self._log("Search started.")
+
+        self._loadStationDatabase()
+
+        if self._stations_db:
+
+            results = self._filterStations(self._stations_db, name, country, language, tag)[:limit]
+
+            self._log(f"Search completed (local database): {len(results)} station(s).")
+
+            return results
+
+        self._log("Local database empty -- falling back to a live RadioBrowser search.")
 
         params = {
             "name": name,
@@ -442,17 +469,74 @@ class InternetRadioManager:
 
             return []
 
-        self._log(f"Search completed: {len(results)} station(s).")
+        self._log(f"Search completed (live fallback): {len(results)} station(s).")
 
         return results
 
     # ------------------------------------------------------------------
 
+    def _filterStations(
+        self,
+        stations: List[Dict[str, Any]],
+        name: Optional[str],
+        country: Optional[str],
+        language: Optional[str],
+        tag: Optional[str],
+    ) -> List[Dict[str, Any]]:
+        """
+        In-memory filter over a station list, matching search()'s own
+        parameter semantics as closely as practical against a static
+        local copy: case-insensitive substring match on name/tag
+        (RadioBrowser's own "fuzzy" behaviour for these), exact
+        case-insensitive match on country/language (RadioBrowser
+        stores these as fixed vocabulary values, not free text).
+        Results are name-sorted, matching the live API's own
+        "order": "name" search parameter.
+        """
+
+        name_q = (name or "").strip().lower()
+        country_q = (country or "").strip().lower()
+        language_q = (language or "").strip().lower()
+        tag_q = (tag or "").strip().lower()
+
+        def matches(station: Dict[str, Any]) -> bool:
+
+            if name_q and name_q not in str(station.get("name", "")).lower():
+                return False
+
+            if country_q and country_q != str(station.get("country", "")).lower():
+                return False
+
+            if language_q and language_q != str(station.get("language", "")).lower():
+                return False
+
+            if tag_q and tag_q not in str(station.get("tags", "")).lower():
+                return False
+
+            return True
+
+        filtered = [station for station in stations if matches(station)]
+
+        filtered.sort(key=lambda station: str(station.get("name", "")).lower())
+
+        return filtered
+
+    # ------------------------------------------------------------------
+
     def getCountries(self) -> List[Dict[str, Any]]:
         """
-        Return RadioBrowser's list of {"name": ..., "stationcount":
-        ...} country entries, or [] on failure.
+        Return {"name": ..., "stationcount": ...} country entries,
+        aggregated from the local station database when one is
+        available (Build 0010 -- avoids a separate live API call on
+        every RadioBrowserScreen open), falling back to a live
+        RadioBrowser request otherwise.
         """
+
+        self._loadStationDatabase()
+
+        if self._stations_db:
+
+            return self._aggregateField("country")
 
         return self._apiGet("json/countries") or []
 
@@ -460,17 +544,284 @@ class InternetRadioManager:
 
     def getLanguages(self) -> List[Dict[str, Any]]:
         """
-        Return RadioBrowser's list of {"name": ..., "stationcount":
-        ...} language entries, or [] on failure.
+        Return {"name": ..., "stationcount": ...} language entries --
+        see getCountries()'s own docstring for the local-database-
+        first reasoning.
         """
 
+        self._loadStationDatabase()
+
+        if self._stations_db:
+
+            return self._aggregateField("language")
+
         return self._apiGet("json/languages") or []
+
+    # ------------------------------------------------------------------
+
+    def _aggregateField(self, field: str) -> List[Dict[str, Any]]:
+        """
+        Build {"name": ..., "stationcount": ...} entries by counting
+        distinct, non-empty values of `field` across the local station
+        database -- the same shape RadioBrowser's own json/countries
+        and json/languages endpoints return, so callers (RadioBrowser
+        Screen's _reloadFilters()) don't need to know which source
+        the data actually came from.
+        """
+
+        counts: Dict[str, int] = {}
+
+        for station in self._stations_db:
+
+            value = str(station.get(field, "")).strip()
+
+            if not value:
+                continue
+
+            counts[value] = counts.get(value, 0) + 1
+
+        entries = [{"name": name, "stationcount": count} for name, count in counts.items()]
+
+        entries.sort(key=lambda entry: entry["name"].lower())
+
+        return entries
 
     # ------------------------------------------------------------------
 
     def getTags(self) -> List[Dict[str, Any]]:
 
         return self._apiGet("json/tags") or []
+
+    # ------------------------------------------------------------------
+    # Local Station Database (Build 0010, BUILD_0010_PLAN.md
+    # "RadioBrowser Database" / RADIOBROWSER_SPEC.md "Local Station
+    # Database")
+    # ------------------------------------------------------------------
+
+    # Practical cap on a single bulk download -- RadioBrowser's full
+    # global catalogue runs well into the tens of thousands of
+    # stations, most of which are of no interest to any one listener
+    # and would cost real storage/memory on a set-top box for little
+    # benefit. hidebroken=true + ordering by click count (RadioBrowser's
+    # own popularity signal) biases the local copy toward stations
+    # actually worth having offline, rather than an arbitrary or
+    # purely-alphabetical slice. Not full pagination-based mirroring
+    # of the entire catalogue -- a deliberate, documented trade-off,
+    # not an oversight.
+    DATABASE_DOWNLOAD_LIMIT = 20000
+
+    def _stationsDbPath(self) -> str:
+        return os.path.join(storage_manager.getRadioPath(), "stations.json")
+
+    # ------------------------------------------------------------------
+
+    def _loadStationDatabase(self) -> None:
+        """
+        Load the local station database into memory, once per process
+        lifetime (like _getServers()'s own mirror-list caching) --
+        re-read only after updateStationDatabase()/clearStationDatabase()
+        explicitly invalidate the cache.
+        """
+
+        if self._stations_db is not None:
+            return
+
+        data = self._loadJSON(self._stationsDbPath(), default=None)
+
+        if not isinstance(data, dict) or not isinstance(data.get("stations"), list):
+
+            self._stations_db = []
+
+            self._stations_db_updated = None
+
+            return
+
+        self._stations_db = data["stations"]
+
+        self._stations_db_updated = data.get("last_updated")
+
+    # ------------------------------------------------------------------
+
+    def getStationDatabaseInfo(self) -> Dict[str, Any]:
+        """
+        Return {"count": int, "last_updated": Optional[float]} for the
+        local station database -- used by RadioBrowserScreen/
+        SettingsScreen to show the user what's currently stored
+        without needing to know the storage format themselves.
+        """
+
+        self._loadStationDatabase()
+
+        return {"count": len(self._stations_db), "last_updated": self._stations_db_updated}
+
+    # ------------------------------------------------------------------
+
+    def shouldAutoUpdateDatabase(self) -> bool:
+        """
+        RADIOBROWSER_SPEC.md "Automatic Updates": "The update interval
+        shall be configurable where appropriate. The default interval
+        may be seven days." True when cfg.radio.database_auto_update
+        is on AND (the database has never been populated, OR the
+        configured interval has elapsed since the last successful
+        update). Callers (RadioBrowserScreen's initial load) decide
+        when/how to actually act on this -- this method only answers
+        the question, it never triggers an update itself
+        (RADIOBROWSER_SPEC.md "An automatic update shall not interrupt
+        active playback" -- something only the caller's own context
+        can guarantee).
+        """
+
+        try:
+            from .config import config_manager
+
+        except ImportError:
+
+            return False
+
+        if not config_manager.get("radio.database_auto_update", True):
+            return False
+
+        info = self.getStationDatabaseInfo()
+
+        if info["count"] == 0:
+            return True
+
+        if info["last_updated"] is None:
+            return True
+
+        interval_days = config_manager.get("radio.database_update_interval_days", 7)
+
+        elapsed_days = (time.time() - info["last_updated"]) / 86400.0
+
+        return elapsed_days >= interval_days
+
+    # ------------------------------------------------------------------
+
+    def updateStationDatabase(self) -> bool:
+        """
+        Download a fresh station list from RadioBrowser and replace
+        the local database with it.
+
+        RADIOBROWSER_SPEC.md "Database Integrity": "Updates should
+        preferably be written to a temporary location before replacing
+        the active database. If the new database cannot be validated
+        or written successfully, the previous valid database shall
+        remain available." -- writes to a *.tmp path first, validates
+        the parsed result is a non-empty list of station-shaped dicts,
+        and only then renames it over the real path (os.replace() is
+        atomic on the same filesystem, so a crash or power loss
+        mid-write can never leave a half-written stations.json).
+        RADIOBROWSER_SPEC.md "A normal update shall not remove
+        existing stations before new station data has been
+        successfully obtained." -- the existing file is never touched
+        until the new one is confirmed good; any failure below leaves
+        it completely untouched, exactly like the temp-podcast-episode-
+        cache/playlist-refresh "failure keeps the old data" pattern
+        already used elsewhere in this project (podcast_manager.py).
+
+        Returns True on success, False on any failure (network,
+        invalid response, empty result, write failure) -- never
+        raises.
+        """
+
+        self._log("Station database update started.")
+
+        params = {
+            "hidebroken": "true",
+            "order": "clickcount",
+            "reverse": "true",
+            "limit": self.DATABASE_DOWNLOAD_LIMIT,
+        }
+
+        results = self._apiGet("json/stations", params)
+
+        if not isinstance(results, list) or not results:
+
+            self._log("Station database update failed (empty or invalid response); keeping existing database.")
+
+            return False
+
+        # Validate each entry is at least station-shaped (has a name
+        # and a usable stream URL field) before trusting any of it --
+        # RADIOBROWSER_SPEC.md "Validate the received data."
+        valid = [
+            station for station in results
+            if isinstance(station, dict) and station.get("name") and (station.get("url") or station.get("url_resolved"))
+        ]
+
+        if not valid:
+
+            self._log("Station database update failed (no valid stations in response); keeping existing database.")
+
+            return False
+
+        payload = {"last_updated": time.time(), "stations": valid}
+
+        db_path = self._stationsDbPath()
+
+        tmp_path = db_path + ".tmp"
+
+        try:
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+            with open(tmp_path, "w", encoding="utf-8") as handle:
+
+                json.dump(payload, handle, ensure_ascii=False)
+
+            os.replace(tmp_path, db_path)
+
+        except OSError as error:
+
+            self._log(f"Station database update failed (write error, keeping existing database): {error}")
+
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
+            except OSError:
+                pass
+
+            return False
+
+        self._stations_db = valid
+
+        self._stations_db_updated = payload["last_updated"]
+
+        self._log(f"Station database updated: {len(valid)} station(s).")
+
+        return True
+
+    # ------------------------------------------------------------------
+
+    def clearStationDatabase(self) -> bool:
+        """
+        RADIOBROWSER_SPEC.md / BUILD_0010_PLAN.md: "A separate 'Clear
+        station list' operation may remove the existing stations" --
+        deliberately distinct from a normal update, which never
+        removes stations on its own. Does not touch Favorites
+        (RADIOBROWSER_SPEC.md "Design Principles": "It shall not...
+        Remove Favorites as a side effect of database updates.").
+        """
+
+        db_path = self._stationsDbPath()
+
+        try:
+            if os.path.exists(db_path):
+                os.remove(db_path)
+
+        except OSError as error:
+
+            self._log(f"Unable to clear station database: {error}")
+
+            return False
+
+        self._stations_db = []
+
+        self._stations_db_updated = None
+
+        self._log("Station database cleared.")
+
+        return True
 
 # End of Part 2
     # ------------------------------------------------------------------

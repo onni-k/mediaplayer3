@@ -30,7 +30,7 @@ msgid "Already at first track"
 msgstr "Jo ensimmäisessä kappaleessa"
 
 msgid "Browser"
-msgstr "Selain"
+msgstr "Tiedostoselain"
 
 msgid "Playback Information"
 msgstr "Toistotiedot"
@@ -187,3 +187,375 @@ msgstr "Kanavia haetaan, odota hetki..."
 
 msgid "Found {0} stations"
 msgstr "Löytyi {0} kanavaa"
+
+msgid "Add all files from directory"
+msgstr "Lisää kaikki hakemiston tiedostot"
+
+msgid "Add entire directory to playlist"
+msgstr "Lisää koko hakemisto soittolistaan"
+
+msgid "Add this file"
+msgstr "Lisää tämä tiedosto"
+
+msgid "Add this file and remaining files in directory"
+msgstr "Lisää tämä ja loput hakemiston tiedostot"
+
+msgid "Add to Favorites"
+msgstr "Lisää suosikkeihin"
+
+msgid "Add to playlist"
+msgstr "Lisää soittolistaan"
+
+msgid "Added %d tracks to playlist: %s"
+msgstr "Lisättiin %d kappaletta soittolistaan: %s"
+
+msgid "Added to playlist: %s"
+msgstr "Lisätty soittolistaan: %s"
+
+msgid "Album"
+msgstr "Albumi"
+
+msgid "Albums"
+msgstr "Albumit"
+
+msgid "Already subscribed"
+msgstr "Jo tilattu"
+
+msgid "Artist"
+msgstr "Esittäjä"
+
+msgid "Artists"
+msgstr "Esittäjät"
+
+msgid "Available Podcasts"
+msgstr "Saatavilla olevat podcastit"
+
+msgid "Back"
+msgstr "Takaisin"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the {0}"
+msgstr "Selaa haluamaasi hakemistoon ja paina sitten VIHREÄÄ asettaaksesi sen: {0}"
+
+msgid "Channels"
+msgstr "Kanavat"
+
+msgid "Clear Internet Radio listening history?"
+msgstr "Tyhjennetäänkö Internet-radion kuunteluhistoria?"
+
+msgid "Composer"
+msgstr "Säveltäjä"
+
+msgid "Create Favorite List"
+msgstr "Luo suosikkilista"
+
+msgid "Create new playlist..."
+msgstr "Luo uusi soittolista..."
+
+msgid "Directories"
+msgstr "Hakemistot"
+
+msgid "Directory not available."
+msgstr "Hakemisto ei ole käytettävissä."
+
+msgid "Episodes"
+msgstr "Jaksot"
+
+msgid "Export"
+msgstr "Vie"
+
+msgid "Files"
+msgstr "Tiedostot"
+
+msgid "Genre"
+msgstr "Tyylilaji"
+
+msgid "Help"
+msgstr "Ohje"
+
+msgid "History"
+msgstr "Historia"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   CH+/CH-: Sivu   OK: Valinnat   INFO: Haku   MENU: Valikko   EXIT: Takaisin"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   OK: Soita   INFO: Haku   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Loading library, please wait..."
+msgstr "Ladataan kirjastoa, odota..."
+
+msgid "Lyrics not available."
+msgstr "Sanoituksia ei saatavilla."
+
+msgid "Main Menu"
+msgstr "Päävalikko"
+
+msgid "MediaPlayer3 could not start:\n%s"
+msgstr "MediaPlayer3 ei käynnistynyt:\n%s"
+
+msgid "Metadata"
+msgstr "Metatiedot"
+
+msgid "Move Down"
+msgstr "Siirrä alas"
+
+msgid "Move Up"
+msgstr "Siirrä ylös"
+
+msgid "Move down"
+msgstr "Siirrä alas"
+
+msgid "Move up"
+msgstr "Siirrä ylös"
+
+msgid "Music Library"
+msgstr "Musiikkikirjasto"
+
+msgid "Music Library directory"
+msgstr "Musiikkikirjaston hakemisto"
+
+msgid "No help available."
+msgstr "Ohjetta ei saatavilla."
+
+msgid "No information available."
+msgstr "Tietoja ei saatavilla."
+
+msgid "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+msgstr "Musiikkikirjastoa ei ole saatavilla.\n\nKäytä Päivitä kirjasto -toimintoa valikosta\nlisättyäsi musiikkitiedostoja."
+
+msgid "No playable files found."
+msgstr "Toistettavia tiedostoja ei löytynyt."
+
+msgid "No playlist selected."
+msgstr "Soittolistaa ei ole valittu."
+
+msgid "No podcasts found for \"%s\"."
+msgstr "Podcasteja haulla \"%s\" ei löytynyt."
+
+msgid "Nothing was added."
+msgstr "Mitään ei lisätty."
+
+msgid "Now"
+msgstr "Nyt"
+
+msgid "Now Playing"
+msgstr "Nyt soi"
+
+msgid "Now playing information not available."
+msgstr "Nyt soi -tietoja ei saatavilla."
+
+msgid "Open directory"
+msgstr "Avaa hakemisto"
+
+msgid "Open podcast"
+msgstr "Avaa podcast"
+
+msgid "Player"
+msgstr "Soitin"
+
+msgid "Playlist"
+msgstr "Soittolista"
+
+msgid "Playlist: %s"
+msgstr "Soittolista: %s"
+
+msgid "Podcast"
+msgstr "Podcast"
+
+msgid "Radio EPG"
+msgstr "Radio-ohjelmatiedot"
+
+msgid "Refresh"
+msgstr "Päivitä"
+
+msgid "Refresh failed -- keeping previous information."
+msgstr "Päivitys epäonnistui -- säilytetään aiemmat tiedot."
+
+msgid "Refreshing..."
+msgstr "Päivitetään..."
+
+msgid "Remove"
+msgstr "Poista"
+
+msgid "Rename"
+msgstr "Nimeä uudelleen"
+
+msgid "Resume"
+msgstr "Jatka"
+
+msgid "Sample rate"
+msgstr "Näytteenottotaajuus"
+
+msgid "Search podcasts"
+msgstr "Hae podcasteja"
+
+msgid "Search the music library"
+msgstr "Hae musiikkikirjastosta"
+
+msgid "Search: %s"
+msgstr "Haku: %s"
+
+msgid "Search: {0} ({1} results)"
+msgstr "Haku: {0} ({1} tulosta)"
+
+msgid "Searching..."
+msgstr "Haetaan..."
+
+msgid "Startup directory"
+msgstr "Käynnistyshakemisto"
+
+msgid "Station"
+msgstr "Asema"
+
+msgid "Station Information"
+msgstr "Aseman tiedot"
+
+msgid "Stop"
+msgstr "Pysäytä"
+
+msgid "Subscribe"
+msgstr "Tilaa"
+
+msgid "Subscribed Podcasts"
+msgstr "Tilatut podcastit"
+
+msgid "This episode has no playable audio."
+msgstr "Tässä jaksossa ei ole toistettavaa ääntä."
+
+msgid "Title"
+msgstr "Nimi"
+
+msgid "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+msgstr "YLÖS/ALAS: Vieritä   VASEN/OIKEA: Sivu   HELP/EXIT: Sulje"
+
+msgid "Unable to add to playlist."
+msgstr "Soittolistaan lisääminen epäonnistui."
+
+msgid "Unable to play selected track"
+msgstr "Valitun kappaleen toisto epäonnistui"
+
+msgid "Unable to subscribe."
+msgstr "Tilaaminen epäonnistui."
+
+msgid "Unknown Genre"
+msgstr "Tuntematon tyylilaji"
+
+msgid "Unknown Year"
+msgstr "Tuntematon vuosi"
+
+msgid "Unsubscribe"
+msgstr "Peru tilaus"
+
+msgid "Update Library"
+msgstr "Päivitä kirjasto"
+
+msgid "Year"
+msgstr "Vuosi"
+
+msgid "album(s)"
+msgstr "albumi(a)"
+
+msgid "computed: size/duration"
+msgstr "laskettu: koko/kesto"
+
+msgid "from file extension"
+msgstr "tiedostopäätteestä"
+
+msgid "station info"
+msgstr "aseman tiedot"
+
+msgid "track(s)"
+msgstr "kappale(tta)"
+
+msgid "Podcasts"
+msgstr "Podcastit"
+
+msgid "Lyrics"
+msgstr "Sanoitukset"
+
+msgid "Lyrics LRC"
+msgstr "Sanoitukset (LRC)"
+
+msgid "Lyrics Embedded"
+msgstr "Sanoitukset (upotettu)"
+
+msgid "Lyrics TXT"
+msgstr "Sanoitukset (TXT)"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Sarake   YLÖS/ALAS: Siirry   OK: Toiminnot   PLAY: Soita   INFO: Valitse soittolista   HELP: Ohje   MENU: Valikko   EXIT: Takaisin"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Sarake   YLÖS/ALAS: Siirry   OK: Toiminnot   INFO: Haku   HELP: Ohje   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Clear the local station database?"
+msgstr "Tyhjennetäänkö paikallinen asematietokanta?"
+
+msgid "Downloading station database, please wait..."
+msgstr "Ladataan asematietokantaa, odota..."
+
+msgid "No stations available yet. Download the station database now?"
+msgstr "Asemia ei ole vielä saatavilla. Ladataanko asematietokanta nyt?"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Muokkaa   VASEN/OIKEA: Vaihda   YELLOW: Tyhjennä radiohistoria   RED: Päivitä asematietokanta   BLUE: Tyhjennä asemalista   MENU: Valikko   EXIT: Tallenna ja takaisin"
+
+msgid "Station database updated: %d station(s)."
+msgstr "Asematietokanta päivitetty: %d asemaa."
+
+msgid "Station list cleared."
+msgstr "Asemalista tyhjennetty."
+
+msgid "Update failed -- keeping existing database (%d station(s))."
+msgstr "Päivitys epäonnistui -- säilytetään nykyinen tietokanta (%d asemaa)."
+
+msgid "Update failed. No station data available."
+msgstr "Päivitys epäonnistui. Asematietoja ei ole saatavilla."
+
+msgid "Updating station database, please wait..."
+msgstr "Päivitetään asematietokantaa, odota..."
+
+msgid "Clear history"
+msgstr "Tyhjennä historia"
+
+msgid "Clear station list"
+msgstr "Tyhjennä asemaluettelo"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Muokkaa   VASEN/OIKEA: Vaihda   YELLOW: Tyhjennä radiohistoria   MENU: Valikko   EXIT: Tallenna ja takaisin"
+
+msgid "Remove from playlist"
+msgstr "Poista soittolistalta"
+
+msgid "Removed from playlist: %s"
+msgstr "Poistettu soittolistalta: %s"
+
+msgid "Station not found in playlist: %s"
+msgstr "Asemaa ei löytynyt soittolistalta: %s"
+
+msgid "Unable to remove from playlist."
+msgstr "Poistaminen soittolistalta epäonnistui."
+
+msgid "Update stations"
+msgstr "Päivitä asemat"
+
+msgid "Added to favorites: %s"
+msgstr "Lisätty suosikkeihin: %s"
+
+msgid "No favorite lists available."
+msgstr "Suosikkilistoja ei ole saatavilla."
+
+msgid "Remove from Favorites"
+msgstr "Poista suosikeista"
+
+msgid "Removed from favorites: %s"
+msgstr "Poistettu suosikeista: %s"
+
+msgid "Station not found in favorites: %s"
+msgstr "Asemaa ei löytynyt suosikeista: %s"
+
+msgid "Unable to add to favorites."
+msgstr "Suosikkeihin lisääminen epäonnistui."
+
+msgid "Save failed: %s"
+msgstr "Tallennus epäonnistui: %s"

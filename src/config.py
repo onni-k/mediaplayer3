@@ -186,6 +186,20 @@ cfg.general.hidden_files = ConfigYesNo(
     default=False
 )
 
+# Build 0010, BUILD_0010_PLAN.md "Main Menu Integration": "Settings
+# shall provide an option to add MediaPlayer3 to the Enigma2 main
+# menu." Read directly by plugin.py's own Plugins() function, which
+# Enigma2 calls once at plugin-list load time (startup, or a plugin-
+# list rescan) -- not re-evaluated live, so toggling this in Settings
+# needs a GUI restart (or a full reboot) before the main menu entry
+# actually appears/disappears, same as most other Enigma2 plugins'
+# own menu-visibility toggles. MediaPlayer3's own Extensions/Plugin
+# menu entry (WHERE_PLUGINMENU) is unaffected either way -- this only
+# adds or removes the additional WHERE_MENU entry.
+cfg.general.show_in_main_menu = ConfigYesNo(
+    default=False
+)
+
 # Build 0008 -- LibraryManager's own scan root, intentionally
 # independent of general.startup_directory (BUILD_0008_PLAN.md "Music
 # Library is intentionally separated from Browser."). Defaults to the
@@ -275,10 +289,11 @@ cfg.appearance.skin = ConfigSelection(
 cfg.appearance.theme = ConfigSelection(
     default="gray",
     choices=[
-        ("default", "Default"),
-        ("dark", "Dark"),
-        ("highcontrast", "High Contrast"),
         ("gray", "Gray"),
+        ("light", "Light"),
+        ("dark", "Dark"),
+        ("default", "Default"),
+        ("highcontrast", "High Contrast"),
         ("custom", "Custom"),
     ],
 )
@@ -375,6 +390,22 @@ cfg.radio.use_exteplayer3 = ConfigYesNo(
     default=False
 )
 
+# Build 0010, BUILD_0010_PLAN.md "RadioBrowser Database" /
+# RADIOBROWSER_SPEC.md "Automatic Updates": "The update interval
+# shall be configurable where appropriate. The default interval may
+# be seven days." database_auto_update is the on/off switch;
+# database_update_interval_days is that interval, only consulted
+# when auto-update is on. See internetradio_manager.py's
+# shouldAutoUpdateDatabase() for how these are used together.
+cfg.radio.database_auto_update = ConfigYesNo(
+    default=True
+)
+
+cfg.radio.database_update_interval_days = ConfigInteger(
+    default=7,
+    limits=(1, 90),
+)
+
 # ------------------------------------------------------------------------------
 # Radio EPG (EPG_MANAGER_SPEC.md, Build 0009)
 # ------------------------------------------------------------------------------
@@ -393,6 +424,29 @@ cfg.epg.yle_app_id = ConfigText(
 )
 
 cfg.epg.yle_app_key = ConfigText(
+    default="",
+    fixed_size=False,
+)
+
+# ------------------------------------------------------------------------------
+# Podcasts (Build 0010 -- PODCAST_PROVIDER_SPEC.md "Authentication")
+# ------------------------------------------------------------------------------
+
+cfg.podcast = ConfigSubsection()
+
+# Podcast Index (podcastindex_provider.py) works out of the box using
+# a bundled default key/secret (lightly obfuscated in that module, see
+# its own header for why this isn't real security), but a user's own
+# free key from https://api.podcastindex.org/signup here always takes
+# priority when both fields are set -- the only genuinely private
+# option, and avoids every MediaPlayer3 installation sharing the same
+# bundled key's rate limit. Left blank by default.
+cfg.podcast.podcastindex_api_key = ConfigText(
+    default="",
+    fixed_size=False,
+)
+
+cfg.podcast.podcastindex_api_secret = ConfigText(
     default="",
     fixed_size=False,
 )
@@ -451,6 +505,7 @@ _ENTRIES: Dict[str, Any] = {
     "general.language": cfg.general.language,
     "general.startup_directory": cfg.general.startup_directory,
     "general.hidden_files": cfg.general.hidden_files,
+    "general.show_in_main_menu": cfg.general.show_in_main_menu,
 
     "library.scan_directory": cfg.library.scan_directory,
 
@@ -474,9 +529,13 @@ _ENTRIES: Dict[str, Any] = {
     "radio.history_size": cfg.radio.history_size,
     "radio.resume_on_start": cfg.radio.resume_on_start,
     "radio.use_exteplayer3": cfg.radio.use_exteplayer3,
+    "radio.database_auto_update": cfg.radio.database_auto_update,
+    "radio.database_update_interval_days": cfg.radio.database_update_interval_days,
 
     "epg.yle_app_id": cfg.epg.yle_app_id,
     "epg.yle_app_key": cfg.epg.yle_app_key,
+    "podcast.podcastindex_api_key": cfg.podcast.podcastindex_api_key,
+    "podcast.podcastindex_api_secret": cfg.podcast.podcastindex_api_secret,
 
     "logging.debug_logging": cfg.logging.debug_logging,
     "logging.developer_level": cfg.logging.developer_level,

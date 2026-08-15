@@ -1,180 +1,288 @@
-# MediaPlayer3
+# THEME_SPEC.md
 
-# Theme Specification
+MediaPlayer3
 
-Version: 0.1
+Theme Specification
 
-Status: Build 0007 CONFIRMED COMPLETE (device test round 13 -- OpenViX, OpenATV, openPLI, OpenBH)
-
----
-
-# 1. Purpose
-
-A theme defines MediaPlayer3's colour scheme: background, text,
-highlight, progress bar and accent colours.
-
-Themes are loaded and managed by SkinManager (skin.py) -- see
-SKIN_MANAGER_SPEC.md. This document describes the theme data format
-and how Screens apply it; it does not introduce a separate
-ThemeManager module (Build 0006's Core Layer lists SkinManager only).
+Status: Build 0010 CONFIRMED COMPLETE with one documented limitation
+(see "Dark Theme" below) -- device test rounds 12, 15 (OpenViX,
+Vu+ Duo2).
 
 ---
 
-# 2. Skin vs Theme
+# Purpose
 
-Skin defines layout, fonts and structure.
+Theme support defines the visual appearance of MediaPlayer3 without
+changing the logical layout or navigation behaviour of the application.
 
-Theme defines colours only.
+Build 0010 introduces two supported themes:
 
-Changing a theme never changes screen layout. A single skin may
-support multiple themes.
+- Light
+- Dark
 
----
-
-# 3. Directory Structure
-
-    resources/themes/
-        default.json
-        dark.json
-        highcontrast.json
+The same functional layout shall be used in both themes.
 
 ---
 
-# 4. Theme Format
+# Theme Selection
 
-    {
-        "name": "Dark",
-        "background": "#0A0A0A",
-        "text": "#A4A4A5",
-        "highlight": "#0085E5",
-        "progress": "#565050",
-        "accent": "#191618"
-    }
+The user may select the active MediaPlayer3 theme from Settings.
 
-All colour values are `#RRGGBB` strings, matching Enigma2 skin colour
-conventions.
+Supported values are:
 
-None of the shipped themes use pure black (#000000) for `background`
-(Build 0007, device test round 10) -- see section 7 for why.
+- Light
+- Dark
+
+The selected theme shall be stored in the MediaPlayer3 configuration.
+
+The theme shall remain active between MediaPlayer3 sessions.
 
 ---
 
-# 5. Shipped Themes
+# Light Theme
 
-- default -- neutral light-grey text on near-black.
-- dark -- lower-contrast blue-grey palette.
-- highcontrast -- pure white text, yellow highlight, red accent, for
-  maximum legibility.
-- gray (Build 0007, device test round 8) -- background #A0A0A0 with
-  dark text (#1A1A1A) for contrast; requested as the new default
-  theme.
+The Light theme shall remain close to the current MediaPlayer3
+appearance.
 
----
+It shall use:
 
-# 6. How Screens Apply a Theme
+- Light background areas
+- Dark readable text
+- Light blue inactive headers
+- Blue active headers
 
-Screens read colours through SkinManager's public interface --
-`skin_manager.getColor(key, default)` -- never by reading theme files
-themselves.
-
-Every screen's `_buildSkin()` reads `background` (and, where relevant,
-`text`/`progress`) once per Screen build and applies it as a
-`backgroundColor` skin attribute. Build 0007 (device test round 8)
-extended this from MainScreen alone to every screen in the
-application -- each is now fullscreen (position="0,0", scaled from
-its own design canvas to the actual desktop size via
-compatibility.getDesktopSize()) with the theme's background colour
-filling the whole display, matching MainScreen's own approach since
-Build 0005.
-
-Device test round 9: that round-8 conversion missed one detail
-MainScreen already got right back in Build 0005 -- Enigma2 Label
-widgets paint an opaque (black) backdrop by default, so every text
-widget on the newly-converted screens showed a solid black box
-instead of the theme's background colour (visible clearly against the
-new Gray theme; confirmed by device screenshots), and would show the
-box's own live video/background bleeding through instead of solid
-colour if TV were playing underneath. Every Label-type widget on
-every screen now sets `transparent="1"` and
-`foregroundColor="{text_color}"`, matching MainScreen's own widgets
-exactly. List-type widgets (file lists, menu lists, station/region/
-language lists) don't need this -- they already rendered correctly.
-
-Because Enigma2 fixes a Screen's skin once `Screen.__init__()` has
-run, a theme change only affects a *currently open* screen on its
-next creation (i.e. after closing and reopening it) -- newly-opened
-Screens pick up the change immediately since they read colours at
-their own open time. This is a real Enigma2 Screen/skin limitation,
-not something SettingsScreen can work around from outside.
+Existing Enigma2 skin colours may be used where appropriate.
 
 ---
 
-# 7. Fallback Behaviour
+# Dark Theme
 
-A missing or invalid theme file falls back to the default theme's
-colours, and if even that is unavailable, to a small built-in colour
-set -- SkinManager.getColor() always returns a usable colour string,
-never raises, never returns None.
+The Dark theme shall use:
 
-Colours that become a `backgroundColor` skin attribute are passed
-through `to_opaque_skin_color()` before being written into the skin
-XML (Build 0007, device test round 11). Device testing showed the
-box's own live video/background bleeding through behind every screen,
-even with backgroundColor and every widget's transparent="1" set
-correctly (round 9's fix) and even after avoiding pure black in
-favour of #0A0A0A (round 10). The user identified the real cause and
-confirmed it against the device's own skin.xml: Enigma2 skin colours
-are 8-digit "#AARRGGBB", not 6-digit "#RRGGBB" -- a bare 6-digit
-value (what every backgroundColor was still using through round 10)
-leaves the alpha channel to be read unpredictably rather than
-reliably opaque, regardless of which RGB value was chosen.
-`to_opaque_skin_color()` prepends an explicit "00" alpha byte (opaque,
-in Enigma2's inverted alpha convention where 00 = opaque and FF =
-fully transparent) to any 6-digit colour; 8-digit input is returned
-unchanged. Round 10's near-black RGB choice (#0A0A0A, still used as
-the underlying colour value) turned out not to be the actual fix, but
-is harmless to keep -- theme JSON files stay plain "#RRGGBB" for
-portability/readability; only the skin-XML-generation layer adds the
-alpha byte, and only for backgroundColor, never foregroundColor/text.
+- Dark grey background
+- White text
+- Darker inactive areas
+- Blue active headers
 
-Round 11's fix still didn't stop the video/background bleeding
-through, confirmed by a further device screenshot (Build 0007, device
-test round 12). The user found, empirically, that a WHITE background
-reliably avoids the issue where gray/near-black backgrounds don't --
-visible directly in the screenshot itself, where Main Menu's first
-rows rendered on a solid opaque white bar while the rest of the list
-showed the background through. `PANEL_BACKGROUND_COLOR` ("#FFFFFF")
-and `PANEL_TEXT_COLOR` ("#1A1A1A") are now used by every text-bearing
-widget (Label AND List types) on every screen, instead of the active
-theme's own `background`/`text` colours -- the theme's own colours are
-now reserved for the outer screen background (edges) only, per the
-user's own framing ("Reunat saavat jäädä harmaiksi" -- the edges can
-stay grey). MainScreen additionally gained a dedicated
-"header_background" widget spanning its whole top text area (version/
-cover/media/meta/status), since that area previously had no widget-
-level background at all and relied entirely on the screen's own
-background showing through.
+The Dark theme shall maintain sufficient contrast for all displayed
+information.
 
-This means a theme's `background`/`text` values now only affect the
-narrow strip of screen visible around the edges of each screen's
-white text panels -- not the text itself, which is always white-on-
-near-black regardless of the active theme. This is a deliberate,
-pragmatic trade-off to guarantee readability and opacity over full
-theme colour customisation of text areas.
+Known limitation (device test round 14): every screen's own panel
+content areas (directory/file/station/track lists, and their text)
+use a fixed white background regardless of theme -- a deliberate,
+device-confirmed fix from Build 0007 for a real "video/background
+bleeding through" rendering bug on darker panel colours on some
+skin/hardware combinations, not an oversight. A literal fully-dark
+Dark theme would need to darken exactly these colours, risking
+reintroducing that bug on hardware this project cannot test against
+in every session. Dark theme therefore only darkens the outer screen
+edges, text, and header highlight colours; panel content stays white
+in every theme, Dark included. Confirmed via device screenshots
+(device test round 15) that no bleed-through occurred with this
+approach across Default/Light/Dark/Gray/High Contrast.
 
 ---
 
-# 8. Acceptance Criteria
+# Layout Independence
 
-- Every shipped theme parses and applies without error.
-- Switching theme in Settings changes newly-opened Screens'
-  appearance without a restart.
-- A missing/invalid theme file never prevents startup.
-- No shipped theme or built-in fallback colour uses pure black
-  (#000000) for a background.
-- Every backgroundColor attribute emitted into a screen's skin XML is
-  8-digit "#AARRGGBB" with an explicit opaque ("00") alpha byte.
+Changing the theme shall not change:
+
+- Screen layout
+- Column positions
+- Area sizes
+- Navigation
+- Button functions
+- Information Panel behaviour
+- Playlist behaviour
+- Playback behaviour
+
+Theme handling shall only affect presentation.
+
+---
+# Enigma2 Skin Integration
+
+MediaPlayer3 shall remain compatible with the active Enigma2 skin.
+
+Theme implementation shall use MediaPlayer3 presentation settings
+without requiring changes to the active Enigma2 skin.
+
+Where possible, colours and visual properties that are already provided
+by the current Enigma2 skin may be reused.
+
+MediaPlayer3-specific theme settings shall take precedence where a
+specific MediaPlayer3 element requires a defined appearance.
 
 ---
 
-# End of File
+# Active Area
+
+The currently active MainScreen or BrowserScreen area shall be visually
+distinguishable from inactive areas.
+
+The active area shall use the standard MediaPlayer3 blue highlight.
+
+The inactive area shall use the corresponding inactive background.
+
+The same visual rule shall apply to:
+
+- Player
+- Playlist
+- Information
+- Browser columns
+
+The active-area indication shall remain consistent between Light and
+Dark themes.
+
+Implementation note (device test round 14): the inactive/active
+header colours behind this section were found not to be reading from
+the theme at all before this round -- every theme file was missing
+the two keys involved, so every screen's own hardcoded fallback value
+was silently the only one ever used, regardless of the selected
+theme. Fixed by adding both keys to every theme file (including
+_FALLBACK_THEME itself); confirmed via device screenshots (round 15)
+that the active-area colour is now visually identical across Light
+and Dark as required above, while High Contrast correctly shows its
+own distinct colour (outside this consistency requirement).
+
+---
+
+# Information Panel
+
+The Information Panel shall follow the selected theme.
+
+The information type header may use the active-area highlight when the
+Information area is active.
+
+Information content shall remain readable in both themes.
+
+Lyrics scrolling and other Information Panel functionality shall not
+change when the theme changes.
+
+---
+
+# Text and Contrast
+
+All MediaPlayer3 text shall remain readable against its background.
+
+The theme shall provide sufficient contrast for:
+
+- Titles
+- Metadata
+- Lyrics
+- Playlist entries
+- Browser entries
+- Headers
+- Status information
+- Error messages
+
+The implementation shall avoid relying on colour alone to communicate
+critical information.
+
+---
+
+# Artwork
+
+Album artwork, station artwork and podcast artwork shall not be
+modified by theme selection.
+
+Artwork shall retain its original colours.
+
+The surrounding area may change according to the selected theme.
+
+---
+
+# Progress Bar
+
+The MainScreen progress bar shall remain at the bottom of the screen.
+
+Its logical function and position shall not change between themes.
+
+The active playback state shall remain visually distinguishable.
+
+---
+# Resolution and Scaling
+
+Theme implementation shall remain compatible with different Enigma2
+screen resolutions.
+
+The logical MediaPlayer3 layout shall not depend on a specific screen
+resolution.
+
+Theme elements shall scale or adapt to the available screen dimensions
+where required.
+
+Small supported resolutions shall remain usable without requiring a
+separate theme layout.
+
+---
+
+# Theme Resources
+
+Theme-specific visual definitions should be kept separate from
+application logic.
+
+Theme resources may contain:
+
+- Background definitions
+- Text colours
+- Header colours
+- Highlight colours
+- Border definitions
+- Progress bar appearance
+
+Application components shall not contain duplicated Light and Dark
+colour definitions where a shared theme resource can be used instead.
+
+---
+
+# Runtime Theme Changes
+
+Changing the selected theme does not require changes to application
+logic.
+
+If the Settings implementation supports changing the theme while
+MediaPlayer3 is running, affected screens may be refreshed to apply the
+new theme.
+
+Playback state shall not be affected by a theme change.
+
+---
+
+# Compatibility
+
+Theme implementation shall remain compatible with supported Enigma2
+versions and devices.
+
+Theme resources shall not require functionality unavailable on older
+supported Enigma2 versions.
+
+Where an optional visual feature is unavailable, MediaPlayer3 shall use
+a safe fallback appearance.
+
+---
+
+# Design Principles
+
+The theme system shall provide visual consistency without introducing
+new application logic.
+
+Theme implementation shall not change the logical layout of the
+application.
+
+The same navigation and functional behaviour shall be available in both
+Light and Dark themes.
+
+The active area shall remain clearly identifiable.
+
+Information shall remain readable.
+
+Artwork shall remain unchanged.
+
+Playback shall not be affected by theme selection.
+
+The theme system should remain reusable for future MediaPlayer3 visual
+themes.
+
+---
+
+End of THEME_SPEC.md

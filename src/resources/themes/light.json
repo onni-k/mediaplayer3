@@ -1,0 +1,10 @@
+{
+    "name": "Light",
+    "background": "#F2F2F2",
+    "text": "#1A1A1A",
+    "highlight": "#FF6A00",
+    "progress": "#1A1A1A",
+    "accent": "#D0D0D0",
+    "inactive_highlight": "#ADD8E6",
+    "selection_background": "#0056B3"
+}

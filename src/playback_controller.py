@@ -309,6 +309,22 @@ class PlaybackController:
         self._duration = None
         self._error_state = None
 
+        # Build 0010, device test round 10 -- user request: lyrics
+        # sync should follow this wall-clock estimate exclusively,
+        # never GStreamer's own raw reading directly, even when that
+        # reading is within tick()'s own "plausible" tolerance and
+        # therefore still accepted for self._position (used for the
+        # elapsed/remaining time display and progress bar, which the
+        # user did NOT ask to change). GStreamer's reported position
+        # can visibly jump by a second or two while still remaining
+        # inside that tolerance band -- fine for a once-a-second time
+        # label, but enough to make time-synced lyrics visibly skip a
+        # line and then skip back. Updated on every tick() call
+        # (unlike self._position, always the wall-clock estimate,
+        # never the possibly-jumpy GStreamer value) -- see
+        # getEstimatedElapsedTime().
+        self._estimated_position = None
+
         # Build 0008 -- wall-clock time a track was told to start,
         # used by tick() to reject an early, physically-impossible
         # elapsed reading (see tick()'s own docstring for why this is
@@ -413,6 +429,7 @@ class PlaybackController:
         # stale data would otherwise be shown.
         self._position = None
         self._duration = None
+        self._estimated_position = None
 
         # Metadata extraction never blocks or fails playback startup
         # (BUILD_0006_PLAN.md "Metadata processing shall never block
@@ -495,6 +512,7 @@ class PlaybackController:
 
         self._position = None
         self._duration = None
+        self._estimated_position = None
 
         station_name = (station or {}).get("name", "Internet Radio")
 
@@ -555,6 +573,7 @@ class PlaybackController:
 
         self._position = None
         self._duration = None
+        self._estimated_position = None
 
         self._log("Stopped")
 
@@ -964,6 +983,32 @@ class PlaybackController:
 
     # ------------------------------------------------------------------
 
+    def getEstimatedElapsedTime(self):
+        """
+        Build 0010, device test round 10 -- the wall-clock-based
+        position estimate tick() computes on every call, independent
+        of whichever value getElapsedTime() ends up returning. Intended
+        specifically for time-synced lyrics (InformationPanel), which
+        need a smoothly, monotonically advancing clock -- unlike
+        getElapsedTime(), this never reflects GStreamer's own raw
+        reading directly, so a small in-tolerance jump in that reading
+        (see tick()'s own docstring) can't make synced lyrics visibly
+        skip a line and skip back, even though the same jump is still
+        fine for the once-a-second elapsed/remaining time display.
+
+        Falls back to getElapsedTime()'s own value when no estimate is
+        available yet (e.g. the very first tick after a track starts,
+        before _track_start_wall_time-based estimation has run) --
+        never worse than the pre-existing behaviour in that case.
+        """
+
+        if self._estimated_position is not None:
+            return self._estimated_position
+
+        return self._position
+
+    # ------------------------------------------------------------------
+
     def getDuration(self):
         """
         Return total media duration in seconds, or None when unknown.
@@ -1232,6 +1277,11 @@ class PlaybackController:
                 elapsed if elapsed is not None else "Unknown",
             )
 
+            # Build 0010, device test round 10 -- see this attribute's
+            # own __init__ comment. Stored every tick, independent of
+            # whichever value self._position ends up with below.
+            self._estimated_position = max(0.0, estimated_position)
+
         tolerance = self.POSITION_SANITY_TOLERANCE_SECONDS
 
         if estimated_position is not None and estimated_position > 0:
@@ -1350,6 +1400,7 @@ class PlaybackController:
         self._current_service = None
         self._position = None
         self._duration = None
+        self._estimated_position = None
         self._error_state = None
 
         self._queue = []

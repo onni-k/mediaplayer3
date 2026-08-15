@@ -63,7 +63,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
-from .config import cfg
 from .epg_manager import epg_manager
 from .epg_providers.Finland_radio_epg.bauer_nowplaying_provider import (
     KNOWN_STATION_SLUGS as BAUER_STATION_SLUGS,
@@ -73,6 +72,7 @@ from .epg_providers.Finland_radio_epg.yle_teletext_provider import (
     KNOWN_STATION_PAGES as YLE_STATION_PAGES,
     YleTeletextScheduleProvider,
 )
+from .epg_providers.Finland_radio_epg import yle_credentials
 from .logger import logger
 
 # Normalized (see _normalize()) name fragments -> Yle Teksti-TV page
@@ -254,18 +254,27 @@ def _matchBauer(normalized_name: str) -> Optional[str]:
 
 def _registerYle(station_uuid: str, yle_key: str) -> None:
 
-    app_id = cfg.epg.yle_app_id.value
+    # Build 0010, device test round 16: "Yle txt -koodin voisi laittaa
+    # salattuna mukaan, kuten on podcast index koodikin laitettu.
+    # Erillistä tiedostosta lukemista ei silloin tarvita." Was a
+    # direct cfg.epg.yle_app_id/yle_app_key read before this round --
+    # now goes through yle_credentials.resolveCredentials(), which
+    # still prefers the user's own Settings-provided pair first, and
+    # only falls back to a bundled default (see that module's own
+    # header for why it's currently a placeholder) rather than simply
+    # giving up when the user hasn't configured one.
+    credentials = yle_credentials.resolveCredentials()
 
-    app_key = cfg.epg.yle_app_key.value
-
-    if not app_id or not app_key:
+    if credentials is None:
 
         logger.info(
-            f"[FinlandRadioEPG] Matched Yle station ({yle_key}) but no app_id/app_key configured "
-            "(Settings -> Yle EPG app_id/app_key) -- skipping registration."
+            f"[FinlandRadioEPG] Matched Yle station ({yle_key}) but no app_id/app_key available "
+            "(Settings -> Yle EPG app_id/app_key, or a bundled default) -- skipping registration."
         )
 
         return
+
+    app_id, app_key = credentials
 
     page_number = YLE_STATION_PAGES.get(yle_key)
 

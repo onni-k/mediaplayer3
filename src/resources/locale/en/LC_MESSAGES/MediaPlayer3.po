@@ -187,3 +187,375 @@ msgstr "Searching for stations, please wait..."
 
 msgid "Found {0} stations"
 msgstr "Found {0} stations"
+
+msgid "Add all files from directory"
+msgstr "Add all files from directory"
+
+msgid "Add entire directory to playlist"
+msgstr "Add entire directory to playlist"
+
+msgid "Add this file"
+msgstr "Add this file"
+
+msgid "Add this file and remaining files in directory"
+msgstr "Add this file and remaining files in directory"
+
+msgid "Add to Favorites"
+msgstr "Add to Favorites"
+
+msgid "Add to playlist"
+msgstr "Add to playlist"
+
+msgid "Added %d tracks to playlist: %s"
+msgstr "Added %d tracks to playlist: %s"
+
+msgid "Added to playlist: %s"
+msgstr "Added to playlist: %s"
+
+msgid "Album"
+msgstr "Album"
+
+msgid "Albums"
+msgstr "Albums"
+
+msgid "Already subscribed"
+msgstr "Already subscribed"
+
+msgid "Artist"
+msgstr "Artist"
+
+msgid "Artists"
+msgstr "Artists"
+
+msgid "Available Podcasts"
+msgstr "Available Podcasts"
+
+msgid "Back"
+msgstr "Back"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the {0}"
+msgstr "Browse to the desired directory, then press GREEN to set it as the {0}"
+
+msgid "Channels"
+msgstr "Channels"
+
+msgid "Clear Internet Radio listening history?"
+msgstr "Clear Internet Radio listening history?"
+
+msgid "Composer"
+msgstr "Composer"
+
+msgid "Create Favorite List"
+msgstr "Create Favorite List"
+
+msgid "Create new playlist..."
+msgstr "Create new playlist..."
+
+msgid "Directories"
+msgstr "Directories"
+
+msgid "Directory not available."
+msgstr "Directory not available."
+
+msgid "Episodes"
+msgstr "Episodes"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Files"
+msgstr "Files"
+
+msgid "Genre"
+msgstr "Genre"
+
+msgid "Help"
+msgstr "Help"
+
+msgid "History"
+msgstr "History"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+
+msgid "Loading library, please wait..."
+msgstr "Loading library, please wait..."
+
+msgid "Lyrics not available."
+msgstr "Lyrics not available."
+
+msgid "Main Menu"
+msgstr "Main Menu"
+
+msgid "MediaPlayer3 could not start:\n%s"
+msgstr "MediaPlayer3 could not start:\n%s"
+
+msgid "Metadata"
+msgstr "Metadata"
+
+msgid "Move Down"
+msgstr "Move Down"
+
+msgid "Move Up"
+msgstr "Move Up"
+
+msgid "Move down"
+msgstr "Move down"
+
+msgid "Move up"
+msgstr "Move up"
+
+msgid "Music Library"
+msgstr "Music Library"
+
+msgid "Music Library directory"
+msgstr "Music Library directory"
+
+msgid "No help available."
+msgstr "No help available."
+
+msgid "No information available."
+msgstr "No information available."
+
+msgid "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+msgstr "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+
+msgid "No playable files found."
+msgstr "No playable files found."
+
+msgid "No playlist selected."
+msgstr "No playlist selected."
+
+msgid "No podcasts found for \"%s\"."
+msgstr "No podcasts found for \"%s\"."
+
+msgid "Nothing was added."
+msgstr "Nothing was added."
+
+msgid "Now"
+msgstr "Now"
+
+msgid "Now Playing"
+msgstr "Now Playing"
+
+msgid "Now playing information not available."
+msgstr "Now playing information not available."
+
+msgid "Open directory"
+msgstr "Open directory"
+
+msgid "Open podcast"
+msgstr "Open podcast"
+
+msgid "Player"
+msgstr "Player"
+
+msgid "Playlist"
+msgstr "Playlist"
+
+msgid "Playlist: %s"
+msgstr "Playlist: %s"
+
+msgid "Podcast"
+msgstr "Podcast"
+
+msgid "Radio EPG"
+msgstr "Radio EPG"
+
+msgid "Refresh"
+msgstr "Refresh"
+
+msgid "Refresh failed -- keeping previous information."
+msgstr "Refresh failed -- keeping previous information."
+
+msgid "Refreshing..."
+msgstr "Refreshing..."
+
+msgid "Remove"
+msgstr "Remove"
+
+msgid "Rename"
+msgstr "Rename"
+
+msgid "Resume"
+msgstr "Resume"
+
+msgid "Sample rate"
+msgstr "Sample rate"
+
+msgid "Search podcasts"
+msgstr "Search podcasts"
+
+msgid "Search the music library"
+msgstr "Search the music library"
+
+msgid "Search: %s"
+msgstr "Search: %s"
+
+msgid "Search: {0} ({1} results)"
+msgstr "Search: {0} ({1} results)"
+
+msgid "Searching..."
+msgstr "Searching..."
+
+msgid "Startup directory"
+msgstr "Startup directory"
+
+msgid "Station"
+msgstr "Station"
+
+msgid "Station Information"
+msgstr "Station Information"
+
+msgid "Stop"
+msgstr "Stop"
+
+msgid "Subscribe"
+msgstr "Subscribe"
+
+msgid "Subscribed Podcasts"
+msgstr "Subscribed Podcasts"
+
+msgid "This episode has no playable audio."
+msgstr "This episode has no playable audio."
+
+msgid "Title"
+msgstr "Title"
+
+msgid "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+msgstr "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+
+msgid "Unable to add to playlist."
+msgstr "Unable to add to playlist."
+
+msgid "Unable to play selected track"
+msgstr "Unable to play selected track"
+
+msgid "Unable to subscribe."
+msgstr "Unable to subscribe."
+
+msgid "Unknown Genre"
+msgstr "Unknown Genre"
+
+msgid "Unknown Year"
+msgstr "Unknown Year"
+
+msgid "Unsubscribe"
+msgstr "Unsubscribe"
+
+msgid "Update Library"
+msgstr "Update Library"
+
+msgid "Year"
+msgstr "Year"
+
+msgid "album(s)"
+msgstr "album(s)"
+
+msgid "computed: size/duration"
+msgstr "computed: size/duration"
+
+msgid "from file extension"
+msgstr "from file extension"
+
+msgid "station info"
+msgstr "station info"
+
+msgid "track(s)"
+msgstr "track(s)"
+
+msgid "Podcasts"
+msgstr "Podcasts"
+
+msgid "Lyrics"
+msgstr "Lyrics"
+
+msgid "Lyrics LRC"
+msgstr "Lyrics LRC"
+
+msgid "Lyrics Embedded"
+msgstr "Lyrics Embedded"
+
+msgid "Lyrics TXT"
+msgstr "Lyrics TXT"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+
+msgid "Clear the local station database?"
+msgstr "Clear the local station database?"
+
+msgid "Downloading station database, please wait..."
+msgstr "Downloading station database, please wait..."
+
+msgid "No stations available yet. Download the station database now?"
+msgstr "No stations available yet. Download the station database now?"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+
+msgid "Station database updated: %d station(s)."
+msgstr "Station database updated: %d station(s)."
+
+msgid "Station list cleared."
+msgstr "Station list cleared."
+
+msgid "Update failed -- keeping existing database (%d station(s))."
+msgstr "Update failed -- keeping existing database (%d station(s))."
+
+msgid "Update failed. No station data available."
+msgstr "Update failed. No station data available."
+
+msgid "Updating station database, please wait..."
+msgstr "Updating station database, please wait..."
+
+msgid "Clear history"
+msgstr "Clear history"
+
+msgid "Clear station list"
+msgstr "Clear station list"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+
+msgid "Remove from playlist"
+msgstr "Remove from playlist"
+
+msgid "Removed from playlist: %s"
+msgstr "Removed from playlist: %s"
+
+msgid "Station not found in playlist: %s"
+msgstr "Station not found in playlist: %s"
+
+msgid "Unable to remove from playlist."
+msgstr "Unable to remove from playlist."
+
+msgid "Update stations"
+msgstr "Update stations"
+
+msgid "Added to favorites: %s"
+msgstr "Added to favorites: %s"
+
+msgid "No favorite lists available."
+msgstr "No favorite lists available."
+
+msgid "Remove from Favorites"
+msgstr "Remove from Favorites"
+
+msgid "Removed from favorites: %s"
+msgstr "Removed from favorites: %s"
+
+msgid "Station not found in favorites: %s"
+msgstr "Station not found in favorites: %s"
+
+msgid "Unable to add to favorites."
+msgstr "Unable to add to favorites."
+
+msgid "Save failed: %s"
+msgstr "Save failed: %s"

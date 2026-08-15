@@ -4,10 +4,11 @@ MediaPlayer3
 
 MainScreen Specification
 
-Status: Build 0009 -- CONFIRMED COMPLETE (13 rounds of real device
-testing across OpenViX, OpenPLI, OpenATV and OpenBH; see
-CHANGELOG.md's "BUILD 0009 -- CONFIRMED COMPLETE" and
-Claude_notes_build0009.txt for the full record).
+Status: Build 0010 -- CONFIRMED COMPLETE (OK Menu/PVR changes: device
+test rounds 7, 9, 12, 14, on OpenViX and Vu+ Duo2; see
+Claude_notes_build0010.txt for the full record). Everything from
+Build 0009 below this point remains accurate except where this
+document's own "OK" sections (Player Panel) note a Build 0010 change.
 
 ---
 
@@ -150,7 +151,34 @@ Previous / Next track.
 
 OK
 
-Play / Pause.
+Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" (device test
+rounds 7, 9, 12, 14) -- replaced the previous direct Play/Pause
+toggle:
+
+If nothing is currently loaded, opens the startup chooser (Internet
+Radio / Local Music / Music Library / Playlists / Podcasts) -- the
+same chooser PVR opens (see below).
+
+If something is loaded, opens a small action menu instead:
+
+- Back -- always first. Returns to whichever screen playback was
+  started from (Internet Radio / File Browser / Playlists / Podcasts
+  / Music Library), tracked internally per source screen; falls back
+  to Main Menu if no origin is known yet this session.
+- Clear history, Add to Favorites, Remove from Favorites -- only
+  while Internet Radio is playing (RADIOBROWSER_SCREEN_SPEC.md
+  "MainScreen Integration"). These use the same Favorites mechanism
+  as RadioBrowserScreen's own Station Context Menu, never the local
+  playlist system.
+- Stop/Resume -- a single item whose label and action depend on
+  current state (Stop while playing, Resume while paused/stopped).
+  Pausing on its own is still handled directly by the dedicated PAUSE
+  key, unaffected by this menu.
+- Cancel
+
+PVR opens the same startup chooser OK does when nothing is loaded,
+regardless of current playback state -- it no longer opens
+BrowserScreen directly.
 
 HELP
 

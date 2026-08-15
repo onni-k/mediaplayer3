@@ -9,7 +9,7 @@
 #     RadioBrowserScreen
 #
 #     Dedicated Internet Radio browsing UI: three panels (Stations,
-#     Region, Language) plus an information panel for the currently
+#     Language, Region) plus an information panel for the currently
 #     selected station. Communicates exclusively with
 #     InternetRadioManager -- never with the RadioBrowser API
 #     directly.
@@ -162,7 +162,15 @@ from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
 
-PANELS = ("stations", "region", "language")
+# Build 0010, device test round 16 -- user request: "Internetradion
+# kohdalla riittää, että vaihtaa järjestyksen keskimmäiseen kieli ja
+# oikean puoleiseen alue, koska kieli valitaan useammin." Order here
+# drives both the visual left-to-right column layout (_buildSkin())
+# and the LEFT/RIGHT focus cycle (focusPrevious()/focusNext()) --
+# both must agree, so this tuple is the single source of truth for
+# column order; only the widget names ("region"/"language") stayed
+# put, the position/order changed around them.
+PANELS = ("stations", "language", "region")
 
 # CHANNEL UP/DOWN jump this many entries at once in the focused panel
 # (requested after real device testing: long lists of stations/
@@ -195,12 +203,37 @@ class RadioBrowserScreen(Screen):
         background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
         panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
         panel_text_color = PANEL_TEXT_COLOR
+        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
+        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
             return f'font="Regular;{max(10, int(size * sx))}"'
+
+        # Build 0010, device test round 6 -- BUILD_0010_PLAN.md "Visual
+        # Refinement", same fix and reasoning as MusicLibraryScreen's
+        # own _buildSkin() comment.
+        panel_rects = {
+            "stations": (20, 45, 300, 25),
+            "language": (330, 45, 170, 25),
+            "region": (510, 45, 170, 25),
+        }
+
+        highlight_xml = ""
+
+        for panel_name, (x, y, w, h) in panel_rects.items():
+
+            highlight_xml += f"""
+            <widget name="{panel_name}_title_bg_normal"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{inactive_color}"/>
+
+            <widget name="{panel_name}_title_bg_active"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{active_color}"/>
+            """
 
         return f"""
         <screen name="MediaPlayer3RadioBrowserScreen"
@@ -216,23 +249,25 @@ class RadioBrowserScreen(Screen):
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
+            {highlight_xml}
+
             <widget name="stations_title"
                     {rect(20, 45, 300, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
-
-            <widget name="region_title"
-                    {rect(330, 45, 170, 25)}
-                    {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="language_title"
+                    {rect(330, 45, 170, 25)}
+                    {font(18)}
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
+
+            <widget name="region_title"
                     {rect(510, 45, 170, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="stations"
                     {rect(20, 75, 300, 280)}
@@ -240,13 +275,13 @@ class RadioBrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="region"
+            <widget name="language"
                     {rect(330, 75, 170, 280)}
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="language"
+            <widget name="region"
                     {rect(510, 75, 170, 280)}
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"
@@ -312,6 +347,15 @@ class RadioBrowserScreen(Screen):
         self._log("Initializing")
 
         self["status"] = Label("")
+
+        # Build 0010, device test round 7 -- see MusicLibraryScreen's
+        # own _initialize() comment for why bg widgets must be added
+        # before the title widgets here.
+        for panel_name in PANELS:
+
+            self[f"{panel_name}_title_bg_normal"] = Label("")
+            self[f"{panel_name}_title_bg_active"] = Label("")
+
         self["stations_title"] = Label(_("Stations"))
         self["region_title"] = Label(_("Region"))
         self["language_title"] = Label(_("Language"))
@@ -382,6 +426,8 @@ class RadioBrowserScreen(Screen):
         # so the message is guaranteed to render first.
         self["status"].setText(_("Searching for stations, please wait..."))
 
+        self._updateColumnHighlighting()
+
         self._initial_load_timer = eTimer()
 
         self._initial_load_timer.callback.append(self._performInitialLoad)
@@ -395,10 +441,88 @@ class RadioBrowserScreen(Screen):
     # ------------------------------------------------------------------
 
     def _performInitialLoad(self) -> None:
+        """
+        Build 0010, BUILD_0010_PLAN.md "RadioBrowser Database" /
+        RADIOBROWSER_SPEC.md "Empty Database": "If no local stations
+        are available... The user may be offered the option to
+        download the RadioBrowser station database again." -- an
+        empty local database asks before doing a first (potentially
+        slow) bulk download, rather than silently blocking the screen
+        on it. A non-empty database that's simply due for its
+        periodic refresh (shouldAutoUpdateDatabase()) is different:
+        RADIOBROWSER_SPEC.md "An automatic update shall not interrupt
+        active playback" -- shows results immediately from whatever's
+        already stored, then updates quietly in the background
+        afterwards without touching the list currently on screen (the
+        refreshed data simply takes effect next search).
+        """
+
+        if internetradio_manager.getStationDatabaseInfo()["count"] == 0:
+
+            self._offerDatabaseDownload()
+
+            return
 
         self._reloadFilters()
 
         self._runSearchWithStatus()
+
+        if internetradio_manager.shouldAutoUpdateDatabase():
+
+            self._scheduleBackgroundDatabaseUpdate()
+
+    # ------------------------------------------------------------------
+
+    def _offerDatabaseDownload(self) -> None:
+
+        self.session.openWithCallback(
+            self._databaseDownloadChoiceMade,
+            MessageBox,
+            _("No stations available yet. Download the station database now?"),
+            MessageBox.TYPE_YESNO,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _databaseDownloadChoiceMade(self, confirmed) -> None:
+
+        if not confirmed:
+
+            self._reloadFilters()
+
+            self._runSearchWithStatus()
+
+            return
+
+        self["status"].setText(_("Downloading station database, please wait..."))
+
+        self._db_update_timer = eTimer()
+
+        self._db_update_timer.callback.append(self._performInitialDatabaseUpdate)
+
+        self._db_update_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _performInitialDatabaseUpdate(self) -> None:
+
+        if not internetradio_manager.updateStationDatabase():
+
+            self["status"].setText(_("Update failed. No station data available."))
+
+        self._reloadFilters()
+
+        self._runSearchWithStatus()
+
+    # ------------------------------------------------------------------
+
+    def _scheduleBackgroundDatabaseUpdate(self) -> None:
+
+        self._background_db_update_timer = eTimer()
+
+        self._background_db_update_timer.callback.append(internetradio_manager.updateStationDatabase)
+
+        self._background_db_update_timer.start(500, True)
 
     # ------------------------------------------------------------------
     # Filters / search
@@ -639,10 +763,39 @@ class RadioBrowserScreen(Screen):
     # ------------------------------------------------------------------
 
     def _updateFocusIndicator(self) -> None:
+        """
+        Build 0010, device test round 7 -- see MusicLibraryScreen's
+        identical fix/reasoning. Only overrides the panel-name display
+        this method used to own -- the separate, still-important
+        transient messages ("Searching...", "Found N stations") set
+        elsewhere are unaffected and still take priority whenever
+        they're active.
+        """
 
-        titles = {"stations": _("Stations"), "region": _("Region"), "language": _("Language")}
+        self["status"].setText(_("Internet Radio"))
 
-        self["status"].setText(titles.get(self._focus, ""))
+        self._updateColumnHighlighting()
+
+    # ------------------------------------------------------------------
+
+    def _updateColumnHighlighting(self) -> None:
+        """
+        Build 0010, device test round 6 -- see this file's own
+        _buildSkin() comment / MusicLibraryScreen's identical fix.
+        """
+
+        for panel_name in PANELS:
+
+            is_active = panel_name == self._focus
+
+            try:
+                self[f"{panel_name}_title_bg_normal"].hide() if is_active else self[f"{panel_name}_title_bg_normal"].show()
+
+                self[f"{panel_name}_title_bg_active"].show() if is_active else self[f"{panel_name}_title_bg_active"].hide()
+
+            except Exception as error:
+
+                logger.verbose(f"[RadioBrowser] Unable to set column highlight visibility: {error}")
 
     # ------------------------------------------------------------------
 
@@ -732,6 +885,8 @@ class RadioBrowserScreen(Screen):
             (_("Add to Favorites"), "add_favorite"),
             (_("Create Favorite List"), "create_list"),
             (_("Station Information"), "information"),
+            (_("Update stations"), "update_database"),
+            (_("Clear station list"), "clear_database"),
             (_("Cancel"), "cancel"),
         ]
 
@@ -781,6 +936,88 @@ class RadioBrowserScreen(Screen):
             ]
 
             self.session.open(MessageBox, "\n".join(lines), MessageBox.TYPE_INFO)
+
+        elif action == "update_database":
+
+            self._updateStationDatabase()
+
+        elif action == "clear_database":
+
+            self.session.openWithCallback(
+                self._clearStationDatabaseConfirmed,
+                MessageBox,
+                _("Clear the local station database?"),
+                MessageBox.TYPE_YESNO,
+            )
+
+    # ------------------------------------------------------------------
+
+    def _updateStationDatabase(self) -> None:
+        """
+        Build 0010, device test round 9 -- user request: moved here
+        from SettingsScreen's RED action (device test round 8) to
+        avoid a colour button, per RADIOBROWSER_SCREEN_SPEC.md's own
+        "Color buttons shall not be required." Same deferred
+        please-wait pattern as _runSearchWithStatus() -- a real,
+        potentially slow network operation.
+        """
+
+        self["status"].setText(_("Updating station database, please wait..."))
+
+        self._manual_db_update_timer = eTimer()
+
+        self._manual_db_update_timer.callback.append(self._performManualDatabaseUpdate)
+
+        self._manual_db_update_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _performManualDatabaseUpdate(self) -> None:
+
+        ok = internetradio_manager.updateStationDatabase()
+
+        info = internetradio_manager.getStationDatabaseInfo()
+
+        if ok:
+
+            self.session.open(
+                MessageBox,
+                _("Station database updated: %d station(s).") % info["count"],
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        elif info["count"] > 0:
+
+            self.session.open(
+                MessageBox,
+                _("Update failed -- keeping existing database (%d station(s)).") % info["count"],
+                MessageBox.TYPE_WARNING,
+                timeout=4,
+            )
+
+        else:
+
+            self.session.open(MessageBox, _("Update failed. No station data available."), MessageBox.TYPE_WARNING, timeout=4)
+
+        self._reloadFilters()
+
+        self._runSearchWithStatus()
+
+    # ------------------------------------------------------------------
+
+    def _clearStationDatabaseConfirmed(self, confirmed) -> None:
+
+        if not confirmed:
+            return
+
+        internetradio_manager.clearStationDatabase()
+
+        self.session.open(MessageBox, _("Station list cleared."), MessageBox.TYPE_INFO, timeout=3)
+
+        self._reloadFilters()
+
+        self._runSearchWithStatus()
 
     # ------------------------------------------------------------------
 

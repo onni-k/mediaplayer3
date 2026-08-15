@@ -103,12 +103,42 @@ class MusicLibraryScreen(Screen):
         background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
         panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
         panel_text_color = PANEL_TEXT_COLOR
+        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
+        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
             return f'font="Regular;{max(10, int(size * sx))}"'
+
+        # Build 0010, device test round 6 -- BUILD_0010_PLAN.md "Visual
+        # Refinement": same two-tier column-header highlighting
+        # PodcastScreen/BrowserScreen already use (active: existing
+        # blue; inactive: light blue), extended here per user request
+        # ("Musiikkikirjasto ... osikkorivin väri ei vaihdu samalla
+        # tavalla kuin tiedostoselaimessa") so all three-column
+        # browsers look consistent, not just the two built after this
+        # highlighting existed.
+        panel_rects = {
+            "artists": (20, 45, 220, 25),
+            "albums": (250, 45, 220, 25),
+            "tracks": (480, 45, 200, 25),
+        }
+
+        highlight_xml = ""
+
+        for panel_name, (x, y, w, h) in panel_rects.items():
+
+            highlight_xml += f"""
+            <widget name="{panel_name}_title_bg_normal"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{inactive_color}"/>
+
+            <widget name="{panel_name}_title_bg_active"
+                    {rect(x, y, w, h)}
+                    backgroundColor="{active_color}"/>
+            """
 
         return f"""
         <screen name="MediaPlayer3MusicLibraryScreen"
@@ -124,23 +154,25 @@ class MusicLibraryScreen(Screen):
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
+            {highlight_xml}
+
             <widget name="artists_title"
                     {rect(20, 45, 220, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="albums_title"
                     {rect(250, 45, 220, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="tracks_title"
                     {rect(480, 45, 200, 25)}
                     {font(18)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="artists"
                     {rect(20, 75, 220, 280)}
@@ -222,9 +254,25 @@ class MusicLibraryScreen(Screen):
         self._log("Initializing")
 
         self["status"] = Label("")
+
+        # Build 0010, device test round 7: bg widgets MUST be added to
+        # self before the title widgets -- Enigma2's paint order
+        # follows Python insertion order (self[name] = ...), not the
+        # skin XML declaration order. Getting this backwards (title
+        # added first) makes the opaque bg rectangles paint over the
+        # title text, hiding it completely -- exactly what device
+        # testing showed here. PodcastScreen/BrowserScreen already do
+        # this correctly (bg_normal, bg_active, title, in that order,
+        # per column) -- matched that order here too.
+        for panel_name in PANELS:
+
+            self[f"{panel_name}_title_bg_normal"] = Label("")
+            self[f"{panel_name}_title_bg_active"] = Label("")
+
         self["artists_title"] = Label(_("Artists"))
         self["albums_title"] = Label(_("Albums"))
         self["tracks_title"] = Label(_("Tracks"))
+
         self["artists"] = MenuList([])
         self["albums"] = MenuList([])
         self["tracks"] = MenuList([])
@@ -447,10 +495,43 @@ class MusicLibraryScreen(Screen):
     # ------------------------------------------------------------------
 
     def _updateFocusIndicator(self) -> None:
+        """
+        Build 0010, device test round 7 -- user request: "Ylhäällä
+        voisi lukea mikä ikkuna on kyseessä." Previously showed the
+        active panel's own name here (Artists/Albums/Tracks), now
+        redundant with the column-header highlighting itself (Round
+        6/9) -- shows this screen's own name instead, reusing the
+        exact "Music Library" string MainMenu's own entry already
+        uses for consistency.
+        """
 
-        titles = {"artists": _("Artists"), "albums": _("Albums"), "tracks": _("Tracks")}
+        self["status"].setText(_("Music Library"))
 
-        self["status"].setText(titles.get(self._focus, ""))
+        self._updateColumnHighlighting()
+
+    # ------------------------------------------------------------------
+
+    def _updateColumnHighlighting(self) -> None:
+        """
+        Build 0010, device test round 6 -- see this file's own
+        _buildSkin() comment. Identical hide()/show() mechanism to
+        PodcastScreen/BrowserScreen's own _updateColumnHighlighting();
+        see either's docstring for why hide()/show() on pre-positioned
+        rectangles is used instead of a runtime widget recolour.
+        """
+
+        for panel_name in PANELS:
+
+            is_active = panel_name == self._focus
+
+            try:
+                self[f"{panel_name}_title_bg_normal"].hide() if is_active else self[f"{panel_name}_title_bg_normal"].show()
+
+                self[f"{panel_name}_title_bg_active"].show() if is_active else self[f"{panel_name}_title_bg_active"].hide()
+
+            except Exception as error:
+
+                logger.verbose(f"[MusicLibrary] Unable to set column highlight visibility: {error}")
 
     # ------------------------------------------------------------------
 
