@@ -2512,3 +2512,109 @@ but not re-exercised on a device this session.
 
 Both .zip and .ipk built and delivered together, per the ongoing
 request from Round 23.
+
+---
+
+## Round 31 (2026-08-16) -- Developer Mode merged into Logging Level, full Settings localization, doc cleanup
+
+User confirmed the red warning marking is clear and immediately
+useful. Five further direct requests, all implemented:
+
+### Developer Mode merged into Logging Level
+
+"Settings screen voisi poistaa disable restore tv service on exit ja
+koko developer mode -kohdan ja siirtaa developer moden toiminnot
+suoraan logging level verbose alle." config_manager.isDeveloperMode()
+now derives directly from logging.developer_level == VERBOSE instead
+of a separate cfg.developer.developer_mode toggle, which was removed
+entirely (definition, _ENTRIES registration, and its Settings-list
+entry). "Disable Restore TV service on Exit" removed from the
+Settings UI too -- its underlying config entry and actual exit-time
+behaviour were deliberately left completely untouched (still defaults
+to "restore TV", the safe everyday behaviour, just no longer settable
+through the UI) since only its visibility was asked to change, not
+what MediaPlayer3 actually does on exit. Fixed the orphaned "if
+cfg.developer.developer_mode.value:" conditional block and the
+_last_visibility_state tuple (dropped its now-gone first element)
+left behind by removing these. developer_screen.py's own diagnostic
+dump updated to match (drops the now-meaningless separate "Debug
+logging" line, notes Developer Mode is derived).
+
+"Enable debug logging" also removed -- "pelkka logging level riittaa."
+cfg.logging.debug_logging removed entirely (definition, _ENTRIES,
+Settings entry, and the plugin.py startup line that read it into
+logger.debug_enabled). logger.py's own debug_enabled attribute and
+its effect on verbose()'s chosen log severity (DEBUG vs INFO) were
+deliberately left as-is internally -- debug_enabled now just always
+stays at its own default (False) since nothing sets it anymore,
+harmless dead capability rather than something requiring logger.py's
+internals to change.
+
+### Full Settings localization (except Language, deliberately)
+
+Every remaining Settings entry label wrapped in _() and translated to
+Finnish (28 new strings) -- "Logging level" reused as the new label
+for what was "Developer logging level" (dropping "Developer" since
+it's no longer a separate concept from Logging Level itself). "Language"
+itself deliberately left as a raw, unwrapped literal string, per
+direct request ("Language saa olla kaantamatta, niin sen loytaa vaikka
+tulisi joskus erikoisempiakin kielia kayttoon") -- confirmed this
+works correctly: since it's never passed through _(), it displays as
+literal "Language" regardless of the active UI language, even though
+gettext's own translation table already happens to have an entry for
+that exact string from an unrelated context (RadioBrowserScreen's own
+filter column) -- irrelevant here specifically because this call site
+never invokes translation at all.
+
+### SettingsScreen hint height
+
+The hint row (30px) was clipping when its text wrapped to two lines;
+grown to 50px, with DESIGN_HEIGHT increased by 15px (450 -> 465) to
+make room without shrinking the config list. Rendered and XML-
+validated the actual output (established practice since round 24) at
+four resolutions, and spot-checked the actual emitted widget
+positions (hint now 20,405 560x50, ending at 455 -- within the new
+465px design height with room to spare).
+
+### Documentation cleanup
+
+Searched systematically (normalized every .md filename -- lowercased,
+stripped underscores/hyphens -- and grouped by the result) rather than
+eyeballing the list, to make sure every near-duplicate was actually
+found rather than just the two named as examples. Found exactly two
+groups: ARCHITECTURE.MD/ARCHITECTURE.md (removed the all-caps-
+extension one, which was explicitly headed "Updated for Build 0007"
+and clearly the older of the two) and BROWSERSCREEN_SPEC.md/
+BROWSER_SCREEN_SPEC.md (removed BROWSER_SCREEN_SPEC.md -- the
+underscored name -- since BROWSERSCREEN_SPEC.md is the one fully
+rewritten in round 20 and kept current since). Deliberately did NOT
+touch other same-topic-but-differently-named docs found along the way
+(MAINSCREEN_NAVIGATION_SPEC.md vs MAINSCREEN_SPEC.md,
+HELP_SYSTEM_SPEC.md vs HELP_MANAGER_SPEC.md/HELP_SCREEN_SPEC.md) --
+these aren't spelling/case variants of the same filename, which is
+specifically what was asked about; a broader documentation-consolidation
+pass is a different, larger task not requested here. The entire
+docs_new/ directory removed outright, per direct request. README.md's
+"Screenshots" section updated to point at docs/images (where
+screenshots are now actually collected) instead of its previous
+placeholder text.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: settingsscreen.py,
+config.py, plugin.py, developer_screen.py). AST-based undefined-name
+sweep clean on all four Python files touched. Full-codebase XML-
+comment double-hyphen sweep clean (no new skin comments added this
+round, but re-checked anyway per round 30's own "adopt as standard
+practice" note). SettingsScreen's skin rendered and XML-validated at
+four resolutions with actual widget positions spot-checked. The
+"Language" entry's own un-translated behaviour verified directly
+against the compiled .mo file. Not yet re-confirmed on a real device
+this session: the merged Developer Mode behaviour actually taking
+effect correctly when Logging Level is set to Verbose, and the
+Finnish Settings screen's actual on-screen readability/layout.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.

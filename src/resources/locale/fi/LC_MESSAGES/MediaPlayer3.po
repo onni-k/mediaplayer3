@@ -568,3 +568,87 @@ msgstr "Varoitus: tämä kanava ei ehkä toimi."
 
 msgid "Warning: this episode may not work."
 msgstr "Varoitus: tämä jakso ei ehkä toimi."
+
+msgid " (NOT installed)"
+msgstr " (EI asennettu)"
+
+msgid " (installed)"
+msgstr " (asennettu)"
+
+msgid "Automatically play next track"
+msgstr "Soita seuraava kappale automaattisesti"
+
+msgid "Custom background color"
+msgstr "Mukautettu taustaväri"
+
+msgid "Hidden files"
+msgstr "Piilotiedostot"
+
+msgid "Log station codec info (Internet Radio)"
+msgstr "Kirjaa asemien koodekkitiedot (Internet-radio)"
+
+msgid "Logging level"
+msgstr "Lokitustaso"
+
+msgid "Lyrics offset step (seconds)"
+msgstr "Sanoitusten ajoitusaskel (sekuntia)"
+
+msgid "Podcast Index API key"
+msgstr "Podcast Index API -avain"
+
+msgid "Podcast Index API secret"
+msgstr "Podcast Index API -salaisuus"
+
+msgid "Radio default country"
+msgstr "Radion oletusmaa"
+
+msgid "Radio default language"
+msgstr "Radion oletuskieli"
+
+msgid "Radio history size"
+msgstr "Radiohistorian koko"
+
+msgid "Radio navigation mode"
+msgstr "Radion selaustila"
+
+msgid "Resume playback (future)"
+msgstr "Jatka toistoa (tuleva ominaisuus)"
+
+msgid "Resume radio station on start"
+msgstr "Jatka radiokanavaa käynnistyksessä"
+
+msgid "Seek step (seconds)"
+msgstr "Kelausaskel (sekuntia)"
+
+msgid "Show elapsed time"
+msgstr "Näytä kulunut aika"
+
+msgid "Show in main menu (restart required)"
+msgstr "Näytä päävalikossa (vaatii uudelleenkäynnistyksen)"
+
+msgid "Show playback state"
+msgstr "Näytä toiston tila"
+
+msgid "Show progress bar"
+msgstr "Näytä edistymispalkki"
+
+msgid "Show remaining time"
+msgstr "Näytä jäljellä oleva aika"
+
+msgid "Skin"
+msgstr "Skini"
+
+msgid "Theme"
+msgstr "Teema"
+
+msgid "Use ExtEplayer3 for radio"
+msgstr "Käytä ExtEplayer3:a radiolle"
+
+msgid "Use ffprobe for codec info"
+msgstr "Käytä ffprobea koodekkitietoihin"
+
+msgid "Yle EPG app_id"
+msgstr "Yle EPG app_id"
+
+msgid "Yle EPG app_key"
+msgstr "Yle EPG app_key"

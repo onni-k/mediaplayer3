@@ -622,9 +622,8 @@ class DeveloperScreen(Screen):
     def _page_logger(self) -> str:
 
         lines = [
-            f"Developer Mode: {'On' if config_manager.isDeveloperMode() else 'Off'}",
-            f"Developer log level: {config_manager.getDeveloperLogLevel()}",
-            f"Debug logging: {'On' if config_manager.get('logging.debug_logging', False) else 'Off'}",
+            f"Developer Mode: {'On' if config_manager.isDeveloperMode() else 'Off'} (derived from Logging Level)",
+            f"Logging level: {config_manager.getDeveloperLogLevel()}",
             f"Log directory: {LOG_PATH}",
         ]
 

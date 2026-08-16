@@ -133,13 +133,13 @@ def main(session, **kwargs):
         logger.warning("Unable to log device/system identification: %s", error)
 
     #
-    # Apply saved Developer Mode / debug logging configuration to the
-    # shared logger before MainScreen is created, so lifecycle logging
-    # for MainScreen's own startup already reflects the user's setting.
+    # Apply saved Logging Level configuration to the shared logger
+    # before MainScreen is created, so lifecycle logging for
+    # MainScreen's own startup already reflects the user's setting.
+    # Device test round 31: the separate "Enable debug logging" toggle
+    # is gone -- Logging Level alone drives this now.
     #
     try:
-        logger.debug_enabled = bool(config_manager.get("logging.debug_logging", False))
-
         logger.setDeveloperMode(config_manager.getDeveloperLogLevel())
 
     except Exception as error:

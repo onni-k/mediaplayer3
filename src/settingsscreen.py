@@ -223,7 +223,7 @@ class SettingsScreen(Screen, ConfigListScreen):
     ARCHITECTURE_VERSION = "0.3"
 
     DESIGN_WIDTH = 600
-    DESIGN_HEIGHT = 450
+    DESIGN_HEIGHT = 465
 
     # ------------------------------------------------------------------
 
@@ -262,7 +262,7 @@ class SettingsScreen(Screen, ConfigListScreen):
                     scrollbarMode="showOnDemand"/>
 
             <widget name="hint"
-                    {rect(20, 410, 560, 30)}
+                    {rect(20, 405, 560, 50)}
                     {font(14)}
                     halign="center"
                     valign="center"
@@ -354,73 +354,70 @@ class SettingsScreen(Screen, ConfigListScreen):
         """
         (Re)build the visible configuration entry list.
 
-        Rebuilt whenever Developer Mode or the custom theme selection
-        is toggled, since "Disable Restore TV service on Exit"
-        (SETTINGSSCREEN_SPEC.md section 5) and "Custom background
-        color" (Build 0006) are each only shown under their own
-        condition.
+        Rebuilt whenever the custom theme selection is toggled, since
+        "Custom background color" (Build 0006) is only shown under
+        its own condition. Device test round 31: "Disable Restore TV
+        service on Exit" / "Developer Mode" no longer exist as
+        separate concepts (Developer Mode now derives directly from
+        Logging Level -- see config_manager.isDeveloperMode()), so
+        rebuilding no longer needs to react to either.
         """
 
         entries = [
-            getConfigListEntry("Startup directory", cfg.general.startup_directory),
-            getConfigListEntry("Music Library directory", cfg.library.scan_directory),
-            getConfigListEntry("Hidden files", cfg.general.hidden_files),
-            getConfigListEntry("Show in main menu (restart required)", cfg.general.show_in_main_menu),
+            getConfigListEntry(_("Startup directory"), cfg.general.startup_directory),
+            getConfigListEntry(_("Music Library directory"), cfg.library.scan_directory),
+            getConfigListEntry(_("Hidden files"), cfg.general.hidden_files),
+            getConfigListEntry(_("Show in main menu (restart required)"), cfg.general.show_in_main_menu),
+            # Device test round 31: deliberately NOT translated
+            # ("Language saa olla kaantamatta, niin sen loytaa vaikka
+            # tulisi joskus erikoisempiakin kielia kayttoon") -- this
+            # entry must stay findable by its English label regardless
+            # of which language is currently active, including a
+            # future one nobody has added a translation for yet.
             getConfigListEntry("Language", cfg.general.language),
-            getConfigListEntry("Skin", cfg.appearance.skin),
-            getConfigListEntry("Theme", cfg.appearance.theme),
+            getConfigListEntry(_("Skin"), cfg.appearance.skin),
+            getConfigListEntry(_("Theme"), cfg.appearance.theme),
         ]
 
         if cfg.appearance.theme.value == "custom":
 
             entries.append(
-                getConfigListEntry("Custom background color", cfg.appearance.custom_background_color)
+                getConfigListEntry(_("Custom background color"), cfg.appearance.custom_background_color)
             )
 
         entries += [
-            getConfigListEntry("Resume playback (future)", cfg.playback.resume_playback),
-            getConfigListEntry("Automatically play next track", cfg.playback.auto_play_next),
-            getConfigListEntry("Seek step (seconds)", cfg.playback.seek_step_seconds),
-            getConfigListEntry("Lyrics offset step (seconds)", cfg.playback.lyrics_offset_step_seconds),
-            getConfigListEntry("Use ffprobe for codec info", cfg.playback.enable_ffprobe),
-            getConfigListEntry("Radio default country", cfg.radio.default_country),
-            getConfigListEntry("Radio default language", cfg.radio.default_language),
-            getConfigListEntry("Radio navigation mode", cfg.radio.navigation_mode),
-            getConfigListEntry("Radio history size", cfg.radio.history_size),
-            getConfigListEntry("Resume radio station on start", cfg.radio.resume_on_start),
+            getConfigListEntry(_("Resume playback (future)"), cfg.playback.resume_playback),
+            getConfigListEntry(_("Automatically play next track"), cfg.playback.auto_play_next),
+            getConfigListEntry(_("Seek step (seconds)"), cfg.playback.seek_step_seconds),
+            getConfigListEntry(_("Lyrics offset step (seconds)"), cfg.playback.lyrics_offset_step_seconds),
+            getConfigListEntry(_("Use ffprobe for codec info"), cfg.playback.enable_ffprobe),
+            getConfigListEntry(_("Radio default country"), cfg.radio.default_country),
+            getConfigListEntry(_("Radio default language"), cfg.radio.default_language),
+            getConfigListEntry(_("Radio navigation mode"), cfg.radio.navigation_mode),
+            getConfigListEntry(_("Radio history size"), cfg.radio.history_size),
+            getConfigListEntry(_("Resume radio station on start"), cfg.radio.resume_on_start),
             getConfigListEntry(
-                "Use ExtEplayer3 for radio"
-                + (" (asennettu)" if compatibility.isExtEplayer3Available() else " (EI asennettu)"),
+                _("Use ExtEplayer3 for radio")
+                + (_(" (installed)") if compatibility.isExtEplayer3Available() else _(" (NOT installed)")),
                 cfg.radio.use_exteplayer3,
             ),
-            getConfigListEntry("Yle EPG app_id", cfg.epg.yle_app_id),
-            getConfigListEntry("Yle EPG app_key", cfg.epg.yle_app_key),
-            getConfigListEntry("Podcast Index API key", cfg.podcast.podcastindex_api_key),
-            getConfigListEntry("Podcast Index API secret", cfg.podcast.podcastindex_api_secret),
-            getConfigListEntry("Show progress bar", cfg.ui.show_progress_bar),
-            getConfigListEntry("Show elapsed time", cfg.ui.show_elapsed_time),
-            getConfigListEntry("Show remaining time", cfg.ui.show_remaining_time),
-            getConfigListEntry("Show playback state", cfg.ui.show_playback_state),
-            getConfigListEntry("Enable debug logging", cfg.logging.debug_logging),
-            getConfigListEntry("Log station codec info (Internet Radio)", cfg.logging.log_station_codecs),
-            getConfigListEntry("Developer logging level", cfg.logging.developer_level),
-            getConfigListEntry("Developer Mode", cfg.developer.developer_mode),
+            getConfigListEntry(_("Yle EPG app_id"), cfg.epg.yle_app_id),
+            getConfigListEntry(_("Yle EPG app_key"), cfg.epg.yle_app_key),
+            getConfigListEntry(_("Podcast Index API key"), cfg.podcast.podcastindex_api_key),
+            getConfigListEntry(_("Podcast Index API secret"), cfg.podcast.podcastindex_api_secret),
+            getConfigListEntry(_("Show progress bar"), cfg.ui.show_progress_bar),
+            getConfigListEntry(_("Show elapsed time"), cfg.ui.show_elapsed_time),
+            getConfigListEntry(_("Show remaining time"), cfg.ui.show_remaining_time),
+            getConfigListEntry(_("Show playback state"), cfg.ui.show_playback_state),
+            getConfigListEntry(_("Log station codec info (Internet Radio)"), cfg.logging.log_station_codecs),
+            getConfigListEntry(_("Logging level"), cfg.logging.developer_level),
         ]
-
-        if cfg.developer.developer_mode.value:
-
-            entries.append(
-                getConfigListEntry(
-                    "Disable Restore TV service on Exit",
-                    cfg.developer.disable_restore_tv_on_exit,
-                )
-            )
 
         self.list = entries
 
         self["config"].setList(self.list)
 
-        self._last_visibility_state = (cfg.developer.developer_mode.value, cfg.appearance.theme.value == "custom")
+        self._last_visibility_state = (cfg.appearance.theme.value == "custom",)
 
     # ------------------------------------------------------------------
     # Event Handlers (SETTINGSSCREEN_SPEC.md section 7)
@@ -649,7 +646,7 @@ class SettingsScreen(Screen, ConfigListScreen):
         # extra entry -- rebuild only when that visibility actually
         # changed, so a plain value edit doesn't reset the list
         # widget's cursor position on every keypress.
-        visibility_state = (cfg.developer.developer_mode.value, cfg.appearance.theme.value == "custom")
+        visibility_state = (cfg.appearance.theme.value == "custom",)
 
         if visibility_state != self._last_visibility_state:
 

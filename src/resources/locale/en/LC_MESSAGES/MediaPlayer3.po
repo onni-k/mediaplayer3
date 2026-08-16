@@ -568,3 +568,87 @@ msgstr "Warning: this station may not work."
 
 msgid "Warning: this episode may not work."
 msgstr "Warning: this episode may not work."
+
+msgid " (NOT installed)"
+msgstr " (NOT installed)"
+
+msgid " (installed)"
+msgstr " (installed)"
+
+msgid "Automatically play next track"
+msgstr "Automatically play next track"
+
+msgid "Custom background color"
+msgstr "Custom background color"
+
+msgid "Hidden files"
+msgstr "Hidden files"
+
+msgid "Log station codec info (Internet Radio)"
+msgstr "Log station codec info (Internet Radio)"
+
+msgid "Logging level"
+msgstr "Logging level"
+
+msgid "Lyrics offset step (seconds)"
+msgstr "Lyrics offset step (seconds)"
+
+msgid "Podcast Index API key"
+msgstr "Podcast Index API key"
+
+msgid "Podcast Index API secret"
+msgstr "Podcast Index API secret"
+
+msgid "Radio default country"
+msgstr "Radio default country"
+
+msgid "Radio default language"
+msgstr "Radio default language"
+
+msgid "Radio history size"
+msgstr "Radio history size"
+
+msgid "Radio navigation mode"
+msgstr "Radio navigation mode"
+
+msgid "Resume playback (future)"
+msgstr "Resume playback (future)"
+
+msgid "Resume radio station on start"
+msgstr "Resume radio station on start"
+
+msgid "Seek step (seconds)"
+msgstr "Seek step (seconds)"
+
+msgid "Show elapsed time"
+msgstr "Show elapsed time"
+
+msgid "Show in main menu (restart required)"
+msgstr "Show in main menu (restart required)"
+
+msgid "Show playback state"
+msgstr "Show playback state"
+
+msgid "Show progress bar"
+msgstr "Show progress bar"
+
+msgid "Show remaining time"
+msgstr "Show remaining time"
+
+msgid "Skin"
+msgstr "Skin"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "Use ExtEplayer3 for radio"
+msgstr "Use ExtEplayer3 for radio"
+
+msgid "Use ffprobe for codec info"
+msgstr "Use ffprobe for codec info"
+
+msgid "Yle EPG app_id"
+msgstr "Yle EPG app_id"
+
+msgid "Yle EPG app_key"
+msgstr "Yle EPG app_key"

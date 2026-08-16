@@ -32,7 +32,8 @@ Python dependencies beyond the standard library.
 
 ## Screenshots
 
-*(add screenshots here &mdash; e.g. `docs/images/mainscreen.png`)*
+Screenshots from real device testing are collected under
+[`docs/images`](docs/images).
 
 ## Installation
 

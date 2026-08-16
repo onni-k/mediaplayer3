@@ -471,10 +471,6 @@ cfg.podcast.podcastindex_api_secret = ConfigText(
 
 cfg.logging = ConfigSubsection()
 
-cfg.logging.debug_logging = ConfigYesNo(
-    default=False
-)
-
 cfg.logging.developer_level = ConfigSelection(
     default=DEVELOPER_MODE_OFF,
     choices=[
@@ -511,14 +507,13 @@ cfg.logging.log_station_codecs = ConfigYesNo(
 
 cfg.developer = ConfigSubsection()
 
-cfg.developer.developer_mode = ConfigYesNo(
-    default=False
-)
-
-# "Restore TV service on Exit" is always enabled and is not shown in
-# normal Settings (SETTINGSSCREEN_SPEC.md section 5). Developer Settings
-# only exposes a way to *disable* it for testing purposes; the everyday
-# default of "restore TV" is therefore: disable_restore_tv_on_exit == False.
+# Device test round 31 -- "Disable Restore TV service on Exit" removed
+# from the Settings UI (no longer shown, no longer settable that way)
+# per direct request, but the underlying config entry and its actual
+# exit-time behaviour are left completely untouched -- only its
+# Settings-screen visibility changed, not what MediaPlayer3 actually
+# does. Always defaults to False (restore TV, the everyday-safe
+# behaviour) since it can no longer be turned on through the UI.
 cfg.developer.disable_restore_tv_on_exit = ConfigYesNo(
     default=False
 )
@@ -568,12 +563,10 @@ _ENTRIES: Dict[str, Any] = {
     "podcast.podcastindex_api_key": cfg.podcast.podcastindex_api_key,
     "podcast.podcastindex_api_secret": cfg.podcast.podcastindex_api_secret,
 
-    "logging.debug_logging": cfg.logging.debug_logging,
     "logging.developer_level": cfg.logging.developer_level,
     "logging.keep_log_files": cfg.logging.keep_log_files,
     "logging.log_station_codecs": cfg.logging.log_station_codecs,
 
-    "developer.developer_mode": cfg.developer.developer_mode,
     "developer.disable_restore_tv_on_exit": cfg.developer.disable_restore_tv_on_exit,
 }
 
@@ -826,7 +819,18 @@ class ConfigurationManager:
     # get()/set() interface above remains the canonical public API.
 
     def isDeveloperMode(self) -> bool:
-        return bool(self.get("developer.developer_mode", False))
+        """
+        Device test round 31 -- "Developer Mode" as a separate toggle
+        removed; this now derives directly from the Logging Level
+        setting instead ("siirtaa developer moden toiminnot suoraan
+        logging level verbose alle") -- Developer Mode is considered
+        on exactly when Logging Level is Verbose, nothing else drives
+        it anymore.
+        """
+
+        from .logger import DEVELOPER_MODE_OFF, DEVELOPER_MODE_VERBOSE
+
+        return self.get("logging.developer_level", DEVELOPER_MODE_OFF) == DEVELOPER_MODE_VERBOSE
 
     def isRestoreTvServiceEnabled(self) -> bool:
         return not bool(self.get("developer.disable_restore_tv_on_exit", False))
