@@ -559,3 +559,12 @@ msgstr "Unable to add to favorites."
 
 msgid "Save failed: %s"
 msgstr "Save failed: %s"
+
+msgid "measured"
+msgstr "measured"
+
+msgid "Warning: this station may not work."
+msgstr "Warning: this station may not work."
+
+msgid "Warning: this episode may not work."
+msgstr "Warning: this episode may not work."

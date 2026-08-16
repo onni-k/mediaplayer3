@@ -2133,3 +2133,382 @@ confirmation point.
 
 Both .zip and .ipk built and delivered together, per the ongoing
 request from Round 23.
+
+---
+
+## Round 27 (2026-08-16) -- ffprobe-based real codec detection + opt-in station codec logging
+
+User confirmed ffprobe is present on at least OpenViX. Direct request:
+use it for real codec detection (local files, and radio/podcasts
+before even opening them), and log codec info while browsing stations
+in RadioBrowserScreen to build up real-world data across many
+stations over time -- named Radio Nova and Radio SuomiRock as
+stations worth checking this way, with a link to
+https://ottverse.com/ffprobe-comprehensive-tutorial-with-examples/
+for reference.
+
+### New module: ffprobe_helper.py
+
+Thin, single-purpose wrapper: isAvailable() (cached availability
+check) and probe(path_or_url, timeout=6) -> real, measured codec/
+sample_rate/bitrate/channels from ffprobe's own JSON output, or None
+on ANY failure (missing binary, timeout, unreachable stream, bad
+output) -- never raises. Verified against real ffprobe, not assumed:
+generated a real test MP3 with ffmpeg, confirmed every field parses
+correctly from actual ffprobe JSON output; also tested the missing-
+binary path (mocked subprocess.run to raise FileNotFoundError) and a
+nonexistent-file path, both degrade to None cleanly as designed.
+
+Deliberately no caching/scheduling/UI in this module itself -- a
+local-file probe and a live-stream probe have very different
+performance/UX tradeoffs, so each caller owns that decision for its
+own context (see below).
+
+### Real codec info in the Information Panel's Codec page
+
+information_panel.py's existing codec fallback chain (Enigma2 API ->
+guesses) gained ffprobe as a new tier, inserted BEFORE the existing
+guesses (a real measurement should win over a guess wherever both
+exist) -- labelled "(measured)" in the display so it's clear this is
+an actual measurement, not station-reported or guessed data. Cached
+per current track/station (single slot) so repeated periodic
+refresh() calls for the same track don't re-spawn ffprobe every time
+-- only an actual track/station change triggers a new probe. Gated by
+new cfg.playback.enable_ffprobe (default on) for anyone on an image/
+box where ffprobe misbehaves.
+
+### Opt-in station codec logging (RadioBrowserScreen)
+
+New cfg.logging.log_station_codecs (default OFF -- this is real
+background network activity most users browsing casually wouldn't
+want without asking first). When on, a debounced timer (700ms,
+restarted on every Stations-column selection change) logs the
+ffprobe-measured codec for whichever station the user's selection
+actually settles on -- not one probe per station scrolled past, only
+the one they stop on. Both new Settings entries added ("Use ffprobe
+for codec info", "Log station codec info (Internet Radio)"), matching
+the existing unlocalized-label convention every other Settings entry
+in that list already uses (checked before assuming labels needed
+translation -- they don't, consistent with every existing entry).
+
+### Deliberately not implemented yet: pre-play codec warning
+
+The user's own stated end goal ("voidaan yleisesti varoittaa
+tallaisista kanavista") is future-tense and explicitly conditional on
+having gathered real data first via the logging feature above -- there
+is no actual "known-bad codec" list yet to warn against, so
+implementing a warning now would mean guessing at one. Natural next
+step once the logging feature has actually run against enough
+real-world stations to identify a genuine pattern.
+
+### Translation sweep, part 6 -- and a real gap in the sweep script itself found and fixed
+
+Found and fixed a second, independent bug while running this round's
+own translation sweep: the sweep script used in every previous round
+only matched double-quoted _("...") calls, silently missing single-
+quoted _('...') calls -- an established, pre-existing pattern in this
+exact file (information_panel.py already uses _('...') consistently
+inside f-strings, confirmed from several older, already-correctly-
+translated strings using the same style). This round's own new
+"measured" string happened to be single-quoted and was the one that
+exposed the gap. Fixed the sweep script itself (now matches both
+quote styles) and re-ran it clean across the whole codebase; only
+"measured" was actually missing. Worth keeping in mind for future
+rounds: use the dual-quote-style sweep going forward, not the
+double-quote-only version several earlier rounds used.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: ffprobe_helper.py,
+information_panel.py, radiobrowserscreen.py, config.py,
+settingsscreen.py, mainscreen.py -- the last two re-verified alongside
+this round's own changes). AST-based undefined-name sweep clean on
+all four Python files touched. ffprobe_helper.py itself unit-tested
+against real ffprobe (see above) -- the strongest verification any
+module has had this session, since a real binary was actually
+available to test against, unlike most other external-dependency
+code in this project. The information_panel.py/radiobrowserscreen.py
+integration points themselves (debounce timing, cache invalidation on
+track change, the Settings toggles actually gating behaviour
+correctly) not exercised on a device this session.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.
+
+---
+
+## Round 28 (2026-08-16) -- radio Codec/Station info missing after History-routed playback
+
+User systematically checked every Finnish radio station with round
+27's codec logging enabled and reported two things: local music shows
+codec info fine, but radio playback never shows any codec info at
+all; and a suspected correlation between ffprobe probe failures and
+actual playback problems for the same stations.
+
+### Root cause of the missing codec info: traced precisely, not guessed
+
+Confirmed by reading the actual data flow, not assumed: MainScreen's
+_updateInformationPanel() passes `station = self._radio_list[self.
+_radio_index]` straight into information_panel.refresh() -- and after
+Round 26's own fix, self._radio_list is now internetradio_manager.
+getHistory()'s result for the common case (any station played from
+RadioBrowserScreen's search results routes display through History,
+since a just-played station is always guaranteed to be at History[0]).
+addHistoryEntry() itself, however, only ever stored a "lighter" dict:
+name/stream_url/stationuuid/favicon/timestamp -- explicitly documented
+as such in mainscreen.py's own existing comments, a known, intentional
+compactness tradeoff from Build 0009. information_panel.py's
+_fillCodecFallbacksFromStation()/_buildStationPage() both read
+station.get("codec")/("bitrate")/("country")/("language")/("tags")/
+("homepage") -- none of which a History entry ever had. So for any
+station whose "current station" dict came from History (the common
+case since Round 26), Codec/Station Information had nothing to show
+regardless of ffprobe succeeding or failing -- this was already true
+before Round 26 too, for anyone navigating History directly, just far
+less commonly hit until Round 26 made History the default post-search
+source.
+
+Round 27's own ffprobe integration didn't cause this -- it just made
+the underlying gap far more visible, since the user was now
+systematically checking many stations in one sitting via the new
+codec-logging feature and noticing the Information Panel alongside it.
+
+### Fix
+
+addHistoryEntry() now also stores codec/bitrate/country/language/tags/
+homepage -- the full set of fields anything in this codebase actually
+reads off a station dict anywhere (grepped every station.get(...)
+call site across the whole codebase to build this list, not guessed).
+Backward compatible: existing History entries saved before this round
+simply don't have the new fields, and every reader already uses
+.get(field, "") / .get(field) with a falsy default, so they degrade
+exactly as before -- no migration needed, nothing breaks for old
+entries.
+
+Deliberately did NOT also touch _playRadioListEntry()'s/plugin.py's
+own History-entry-to-playback-station conversions -- confirmed those
+only feed self._last_radio_station (used for Favorites add/remove and
+similar), not the display path at all (which reads self._radio_list
+directly, independent of _last_radio_station) -- so enriching
+addHistoryEntry() alone is the complete, minimal fix for the reported
+symptom; expanding those two conversions too wasn't needed and would
+have been unnecessary scope.
+
+### The ffprobe-failure/playback-problem correlation
+
+Noted, not acted on directly this round -- there's no concrete code
+bug identified yet to fix here, and this is exactly the kind of
+pattern round 27's own opt-in codec logging exists to help surface
+over time with more real data, not something to guess at from one
+session's worth of entries. Also noticed independently while reading
+this log: ffprobe's "No audio stream found" results for the Yle HLS
+(master.m3u8) stations specifically may be a limitation of the
+current ffprobe invocation's -select_streams a:0 flag against an HLS
+manifest specifically (which describes multiple renditions, not a
+direct audio stream) rather than a genuine finding about those
+stations -- flagged here as a real, separate open question worth
+investigating with real HLS stream access before drawing conclusions
+about Yle stations specifically from ffprobe's HLS results as they
+stand today, but not chased further this round since it wasn't the
+user's own reported issue.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked:
+internetradio_manager.py). AST-based undefined-name sweep clean.
+Full-codebase translation sweep (dual quote style) clean, nothing new
+needed. The enrichment itself unit-tested standalone: a full station
+dict added via addHistoryEntry(), then every new field confirmed
+present and correct in the stored/retrieved entry. The actual on-
+device symptom (Codec/Station Information pages now populating
+correctly after History-routed radio playback) not yet re-confirmed
+on a real device this session.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.
+
+---
+
+## Round 29 (2026-08-16) -- async codec updates, failure warnings, filter persistence, ffprobe on by default
+
+User confirmed radio codec info now displays correctly (round 28
+fix). Reported some Yle stations (Yle Klassinen, Yle Puhe) genuinely
+don't play reliably on their device -- confirmed directly from the
+log (Yle Klassinen switching between two different stream URLs,
+icecast and HLS, within 2 seconds of each other) -- a real station/
+infrastructure issue, not something to fix in MediaPlayer3's own code.
+Five further direct requests, all implemented:
+
+### 1. RadioBrowserScreen info panel: async update with ffprobe result, or warning on failure
+
+_updateInfoPanel() still shows RadioBrowser's own reported info
+immediately (unchanged). _logSelectedStationCodec() (round 27's
+debounced ffprobe check) now also updates the SAME info panel once
+its probe completes: replaces the codec/bitrate line with the real
+measured values (labelled "(measured)", matching information_panel.
+py's own existing convention) if the probe succeeded, or appends
+"Warning: this station may not work." if it failed/timed out. Re-
+checks the selection hasn't moved before applying the update (belt-
+and-suspenders; Enigma2's single GUI thread means this can't actually
+race in practice, but costs nothing to guard against). Refactored the
+line-building logic into a shared _formatStationInfo() so both the
+immediate and the async-updated display stay consistent.
+
+### 2. Same for podcast episodes -- adapted, not a literal port
+
+"Sama voisi olla myos podcastien jaksoja selatessa." PodcastScreen has
+no dedicated info-panel widget the way RadioBrowserScreen does
+(episode details render inline in the Episodes list itself, not in a
+separate panel) -- checked this directly before assuming parity was
+possible. Implemented the closest honest equivalent: the same
+debounced ffprobe check (EPISODE_CODEC_DEBOUNCE_MS, same 700ms as
+radio's own), gated by the same cfg.logging.log_station_codecs
+toggle (reused rather than adding a second setting for the same
+concept), logs every result the same way, and on a failure
+specifically shows a brief warning via the existing "status" line
+(auto-reverting after 4s via a second timer) -- the closest available
+analog to RadioBrowserScreen's own info-panel update. The success
+case (measured codec/bitrate) is NOT displayed anywhere for podcasts,
+since there's no natural place for it without a layout change --
+noted clearly rather than silently only doing part of what was asked.
+
+### 3. cfg.logging.log_station_codecs: now on by default
+
+Was off by default (round 27's own deliberate caution about
+unrequested background network activity); user has since tested it
+extensively and asked for it on by default, so changed. This also
+means the new async-update/warning behaviour above is on by default
+too, matching the user's framing of wanting these together.
+
+### 4. RadioBrowserScreen: search/filter state persists across "Back"
+
+"Kun tulee takaisin toiminolla soittimesta radiobrowseriin, niin
+siina voisi sailya edellinen haku- tai kieliasetus." A fresh
+RadioBrowserScreen instance is created every time it's opened
+(including via MainScreen's OK-menu "Back"), so nothing in its own
+instance state could remember anything between visits on its own.
+Added three module-level variables (_last_search_name/_last_region_
+name/_last_language_name, persisting for the process's lifetime, not
+written to disk -- this is about the Back round-trip within one
+session, not surviving a restart) written wherever the user actually
+changes search text or region/language selection, and read in
+__init__()/_reloadFilters() -- preferred over Settings' own configured
+defaults when present, since a value the user just picked this
+session is more specific than a standing default. Verified standalone
+(module-level global read/write simulated in isolation): a value set
+in one simulated "session" correctly appears in a fresh simulated
+instance afterward.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: radiobrowser
+screen.py, podcastscreen.py, config.py). AST-based undefined-name
+sweep clean on all three files. Full-codebase translation sweep (dual
+quote style) found 2 new strings, both added/verified. The module-
+level filter-persistence logic verified standalone as described
+above. The async info-panel updates, failure warnings, and the actual
+on-device Back-then-filter-restored round-trip not yet re-confirmed
+on a real device this session.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.
+
+---
+
+## Round 30 (2026-08-16) -- red warning widgets, History ffprobe fix, conditional Play/Open order
+
+User confirmed round 29's channel testing and search-persistence both
+work very well. Four further direct requests, all implemented:
+
+### 1. Red-background warning widgets (RadioBrowserScreen + PodcastScreen)
+
+"Varoitus on niin hyva toiminto, etta se voisi olla radiolla ja
+podcastilla punaisella taustalla." A plain text line inside an
+existing multi-line Label can't have its own distinct background
+color, so both screens gained a dedicated "warning" widget instead:
+
+- RadioBrowserScreen: shrank "info" slightly (120px -> 96px) to make
+  room for a new 20px red-background ("#B00000") row right below it,
+  hidden by default (explicit .hide() on creation, since an empty-text
+  Label with a colored background still paints a visible bar) and
+  toggled via a new _setWarning() helper. _formatStationInfo() no
+  longer appends the warning line itself -- that text moved entirely
+  to the dedicated widget. _updateInfoPanel() clears any stale warning
+  whenever the selection changes to a fresh, not-yet-probed station.
+- PodcastScreen: no equivalent free space to add a new row (checked
+  the actual layout before assuming there was room), so the warning
+  widget sits at the exact same position as "status" instead --
+  toggling between them (status hidden while warning shows, and back)
+  rather than needing new vertical space. Replaced the previous
+  approach (round 29's warning text written directly into "status")
+  with this cleaner swap.
+
+Caught and fixed a real regression risk before it shipped: both new
+XML comments used " -- " as a prose separator (this project's own
+default style) inside `<!-- -->` blocks -- the exact same invalid-
+double-hyphen bug that crashed MainScreen's skin parsing in round 24.
+Ran the same full-codebase sweep round 24 introduced and this round's
+own new comments were the only hits; fixed both immediately. Then went
+further, per round 24's own "adopt this as standard practice" note:
+extracted and actually rendered+XML-parsed both screens' _buildSkin()
+output at four resolutions each (not just grepped for the specific
+bug pattern that bit before) -- all clean.
+
+### 2. Fixed: ffprobe measurement never showing for History-sourced radio stations
+
+"Kun soittaa radiokanavaa historia listalla, niin ffproben mittaus ei
+tule nakyviin, vaikka nakyi hetken aikaisemmin, kun soitti toiselta
+soittolistalta." Traced precisely: information_panel.py's
+_buildCodecPage() resolves its ffprobe target from
+station.get("url_resolved") or station.get("url") -- but History
+entries (internetradio_manager.addHistoryEntry(), already known from
+round 28 to use a different field layout than live search results)
+store their stream URL under "stream_url", not either of those two
+keys. So `target` silently resolved to None for any History-sourced
+station, and the ffprobe fallback tier was never even reached for
+one -- while search-result-sourced stations (which do have "url"/
+"url_resolved") worked correctly, exactly matching what was reported.
+Fixed with one added fallback: `station.get("stream_url")` as the
+third option. Grepped every other station-URL-resolution call site
+in the codebase to confirm this was the only one missing it (three
+others found, all confirmed to only ever handle full RadioBrowser-
+shaped dicts, never History's lighter shape, so none needed the same
+fix).
+
+### 3. File Browser: conditional Play/Open directory order
+
+"Jos hakemistossa on musiikkia... ensimmaisena toimintona voisi olla
+soita ja toisena avaa hakemisto. Jos musiikkia ei nay, niin jarjestys
+voi olla nykyinen." _directoryMenu()'s choice order now depends on
+self._files_in_preview (already tracking exactly the previewed
+directory's contents live -- confirmed correct at the point OK fires,
+not re-derived): "Play" leads when the previewed directory actually
+has playable files, "Open directory" leads (unchanged/previous order)
+when it doesn't. ".." keeps its own simpler two-item menu unchanged
+either way.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: radiobrowser
+screen.py, podcastscreen.py, browserscreen.py, information_panel.py,
+config.py -- the last touched only for round 29's carryover, re-
+verified here). AST-based undefined-name sweep clean on all four
+Python files actually changed. Full-codebase translation sweep clean
+(both warning strings were already present from round 29). Both
+screens' skin XML validated via actual rendering + XML parsing at
+four resolutions each, as described above -- this is now the
+established practice for any skin-touching change, not a one-off.
+The History-ffprobe fix and the conditional directory-menu ordering
+were reasoned through precisely from the actual code (not guessed)
+but not re-exercised on a device this session.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.

@@ -382,6 +382,7 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry("Automatically play next track", cfg.playback.auto_play_next),
             getConfigListEntry("Seek step (seconds)", cfg.playback.seek_step_seconds),
             getConfigListEntry("Lyrics offset step (seconds)", cfg.playback.lyrics_offset_step_seconds),
+            getConfigListEntry("Use ffprobe for codec info", cfg.playback.enable_ffprobe),
             getConfigListEntry("Radio default country", cfg.radio.default_country),
             getConfigListEntry("Radio default language", cfg.radio.default_language),
             getConfigListEntry("Radio navigation mode", cfg.radio.navigation_mode),
@@ -401,6 +402,7 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry("Show remaining time", cfg.ui.show_remaining_time),
             getConfigListEntry("Show playback state", cfg.ui.show_playback_state),
             getConfigListEntry("Enable debug logging", cfg.logging.debug_logging),
+            getConfigListEntry("Log station codec info (Internet Radio)", cfg.logging.log_station_codecs),
             getConfigListEntry("Developer logging level", cfg.logging.developer_level),
             getConfigListEntry("Developer Mode", cfg.developer.developer_mode),
         ]

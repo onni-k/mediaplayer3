@@ -59,6 +59,8 @@ Subscribed Podcasts | Episodes), per PODCAST_SCREEN_SPEC.md.
 
 from __future__ import annotations
 
+from enigma import eTimer
+
 from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
@@ -68,6 +70,8 @@ from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
+from .config import config_manager
+from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .help_manager import help_manager
 from .help_screen import HelpScreen
 from .localization import _
@@ -87,6 +91,16 @@ COLUMNS = ("available", "subscribed", "episodes")
 # CHANNEL UP/DOWN page-step, matching RadioBrowserScreen's own
 # PAGE_STEP convention for long lists.
 PAGE_STEP = 10
+
+# Device test round 29 -- matches RadioBrowserScreen's own
+# CODEC_LOG_DEBOUNCE_MS exactly (same reasoning: long enough that
+# scrolling through episodes doesn't fire a probe per episode passed
+# through, short enough to still feel responsive once the user stops).
+EPISODE_CODEC_DEBOUNCE_MS = 700
+
+# How long a codec-check failure warning stays in the "status" line
+# before reverting to whatever it would normally show.
+EPISODE_CODEC_WARNING_MS = 4000
 
 
 def _formatDuration(seconds) -> str:
@@ -231,6 +245,24 @@ class PodcastScreen(Screen):
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
+            <!-- Device test round 30: same red-background warning
+                 RadioBrowserScreen now has, per direct request
+                 ("Varoitus on niin hyva toiminto, etta se voisi olla
+                 radiolla ja podcastilla punaisella taustalla"). This
+                 screen has no separate info panel to add a dedicated
+                 row to the way RadioBrowserScreen did, so this sits
+                 at the exact same position as "status" instead,
+                 hidden by default: shown in its place (status
+                 hidden meanwhile) only while there's an actual
+                 warning to display. -->
+
+            <widget name="warning"
+                    {rect(20, 10, 660, 25)}
+                    {font(16)}
+                    halign="center"
+                    backgroundColor="#B00000"
+                    foregroundColor="#FFFFFF"/>
+
             {columns_xml}
 
             <widget name="hint"
@@ -278,6 +310,22 @@ class PodcastScreen(Screen):
 
         self._current_podcast_title = ""
 
+        # Device test round 29 -- same debounced ffprobe check
+        # RadioBrowserScreen already has (CODEC_LOG_DEBOUNCE_MS there),
+        # per direct request ("Sama voisi olla myos podcastien jaksoja
+        # selatessa"). No dedicated info-panel widget exists here the
+        # way RadioBrowserScreen has one, so this screen only logs and
+        # shows a failure warning via the existing "status" line
+        # (auto-reverting) -- see _checkSelectedEpisodeCodec()'s own
+        # docstring for the fuller reasoning.
+        self._episode_codec_timer = eTimer()
+
+        self._episode_codec_timer.callback.append(self._checkSelectedEpisodeCodec)
+
+        self._episode_codec_revert_timer = eTimer()
+
+        self._episode_codec_revert_timer.callback.append(self._hideEpisodeWarning)
+
         self._initialized = False
 
         self._log("Created")
@@ -297,6 +345,8 @@ class PodcastScreen(Screen):
         self._log("Initializing")
 
         self["status"] = Label("")
+        self["warning"] = Label("")
+        self["warning"].hide()
 
         for column_name in COLUMNS:
 
@@ -510,8 +560,20 @@ class PodcastScreen(Screen):
         Podcasts": "Selecting a podcast updates the Episodes column
         with the available episodes for that podcast." Only applies
         while browsing Available/Subscribed -- moving the selection
-        within Episodes itself doesn't reload anything.
+        within Episodes itself doesn't reload anything, but does
+        restart the debounced codec check below (device test round
+        29).
         """
+
+        if self._focus == "episodes":
+
+            self._hideEpisodeWarning()
+
+            if config_manager.get("logging.log_station_codecs", True):
+
+                self._episode_codec_timer.start(EPISODE_CODEC_DEBOUNCE_MS, True)
+
+            return
 
         if self._focus not in ("available", "subscribed"):
             return
@@ -535,6 +597,72 @@ class PodcastScreen(Screen):
             return None
 
         return source[index]
+
+    # ------------------------------------------------------------------
+
+    def _hideEpisodeWarning(self) -> None:
+
+        self["warning"].hide()
+
+        self["status"].show()
+
+    # ------------------------------------------------------------------
+
+    def _checkSelectedEpisodeCodec(self) -> None:
+        """
+        Device test round 29 -- user request: "Sama voisi olla myos
+        podcastien jaksoja selatessa," extending RadioBrowserScreen's
+        own debounced ffprobe codec check (round 27/29) to podcast
+        episodes. Gated by the same cfg.logging.log_station_codecs
+        toggle (on by default) -- reused rather than adding a second,
+        separate setting for what's conceptually the same feature.
+
+        Unlike RadioBrowserScreen, this screen has no dedicated info-
+        panel widget to update with a measured codec/bitrate line, so
+        this only logs (still builds the same real-world data over
+        time) and, on a failed/timed-out probe specifically, shows a
+        brief warning via the existing "status" line -- the closest
+        equivalent this screen's actual layout has to RadioBrowser-
+        Screen's own info panel -- auto-reverting after
+        EPISODE_CODEC_WARNING_MS via _episode_codec_revert_timer.
+        """
+
+        if not ffprobe_available():
+            return
+
+        index = self["episodes_list"].getSelectedIndex()
+
+        if not self._episodes or not (0 <= index < len(self._episodes)):
+            return
+
+        episode = self._episodes[index]
+
+        url = episode.get("playback_url")
+
+        if not url:
+            return
+
+        result = ffprobe_probe(url)
+
+        title = episode.get("title", "?")
+
+        if result:
+
+            logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> {result}")
+
+            return
+
+        logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> probe failed or timed out")
+
+        if self._focus == "episodes" and self["episodes_list"].getSelectedIndex() == index:
+
+            self["warning"].setText(_("Warning: this episode may not work."))
+
+            self["warning"].show()
+
+            self["status"].hide()
+
+            self._episode_codec_revert_timer.start(EPISODE_CODEC_WARNING_MS, True)
 
     # ------------------------------------------------------------------
 

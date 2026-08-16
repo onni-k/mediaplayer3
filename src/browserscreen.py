@@ -823,19 +823,41 @@ class BrowserScreen(Screen):
 
         label = self._directory_entries[index] if 0 <= index < len(self._directory_entries) else "?"
 
-        choices = [(_("Open directory"), "open")]
-
         # ".." only makes sense to open, not to bulk-add/play -- "play/
         # add the entire parent directory" isn't a meaningful action
         # here and would recurse back into this browser's own current
         # directory a second time.
-        if label != "..":
+        if label == "..":
 
-            choices.append((_("Play"), "play"))
+            choices = [(_("Open directory"), "open"), (_("Cancel"), "cancel")]
 
-            choices.append((_("Add entire directory to playlist"), "add"))
+        else:
 
-        choices.append((_("Cancel"), "cancel"))
+            # Device test round 30 -- user request: when the previewed
+            # directory (self._files_in_preview, already tracking
+            # whatever's currently selected here -- see
+            # _previewDirectory()'s own docstring) actually has
+            # playable files, "Play" leads (the more likely action);
+            # otherwise "Open directory" leads (current/previous
+            # behaviour) since there's nothing to play here directly
+            # anyway.
+            if self._files_in_preview:
+
+                choices = [
+                    (_("Play"), "play"),
+                    (_("Open directory"), "open"),
+                    (_("Add entire directory to playlist"), "add"),
+                    (_("Cancel"), "cancel"),
+                ]
+
+            else:
+
+                choices = [
+                    (_("Open directory"), "open"),
+                    (_("Play"), "play"),
+                    (_("Add entire directory to playlist"), "add"),
+                    (_("Cancel"), "cancel"),
+                ]
 
         self.session.openWithCallback(
             lambda choice: self._directoryMenuChosen(choice, target),

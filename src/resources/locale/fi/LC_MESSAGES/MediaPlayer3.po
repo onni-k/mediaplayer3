@@ -559,3 +559,12 @@ msgstr "Suosikkeihin lisääminen epäonnistui."
 
 msgid "Save failed: %s"
 msgstr "Tallennus epäonnistui: %s"
+
+msgid "measured"
+msgstr "mitattu"
+
+msgid "Warning: this station may not work."
+msgstr "Varoitus: tämä kanava ei ehkä toimi."
+
+msgid "Warning: this episode may not work."
+msgstr "Varoitus: tämä jakso ei ehkä toimi."

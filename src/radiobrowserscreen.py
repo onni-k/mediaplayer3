@@ -148,9 +148,10 @@ from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
+from .config import config_manager
+from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .help_manager import help_manager
 from .help_screen import HelpScreen
-from .config import config_manager
 from .internetradio_manager import internetradio_manager
 from .skin import (
     PANEL_BACKGROUND_COLOR,
@@ -176,6 +177,28 @@ PANELS = ("stations", "language", "region")
 # (requested after real device testing: long lists of stations/
 # countries/languages are slow to scroll one entry at a time).
 PAGE_STEP = 10
+
+# Device test round 27 -- how long the Stations-column selection must
+# sit still before _logSelectedStationCodec() actually runs. Long
+# enough that scrolling through a list doesn't fire a probe per
+# station passed through; short enough to still feel responsive once
+# the user does stop somewhere.
+CODEC_LOG_DEBOUNCE_MS = 700
+
+# Device test round 29 -- user request: "Kun tulee takaisin toiminolla
+# soittimesta radiobrowseriin, niin siina voisi sailya edellinen haku-
+# tai kieliasetus, niin on helppo selata ja kokeilla useita
+# samanlaisia kanavia." A fresh RadioBrowserScreen instance is created
+# every time it's opened (including via MainScreen's OK-menu "Back"),
+# so its own instance state can't remember anything between visits on
+# its own -- these three module-level variables persist for as long
+# as the process keeps running (reset on a full restart, which is
+# fine: this is about the Back round-trip within one session, not
+# surviving a reboot). Read in __init__()/_reloadFilters(), written
+# wherever the user actually changes one of these three things.
+_last_search_name = ""
+_last_region_name = None
+_last_language_name = None
 
 
 class RadioBrowserScreen(Screen):
@@ -288,10 +311,28 @@ class RadioBrowserScreen(Screen):
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
-                    {rect(20, 365, 660, 120)}
+                    {rect(20, 365, 660, 96)}
                     {font(16)}
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
+
+            <!-- Device test round 30: dedicated red-background
+                 warning row, per direct request ("Varoitus on niin
+                 hyva toiminto, etta se voisi olla radiolla ja
+                 podcastilla punaisella taustalla"): a plain text
+                 line inside "info" itself can't have its own
+                 different background color, so this is a separate
+                 widget, hidden via hide()/show() (same convention as
+                 title_bg_active/normal elsewhere in this project)
+                 whenever there's no warning to show. -->
+
+            <widget name="warning"
+                    {rect(20, 465, 660, 20)}
+                    {font(14)}
+                    halign="center"
+                    valign="center"
+                    backgroundColor="#B00000"
+                    foregroundColor="#FFFFFF"/>
 
             <widget name="hint"
                     {rect(20, 495, 660, 40)}
@@ -322,7 +363,7 @@ class RadioBrowserScreen(Screen):
 
         self._focus = "stations"
 
-        self._search_name = ""
+        self._search_name = _last_search_name
         self._stations = []
 
         self._countries = []
@@ -363,6 +404,8 @@ class RadioBrowserScreen(Screen):
         self["region"] = MenuList([])
         self["language"] = MenuList([])
         self["info"] = Label("")
+        self["warning"] = Label("")
+        self["warning"].hide()
         self["hint"] = Label(
             _("LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back")
         )
@@ -431,6 +474,18 @@ class RadioBrowserScreen(Screen):
         self._initial_load_timer = eTimer()
 
         self._initial_load_timer.callback.append(self._performInitialLoad)
+
+        # Device test round 27 -- debounced station codec logging
+        # (cfg.logging.log_station_codecs). Restarted on every
+        # Stations-column selection change (_onSelectionChanged());
+        # only fires once the selection has actually settled for
+        # CODEC_LOG_DEBOUNCE_MS, so scrolling past many stations
+        # quickly triggers at most one ffprobe call, for whichever one
+        # the user actually stopped on -- not one per station passed
+        # through.
+        self._codec_log_timer = eTimer()
+
+        self._codec_log_timer.callback.append(self._logSelectedStationCodec)
 
         self._initial_load_timer.start(10, True)
 
@@ -540,11 +595,19 @@ class RadioBrowserScreen(Screen):
 
         self["language"].setList([_("Any")] + [entry.get("name", "?") for entry in self._languages])
 
-        if self._default_country:
+        if _last_region_name:
+
+            self._selectListEntry("region", _last_region_name)
+
+        elif self._default_country:
 
             self._selectListEntry("region", self._default_country)
 
-        if self._default_language:
+        if _last_language_name:
+
+            self._selectListEntry("language", _last_language_name)
+
+        elif self._default_language:
 
             self._selectListEntry("language", self._default_language)
 
@@ -753,12 +816,89 @@ class RadioBrowserScreen(Screen):
 
             self._updateInfoPanel()
 
+            # Device test round 27 -- restart, not just start: an
+            # eTimer already running when start() is called again
+            # keeps counting from the new call, which is exactly the
+            # debounce behaviour wanted here (see CODEC_LOG_DEBOUNCE_MS's
+            # own comment).
+            if config_manager.get("logging.log_station_codecs", False):
+
+                self._codec_log_timer.start(CODEC_LOG_DEBOUNCE_MS, True)
+
         else:
 
             # Region/Language selection changes trigger an automatic
             # re-search (RADIOBROWSER_SCREEN_SPEC.md "Search results
             # update automatically whenever a filter changes.").
+            global _last_region_name, _last_language_name
+
+            _last_region_name = self._selectedRegion()
+
+            _last_language_name = self._selectedLanguage()
+
             self._runSearchWithStatus()
+
+    # ------------------------------------------------------------------
+
+    def _logSelectedStationCodec(self) -> None:
+        """
+        Device test round 27 -- user request: a log entry for the
+        real (ffprobe-measured) codec of whatever station the
+        Stations-column selection has settled on, building up
+        real-world data across many stations/sessions -- named
+        examples of specific stations worth checking this way were
+        Radio Nova and Radio SuomiRock. Gated by cfg.logging.
+        log_station_codecs (on by default since device test round 29
+        -- see that config entry's own comment) and
+        _onSelectionChanged()'s own debounce (CODEC_LOG_DEBOUNCE_MS).
+
+        Device test round 29: now also updates the info panel itself,
+        not just the log -- "Radioselaimen alaosassa voisi nakya
+        ensin radiobrowserin tarjoama kanavatieto, kuten nyt ja sitten
+        kun ffprobe on saanut tiedon kerattya, niin siihen voisi
+        paivittya koodekki bittinopeus yms." _updateInfoPanel() (called
+        first, synchronously, from _onSelectionChanged()) already
+        shows RadioBrowser's own reported info immediately; once this
+        debounced probe actually completes, its real measurement
+        replaces the codec/bitrate line if the selection is still on
+        the same station (re-checked below).
+
+        A failed/timed-out probe ("ffprobe testi ei mene lapi") shows
+        a warning line instead, per direct request.
+        """
+
+        if not ffprobe_available():
+            return
+
+        index = self["stations"].getSelectedIndex()
+
+        if not self._stations or not (0 <= index < len(self._stations)):
+            return
+
+        station = self._stations[index]
+
+        url = station.get("url_resolved") or station.get("url")
+
+        if not url:
+            return
+
+        result = ffprobe_probe(url)
+
+        name = station.get("name", "Unknown")
+
+        if result:
+
+            logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> {result}")
+
+        else:
+
+            logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> probe failed or timed out")
+
+        if self["stations"].getSelectedIndex() == index:
+
+            self["info"].setText(self._formatStationInfo(station, probe_result=result))
+
+            self._setWarning(_("Warning: this station may not work.") if result is None else None)
 
     # ------------------------------------------------------------------
 
@@ -803,6 +943,11 @@ class RadioBrowserScreen(Screen):
 
         index = self["stations"].getSelectedIndex()
 
+        # Device test round 30: clear any warning left over from a
+        # previous station's probe result -- a fresh selection hasn't
+        # been probed yet, so nothing about it is known to be wrong.
+        self._setWarning(None)
+
         if not self._stations or not (0 <= index < len(self._stations)):
 
             self["info"].setText(_("No media selected"))
@@ -811,14 +956,63 @@ class RadioBrowserScreen(Screen):
 
         station = self._stations[index]
 
+        self["info"].setText(self._formatStationInfo(station))
+
+    # ------------------------------------------------------------------
+
+    def _setWarning(self, text) -> None:
+        """
+        Device test round 30 -- shows/hides the dedicated red-
+        background "warning" widget (see _buildSkin()'s own comment
+        for why this needed a separate widget rather than just another
+        line inside "info"). `text=None` hides it.
+        """
+
+        if text:
+
+            self["warning"].setText(text)
+
+            self["warning"].show()
+
+        else:
+
+            self["warning"].setText("")
+
+            self["warning"].hide()
+
+    # ------------------------------------------------------------------
+
+    def _formatStationInfo(self, station, probe_result=None) -> str:
+        """
+        Shared by _updateInfoPanel() (RadioBrowser's own reported
+        info, shown immediately) and _logSelectedStationCodec() (the
+        same text, with the codec/bitrate line replaced by a real
+        ffprobe measurement once one becomes available) -- device test
+        round 29. A failed probe no longer appends a warning line here
+        (device test round 30) -- see _setWarning()'s own dedicated
+        widget instead.
+        """
+
+        codec = station.get("codec", "Unknown")
+
+        bitrate = station.get("bitrate", "Unknown")
+
+        if probe_result:
+
+            if probe_result.get("codec"):
+                codec = f"{probe_result['codec']} ({_('measured')})"
+
+            if probe_result.get("bitrate"):
+                bitrate = f"{probe_result['bitrate']} ({_('measured')})"
+
         lines = [
             station.get("name", "Unknown"),
-            f"{_('Codec')}: {station.get('codec', 'Unknown')}   {_('Bitrate')}: {station.get('bitrate', 'Unknown')}",
+            f"{_('Codec')}: {codec}   {_('Bitrate')}: {bitrate}",
             f"{_('Country')}: {station.get('country', 'Unknown')}   {_('Language')}: {station.get('language', 'Unknown')}",
             f"{_('Tags')}: {station.get('tags', 'Unknown')}",
         ]
 
-        self["info"].setText("\n".join(lines))
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Search by name (INFO key)
@@ -857,6 +1051,10 @@ class RadioBrowserScreen(Screen):
             return
 
         self._search_name = text
+
+        global _last_search_name
+
+        _last_search_name = text
 
         self._runSearchWithStatus()
 

@@ -247,6 +247,20 @@ cfg.playback.lyrics_offset_step_seconds = ConfigInteger(
     limits=(1, 10),
 )
 
+# Device test round 27 -- ffprobe_helper.py provides real, measured
+# codec info (where the ffprobe binary is present -- confirmed on at
+# least one real device, not guaranteed on every image) instead of
+# the existing extension-guess/station-metadata fallbacks
+# (information_panel.py's own _buildCodecPage()). On by default;
+# this toggle exists for anyone on an image/box where ffprobe
+# misbehaves or isn't wanted (it does briefly block the interface --
+# see ffprobe_helper.probe()'s own docstring -- while viewing the
+# Codec information page, or while radiobrowserscreen.py's own
+# opt-in codec logging, cfg.logging.log_station_codecs, is enabled).
+cfg.playback.enable_ffprobe = ConfigYesNo(
+    default=True
+)
+
 # ------------------------------------------------------------------------------
 # User Interface (Build 0005 -- SETTINGSSCREEN_SPEC.md section 6)
 # ------------------------------------------------------------------------------
@@ -475,6 +489,22 @@ cfg.logging.keep_log_files = ConfigInteger(
     limits=(1, 100),
 )
 
+# Device test round 27 -- user request: a log entry with the real
+# (ffprobe-measured) codec for whatever station the user's selection
+# settles on in RadioBrowserScreen's Stations column, building up
+# real-world codec data across many stations/sessions over time (the
+# stated goal: eventually being able to tell which stations use a
+# codec MediaPlayer3/Enigma2 doesn't handle well, e.g. the two
+# specific stations named as suspects, and warn generally about that
+# class of station). Also now updates the info panel itself with the
+# measured codec/bitrate, or a warning if the probe fails (device test
+# round 29). On by default since round 29 -- confirmed useful and not
+# problematic across real device testing, superseding round 27's own
+# "off by default" reasoning.
+cfg.logging.log_station_codecs = ConfigYesNo(
+    default=True
+)
+
 # ------------------------------------------------------------------------------
 # Developer (SETTINGSSCREEN_SPEC.md section 6 / DEVELOPER_SCREEN_SPEC.md)
 # ------------------------------------------------------------------------------
@@ -513,6 +543,7 @@ _ENTRIES: Dict[str, Any] = {
     "playback.auto_play_next": cfg.playback.auto_play_next,
     "playback.seek_step_seconds": cfg.playback.seek_step_seconds,
     "playback.lyrics_offset_step_seconds": cfg.playback.lyrics_offset_step_seconds,
+    "playback.enable_ffprobe": cfg.playback.enable_ffprobe,
 
     "ui.show_progress_bar": cfg.ui.show_progress_bar,
     "ui.show_elapsed_time": cfg.ui.show_elapsed_time,
@@ -540,6 +571,7 @@ _ENTRIES: Dict[str, Any] = {
     "logging.debug_logging": cfg.logging.debug_logging,
     "logging.developer_level": cfg.logging.developer_level,
     "logging.keep_log_files": cfg.logging.keep_log_files,
+    "logging.log_station_codecs": cfg.logging.log_station_codecs,
 
     "developer.developer_mode": cfg.developer.developer_mode,
     "developer.disable_restore_tv_on_exit": cfg.developer.disable_restore_tv_on_exit,

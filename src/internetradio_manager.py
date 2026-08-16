@@ -1108,6 +1108,31 @@ class InternetRadioManager:
             # whose station dicts come straight from RadioBrowser and
             # always carry this field).
             "favicon": station.get("favicon", ""),
+            # Device test round 28: same problem, same shape, for the
+            # Information Panel's Codec and Station Information pages
+            # this time -- both read these fields straight off
+            # whatever "current station" dict MainScreen hands them
+            # (information_panel.py's _fillCodecFallbacksFromStation()/
+            # _buildStationPage()), and a History entry is exactly
+            # that "current station" dict every time playback started
+            # from RadioBrowserScreen's own search results (Round 26's
+            # own fix routes display state through History specifically
+            # because a station just played is always guaranteed to be
+            # at History[0]). Without these, both pages showed nothing
+            # for the vast majority of stations right after Round 26,
+            # not because of anything actually wrong with the station
+            # or its stream -- confirmed from a real device log
+            # (History-sourced playback, systematically checking many
+            # Finnish stations) where ffprobe's own failures for
+            # several streams made the gap especially visible, but the
+            # missing station-metadata fallback was the deeper,
+            # always-present cause underneath that.
+            "codec": station.get("codec", ""),
+            "bitrate": station.get("bitrate", ""),
+            "country": station.get("country", ""),
+            "language": station.get("language", ""),
+            "tags": station.get("tags", ""),
+            "homepage": station.get("homepage", ""),
             "timestamp": time.time(),
         }
 

@@ -70,6 +70,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import metadata as metadata_module
 from .config import config_manager
 from .epg_manager import epg_manager
+from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .localization import _
 from .logger import logger
 from .lyrics_manager import lyrics_manager
@@ -136,6 +137,17 @@ class InformationPanel:
         # periodic refresh of the same one (see refresh()'s own
         # docstring for why that distinction matters).
         self._current_track_key = None
+
+        # Device test round 27 -- single-slot cache for ffprobe_helper
+        # results, keyed the same way _current_track_key already is.
+        # _buildCodecPage() can be called on every periodic refresh()
+        # while the same track/station keeps playing; without this,
+        # each one would spawn a fresh ffprobe subprocess for no
+        # reason (see ffprobe_helper.probe()'s own docstring on why
+        # that's expensive enough to avoid).
+        self._ffprobe_cache_key = None
+
+        self._ffprobe_cache_value = None
 
         self._log("Created")
 
@@ -464,6 +476,24 @@ class InformationPanel:
 
         values = {field_name: stream_info.get(field_name, metadata_module.UNKNOWN) for field_name, _label in field_labels}
 
+        # Device test round 30 -- bug: browsing to a station via
+        # History specifically never showed an ffprobe measurement at
+        # all, even though it worked correctly a moment earlier when
+        # playing from a search result. Root cause: History entries
+        # (internetradio_manager.addHistoryEntry()) store their stream
+        # URL under "stream_url", not "url_resolved"/"url" -- this
+        # line only checked the latter two, so `target` silently
+        # resolved to None for any History-sourced station and
+        # _fillCodecFallbacksFromFFprobe() below was never even
+        # reached for one. Added "stream_url" as a third fallback.
+        target = filename or (
+            station.get("url_resolved") or station.get("url") or station.get("stream_url") if station else None
+        )
+
+        if target:
+
+            self._fillCodecFallbacksFromFFprobe(values, target)
+
         if filename:
 
             self._fillCodecFallbacksFromFile(values, filename, duration)
@@ -482,6 +512,49 @@ class InformationPanel:
         title = f"{_('Information')}: {_('Codec')}"
 
         return title, "\n".join(lines)
+
+    # ------------------------------------------------------------------
+
+    def _fillCodecFallbacksFromFFprobe(self, values: Dict[str, str], target: str) -> None:
+        """
+        Device test round 27 -- fills in whatever getStreamInfo()
+        didn't already provide with a REAL, measured value from
+        ffprobe (ffprobe_helper.py), where available -- unlike every
+        other fallback here, which is either a guess (file extension)
+        or unverified metadata (RadioBrowser's own station info, or
+        the file's own tags). Runs before those specifically so a
+        real measurement wins over a guess wherever both exist.
+
+        Gated by cfg.playback.enable_ffprobe (default on) and cached
+        per current track/station (self._ffprobe_cache_key/_value) so
+        repeated refresh() calls for the same track don't re-spawn
+        ffprobe every time -- only a genuine track/station change
+        triggers a new probe.
+        """
+
+        if not config_manager.get("playback.enable_ffprobe", True):
+            return
+
+        if self._ffprobe_cache_key == target:
+
+            probed = self._ffprobe_cache_value
+
+        else:
+
+            probed = ffprobe_probe(target) if ffprobe_available() else None
+
+            self._ffprobe_cache_key = target
+
+            self._ffprobe_cache_value = probed
+
+        if not probed:
+            return
+
+        for field_name in ("codec", "sample_rate", "bitrate", "channels"):
+
+            if values.get(field_name) == metadata_module.UNKNOWN and probed.get(field_name):
+
+                values[field_name] = f"{probed[field_name]} ({_('measured')})"
 
     # ------------------------------------------------------------------
 
