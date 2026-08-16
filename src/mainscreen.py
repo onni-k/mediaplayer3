@@ -3349,9 +3349,57 @@ class MainScreen(Screen):
 
             self._last_source_screen = origin
 
+        if played and origin == "radio":
+
+            self._refreshRadioStateAfterExternalPlay()
+
         self._applyUiSettings()
 
         self._updateDisplay()
+
+    # ------------------------------------------------------------------
+
+    def _refreshRadioStateAfterExternalPlay(self) -> None:
+        """
+        Device test round 26 -- bug: selecting a station from
+        RadioBrowserScreen's own search (not History/Favorites
+        navigation) played the right audio (RadioBrowserScreen plays
+        it directly, with its own PlaybackController calls, then just
+        close("played")) but MainScreen's own display never updated
+        to match -- it kept showing whatever station _radio_list/
+        _radio_index last pointed at (History's previous entry, most
+        commonly), since nothing had told MainScreen a *different*
+        station was now playing. playRadioStation() already refreshes
+        this state correctly on every OTHER path that starts radio
+        playback (RADIO key, favorites/history navigation, the
+        startup chooser) -- RadioBrowserScreen's own direct-play path
+        was the one gap.
+
+        User's own diagnosis was exactly right ("ollaan historia-
+        soittolistalla") and their own suggested fix -- add the
+        station to the front of the History list -- turns out to
+        already happen automatically and unconditionally on every
+        single play, regardless of source (internetradio_manager.
+        prepareStream() always calls addHistoryEntry(), which always
+        inserts at index 0 -- confirmed by reading it, not assumed).
+        So the real fix isn't adding it to History (already there);
+        it's making MainScreen actually look there afterward. Switches
+        the active navigation list to History (guaranteed to contain
+        the just-played station, right at the front) and points
+        _radio_index/_last_radio_station at it -- same shape of
+        refresh playRadioStation() itself already does, just reached
+        from this different close-callback path too.
+        """
+
+        self._radio_list_name = "history"
+
+        self._refreshRadioList(is_explicit_switch=True)
+
+        self._radio_index = 0 if self._radio_list else -1
+
+        if self._radio_list:
+
+            self._last_radio_station = self._radio_list[0]
 
     # ------------------------------------------------------------------
 

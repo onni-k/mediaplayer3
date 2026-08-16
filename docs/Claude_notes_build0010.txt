@@ -2063,3 +2063,73 @@ well) still needs eyes on a real screen.
 
 Both .zip and .ipk built and delivered together, per the ongoing
 request from Round 23.
+
+---
+
+## Round 26 (2026-08-16) -- MainScreen display not updating after playing a station from RadioBrowserScreen's search
+
+User's own diagnosis: playing a new station from RadioBrowserScreen's
+search results (not History/Favorites navigation) plays the right
+audio, but MainScreen's own display doesn't update to show it --
+"Johtuu varmaan siita etta ollaan historia-soittolistalla" (probably
+because we're on the History playlist).
+
+### Root cause, confirmed by reading the actual code
+
+RadioBrowserScreen plays a selected station directly (its own
+PlaybackController calls), then simply close("played") --
+_mediaScreenClosed(origin="radio") only ever set
+self._last_source_screen; it never touched self._radio_list/
+self._radio_index/self._last_radio_station at all.
+_formatMetaLines()/_formatMediaLine() (Round 23) both read
+self._radio_list[self._radio_index] to know "what's actually
+playing" -- with that never refreshed, they kept showing whatever
+station was there before (History's previous top entry, most
+commonly), even though the audio itself was already the new station.
+playRadioStation() -- every OTHER path that starts radio playback
+(RADIO key, favorites/history navigation, the startup chooser) --
+already refreshes this state correctly; RadioBrowserScreen's own
+direct-play-then-close path was the one gap that never went through
+it.
+
+### User's own suggested fix, checked against the code before implementing
+
+"Historia-soittolistan alkuun voisi lisaa kanavan, jos tulee
+kanavaluettelon puolelta" -- checked internetradio_manager.py first
+rather than assuming: prepareStream() (which RadioBrowserScreen's own
+play path already calls) unconditionally calls addHistoryEntry() on
+every single play, from every source, which always inserts at
+History[0] -- confirmed by reading it and by a standalone test (old
+entry, then a new one, new one lands at index 0 both times). So the
+station the user wanted added to History's front is already there,
+automatically, before MainScreen ever sees the close() callback --
+the actual gap was narrower than the suggested fix: MainScreen just
+needed to go look at History again afterward, not have the station
+added to it a second time.
+
+### Fix
+
+_mediaScreenClosed(), when origin == "radio" and the close indicates
+something actually played, now calls a new
+_refreshRadioStateAfterExternalPlay(): switches the active navigation
+list to History (guaranteed, per the above, to contain the just-
+played station at index 0), reloads self._radio_list from it, and
+sets self._radio_index = 0 / self._last_radio_station accordingly --
+the same shape of refresh playRadioStation() already does for every
+other radio-playback path, just reached from this one too now.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: mainscreen.py).
+AST-based undefined-name sweep clean. The core assumption underlying
+the fix (a newly played station always lands at History[0]) verified
+standalone against the real addHistoryEntry() implementation, not
+just read and trusted. The fix itself (MainScreen's display actually
+updating after this round's change) not yet re-exercised on a device
+this session -- the next radio-search-then-play test is the natural
+confirmation point.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.
