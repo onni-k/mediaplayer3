@@ -125,9 +125,13 @@ from __future__ import annotations
 import os
 from typing import List, Optional
 
+from enigma import ePicLoad, eTimer
+
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
+from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
@@ -141,15 +145,61 @@ from .help_screen import HelpScreen
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
+from .paths import SKIN_PATH
 from .playlist_manager import playlist_manager
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .skin import to_opaque_skin_color
 
 COLUMNS = ("directories", "files", "playlist")
+
+# Device test round 55 -- background-image variant/tier system,
+# a copy of MusicLibraryScreen's own (round 39/46) with the same
+# light palette values, per the same "reuse Music Library's images
+# and colours" request already used for RadioBrowserScreen (round
+# 54).
+BROWSER_SKIN_VARIANTS = ("light", "dark")
+
+BROWSER_DEFAULT_SKIN_VARIANT = "light"
+
+BROWSER_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "list_background_color": "#EAEAEA",
+        "panel_text_color": "#1A1A1A",
+        "header_inactive_fg": "#1E2334",
+        "header_active_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "info_label_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "list_background_color": "#161922",
+        "panel_text_color": "#F0F0F0",
+        "header_inactive_fg": "#F0F0F0",
+        "header_active_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "info_label_fg": "#7B9FE0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolveBrowserSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", BROWSER_DEFAULT_SKIN_VARIANT)
+
+    if variant not in BROWSER_SKIN_VARIANTS:
+        return BROWSER_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolveBrowserResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
+
 
 # CHANNEL UP/DOWN page-step, matching RadioBrowserScreen/PodcastScreen's
 # own PAGE_STEP convention for long lists.
@@ -188,95 +238,196 @@ class BrowserScreen(Screen):
     SPECIFICATION_VERSION = "0.7"
     ARCHITECTURE_VERSION = "0.3"
 
-    DESIGN_WIDTH = 700
-    DESIGN_HEIGHT = 540
+    # Device test round 55 -- changed from 700x540 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Three equal-width columns (Directories | Files | Playlist),
-        each with a highlighted title and a scrollable list below --
-        same layout approach and design canvas as PodcastScreen's own
-        _buildSkin(), for a consistent look between the project's
-        three-column browsers.
+        Device test round 55 -- reuses MusicLibraryScreen's own
+        background-image approach exactly (per direct request: same
+        pattern already used for RadioBrowserScreen in round 54).
+        Icons: directories->folder, files->track (music note,
+        already used for MusicLibraryScreen's own Tracks column),
+        playlist->playlist (the list-with-dots icon from the original
+        icon sheet). A new "info" text widget was added this round
+        (didn't exist before) showing the current playlist's own name
+        and track count, per direct request.
         """
 
         sx = width / BrowserScreen.DESIGN_WIDTH
         sy = height / BrowserScreen.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
-        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
-        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
+        self._screen_width = width
+
+        self._screen_height = height
+
+        self._skin_variant = _resolveBrowserSkinVariant()
+
+        palette = BROWSER_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
-
-        column_width = 220
-
-        def column_x(index):
-            return 20 + index * (column_width + 10)
-
-        columns_xml = ""
-
-        titles = (_("Directories"), _("Files"), _("Playlist"))
-
-        for index, (column_name, title_text) in enumerate(zip(COLUMNS, titles)):
-
-            x = column_x(index)
-
-            columns_xml += f"""
-            <widget name="{column_name}_title_bg_normal"
-                    {rect(x, 45, column_width, 25)}
-                    backgroundColor="{inactive_color}"/>
-
-            <widget name="{column_name}_title_bg_active"
-                    {rect(x, 45, column_width, 25)}
-                    backgroundColor="{active_color}"/>
-
-            <widget name="{column_name}_title"
-                    {rect(x, 45, column_width, 25)}
-                    {font(16)}
-                    halign="left"
-                    valign="center"
-                    foregroundColor="{panel_text_color}"
-                    transparent="1"/>
-
-            <widget name="{column_name}_list"
-                    {rect(x, 75, column_width, 340)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"
-                    scrollbarMode="showOnDemand"/>
-            """
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3BrowserScreen"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Browser">
 
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
+
             <widget name="status"
-                    {rect(20, 10, 660, 25)}
-                    {font(16)}
-                    halign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
-
-            {columns_xml}
-
-            <widget name="hint"
-                    {rect(20, 425, 660, 90)}
-                    {font(14)}
+                    {rect(60, 19, 1550, 55)}
+                    {font(34)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
+
+            <widget name="directories_title_normal"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="directories_title_active"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="files_title_normal"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="files_title_active"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="playlist_title_normal"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="playlist_title_active"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="directories_list"
+                    {rect(40, 138, 498, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="files_list"
+                    {rect(557, 138, 537, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="playlist_list"
+                    {rect(1112, 138, 518, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="info"
+                    {rect(60, 702, 1550, 90)}
+                    {font(24)}
+                    foregroundColor="{palette['info_label_fg']}"
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(67, 874, 207, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(313, 874, 170, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(522, 874, 135, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_play"
+                    {rect(696, 874, 108, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(843, 874, 227, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(1109, 874, 106, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(1254, 874, 138, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1431, 874, 132, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -348,22 +499,45 @@ class BrowserScreen(Screen):
 
         self._log("Initializing")
 
+        self["background"] = Pixmap()
+
+        self._background_picload = ePicLoad()
+
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
+        self._background_pixmap_cache = {}
+
+        # Device test round 62 -- guards against starting a second
+        # concurrent decode while one is already running.
+        self._background_decode_in_progress = False
+
         self["status"] = Label("")
 
         for column_name in COLUMNS:
 
-            self[f"{column_name}_title_bg_normal"] = Label("")
-            self[f"{column_name}_title_bg_active"] = Label("")
-            self[f"{column_name}_title"] = Label("")
+            self[f"{column_name}_title_normal"] = Label("")
+            self[f"{column_name}_title_active"] = Label("")
+            self[f"{column_name}_title_active"].hide()
             self[f"{column_name}_list"] = MenuList([])
 
-        self["hint"] = Label(
-            _(
-                "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   "
-                "PLAY: Play   INFO: Select Playlist   HELP: Help   "
-                "MENU: Menu   EXIT: Back"
-            )
-        )
+        # Device test round 55 -- new: shows the current playlist's
+        # own name and track count, per direct request. Didn't exist
+        # before this round.
+        self["info"] = Label("")
+
+        # Device test round 55 -- 8 icon+text pairs replacing the old
+        # single "hint" Label, matching the pattern already used for
+        # MusicLibraryScreen/RadioBrowserScreen. Recomputed spacing
+        # from scratch for 8 items (one more than RadioBrowserScreen's
+        # own 7) -- see _buildSkin()'s own docstring.
+        self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Column"))
+        self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
+        self["hint_text_ok"] = Label(_("OK: Actions"))
+        self["hint_text_play"] = Label(_("PLAY: Play"))
+        self["hint_text_info"] = Label(_("INFO: Select Playlist"))
+        self["hint_text_help"] = Label(_("HELP: Help"))
+        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        self["hint_text_exit"] = Label(_("EXIT: Back"))
 
         self._reloadDirectoryColumn()
 
@@ -508,21 +682,37 @@ class BrowserScreen(Screen):
             [self._formatTrackEntry(track) for track in self._playlist_tracks]
         )
 
+        # Device test round 55 -- titles simplified to their own
+        # static names; the Playlist column's own dynamic name+count
+        # (previously baked into this title) moved to the new "info"
+        # widget below instead, per direct request.
         titles = {
             "directories": _("Directories"),
             "files": _("Files"),
-            "playlist": (
-                _("Playlist: %s") % self._current_playlist_name
-                if self._current_playlist_name
-                else _("Playlist")
-            ),
+            "playlist": _("Playlist"),
         }
 
         for column_name, title_text in titles.items():
 
-            marker = "> " if column_name == self._focus else ""
+            # Device test round 57 -- the "> " marker removed: the
+            # background image's own colour already distinguishes the
+            # active column, and the marker's extra characters were
+            # causing the title to wrap onto two lines when selected.
 
-            self[f"{column_name}_title"].setText(f"{marker}{title_text}")
+            self[f"{column_name}_title_normal"].setText(title_text)
+
+            self[f"{column_name}_title_active"].setText(title_text)
+
+        if self._current_playlist_name:
+
+            self["info"].setText(
+                f"{_('Playlist')}: {self._current_playlist_name}\n"
+                f"{len(self._playlist_tracks)} {_('track(s)')}"
+            )
+
+        else:
+
+            self["info"].setText(_("No playlist selected"))
 
         self._updateColumnHighlighting()
 
@@ -571,24 +761,138 @@ class BrowserScreen(Screen):
 
     def _updateColumnHighlighting(self) -> None:
         """
-        Two-tier column header highlighting -- see PodcastScreen's own
-        _updateColumnHighlighting() docstring for why hide()/show() on
-        pre-positioned rectangles is used instead of a runtime widget
-        recolour.
+        Device test round 55 -- the active/inactive column-header
+        colouring now lives in one of three pre-rendered background
+        images (resources/skins/{variant}/{tier}/browser_{focus}_
+        active.png), swapped here instead of toggling individual bg
+        widgets, matching MusicLibraryScreen's own round 39/45 and
+        RadioBrowserScreen's own round 54. Header TEXT stays real,
+        translatable normal/active widget pairs, toggled here too.
         """
+
+        self._decodeBackgroundImage(self._focus)
 
         for column_name in COLUMNS:
 
             is_active = column_name == self._focus
 
             try:
-                self[f"{column_name}_title_bg_normal"].hide() if is_active else self[f"{column_name}_title_bg_normal"].show()
+                self[f"{column_name}_title_normal"].hide() if is_active else self[f"{column_name}_title_normal"].show()
 
-                self[f"{column_name}_title_bg_active"].show() if is_active else self[f"{column_name}_title_bg_active"].hide()
+                self[f"{column_name}_title_active"].show() if is_active else self[f"{column_name}_title_active"].hide()
 
             except Exception as error:
 
                 logger.verbose(f"[BrowserScreen] Unable to set column highlight visibility: {error}")
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 55 -- mirrors
+    # MusicLibraryScreen's own _decodeBackgroundImage()/
+    # _onBackgroundImageDecoded() exactly, including the per-state
+    # cache and stale-decode guard; see that file's own docstrings for
+    # the full reasoning, not repeated here.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self, focus_state: str) -> None:
+
+        if focus_state in self._background_pixmap_cache:
+
+            if self["background"].instance is not None:
+
+                self["background"].instance.setPixmap(self._background_pixmap_cache[focus_state])
+
+                self["background"].show()
+
+            return
+
+        # Device test round 62 -- real bug found from a device log on
+        # MainScreen (a slow decode, likely worsened by a concurrent
+        # "gAccel alloc failed" the same log showed, left this
+        # method's own cache check above still empty when another
+        # call arrived before the first decode finished, causing a
+        # second concurrent startDecode() on the same ePicLoad
+        # instance -- confirmed directly as "startDecode() reported
+        # failure" in the log). Same guard applied here defensively:
+        # ePicLoad only supports one decode at a time per instance;
+        # this simply skips starting a new one while one is already
+        # running.
+        if getattr(self, "_background_decode_in_progress", False):
+            return
+
+        if self["background"].instance is None:
+
+            logger.verbose("[BrowserScreen] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(lambda: self._decodeBackgroundImage(focus_state))
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolveBrowserResolutionTier(self._screen_width),
+            f"browser_{focus_state}_active.png",
+        )
+
+        self._pending_background_focus_state = focus_state
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            self._background_decode_in_progress = True
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            self._background_decode_in_progress = False
+
+            logger.verbose(f"[BrowserScreen] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        # Device test round 62 -- cleared in a finally below so every
+        # branch (including early returns) reliably clears it once
+        # the decode has genuinely finished.
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            state = getattr(self, "_pending_background_focus_state", None)
+
+            if state is not None:
+
+                self._background_pixmap_cache[state] = pixmap
+
+            if state != self._focus:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[BrowserScreen] Unable to apply decoded background image: {error}")
+
+        finally:
+
+            self._background_decode_in_progress = False
 
     # ------------------------------------------------------------------
     # Navigation

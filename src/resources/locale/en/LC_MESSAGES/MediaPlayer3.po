@@ -652,3 +652,156 @@ msgstr "Yle EPG app_id"
 
 msgid "Yle EPG app_key"
 msgstr "Yle EPG app_key"
+
+msgid "LEFT/RIGHT: Panel"
+msgstr "LEFT/RIGHT: Panel"
+
+msgid "UP/DOWN: Move"
+msgstr "UP/DOWN: Move"
+
+msgid "OK: Play"
+msgstr "OK: Play"
+
+msgid "INFO: Search"
+msgstr "INFO: Search"
+
+msgid "MENU: Menu"
+msgstr "MENU: Menu"
+
+msgid "EXIT: Back"
+msgstr "EXIT: Back"
+
+msgid "CH+/CH-: Page"
+msgstr "CH+/CH-: Page"
+
+msgid "OK: Options"
+msgstr "OK: Options"
+
+msgid "LEFT/RIGHT: Column"
+msgstr "LEFT/RIGHT: Column"
+
+msgid "OK: Actions"
+msgstr "OK: Actions"
+
+msgid "PLAY: Play"
+msgstr "PLAY: Play"
+
+msgid "INFO: Select Playlist"
+msgstr "INFO: Select Playlist"
+
+msgid "HELP: Help"
+msgstr "HELP: Help"
+
+msgid "No playlist selected"
+msgstr "No playlist selected"
+
+msgid "Press EPG/INFO to search"
+msgstr "Press EPG/INFO to search"
+
+msgid "%d station(s)"
+msgstr "%d station(s)"
+
+msgid "OK: Edit"
+msgstr "OK: Edit"
+
+msgid "LEFT/RIGHT: Change"
+msgstr "LEFT/RIGHT: Change"
+
+msgid "YELLOW: Clear Radio History"
+msgstr "YELLOW: Clear Radio History"
+
+msgid "EXIT: Save & Back"
+msgstr "EXIT: Save & Back"
+
+msgid "Folder the file Browser opens in by default."
+msgstr "Folder the file Browser opens in by default."
+
+msgid "Folder scanned for the Music Library."
+msgstr "Folder scanned for the Music Library."
+
+msgid "Show files and folders starting with a dot."
+msgstr "Show files and folders starting with a dot."
+
+msgid "Add MediaPlayer3 to the main menu."
+msgstr "Add MediaPlayer3 to the main menu."
+
+msgid "Interface language."
+msgstr "Interface language."
+
+msgid "Light or dark background style for the redesigned screens."
+msgstr "Light or dark background style for the redesigned screens."
+
+msgid "Colour theme for screens not yet using the new skin."
+msgstr "Colour theme for screens not yet using the new skin."
+
+msgid "Background colour used when Theme is set to Custom."
+msgstr "Background colour used when Theme is set to Custom."
+
+msgid "Resume the last track on startup (not yet implemented)."
+msgstr "Resume the last track on startup (not yet implemented)."
+
+msgid "Play the next track when one finishes."
+msgstr "Play the next track when one finishes."
+
+msgid "How far each seek key press moves playback."
+msgstr "How far each seek key press moves playback."
+
+msgid "How far each lyrics-offset key press shifts timing."
+msgstr "How far each lyrics-offset key press shifts timing."
+
+msgid "Detect the real codec/bitrate instead of guessing from the file extension."
+msgstr "Detect the real codec/bitrate instead of guessing from the file extension."
+
+msgid "Country filter Internet Radio starts with."
+msgstr "Country filter Internet Radio starts with."
+
+msgid "Language filter Internet Radio starts with."
+msgstr "Language filter Internet Radio starts with."
+
+msgid "Whether CH+/CH- browses favourites or history."
+msgstr "Whether CH+/CH- browses favourites or history."
+
+msgid "How many recently played stations to remember."
+msgstr "How many recently played stations to remember."
+
+msgid "Reopen the last playing station automatically."
+msgstr "Reopen the last playing station automatically."
+
+msgid "Use the ExtEplayer3 backend for Internet Radio playback."
+msgstr "Use the ExtEplayer3 backend for Internet Radio playback."
+
+msgid "API app_id for Yle radio programme data."
+msgstr "API app_id for Yle radio programme data."
+
+msgid "API app_key for Yle radio programme data."
+msgstr "API app_key for Yle radio programme data."
+
+msgid "API key for searching podcasts."
+msgstr "API key for searching podcasts."
+
+msgid "API secret for searching podcasts."
+msgstr "API secret for searching podcasts."
+
+msgid "Show the playback progress bar on the Player screen."
+msgstr "Show the playback progress bar on the Player screen."
+
+msgid "Show elapsed time on the Player screen."
+msgstr "Show elapsed time on the Player screen."
+
+msgid "Show remaining time on the Player screen."
+msgstr "Show remaining time on the Player screen."
+
+msgid "Show Playing/Paused status on the Player screen."
+msgstr "Show Playing/Paused status on the Player screen."
+
+msgid "Write detected station codec info to the log."
+msgstr "Write detected station codec info to the log."
+
+msgid "How much detail is written to the log file."
+msgstr "How much detail is written to the log file."
+
+msgid "OK: Select"
+msgstr "OK: Select"
+
+msgid "MENU/EXIT: Close"
+msgstr "MENU/EXIT: Close"

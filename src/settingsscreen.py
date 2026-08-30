@@ -185,9 +185,16 @@
 
 from __future__ import annotations
 
+import os
+
+from enigma import ePicLoad, eTimer
+
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.config import getConfigListEntry
 from Components.ConfigList import ConfigListScreen
+from Components.Label import Label
+from Components.Pixmap import Pixmap
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 
@@ -199,13 +206,57 @@ from .internetradio_manager import internetradio_manager
 from .localization import _, localization_manager
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import ensure_trailing_slash
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .paths import ensure_trailing_slash, SKIN_PATH
+from .skin import skin_manager, to_opaque_skin_color
+
+# Device test round 59 -- background-image variant/tier system, a
+# copy of MusicLibraryScreen's own (round 39/46). Simpler than every
+# other converted screen: SettingsScreen has a single always-focused
+# list (no multiple panels to switch between), so there's only ONE
+# background image per variant/tier -- no per-state swapping, no
+# normal/active header pair, the header is always shown in its own
+# "active" colour.
+SETTINGS_SKIN_VARIANTS = ("light", "dark")
+
+SETTINGS_DEFAULT_SKIN_VARIANT = "light"
+
+SETTINGS_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "list_background_color": "#EAEAEA",
+        "panel_text_color": "#1A1A1A",
+        "header_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "info_label_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "list_background_color": "#161922",
+        "panel_text_color": "#F0F0F0",
+        "header_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "info_label_fg": "#7B9FE0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolveSettingsSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", SETTINGS_DEFAULT_SKIN_VARIANT)
+
+    if variant not in SETTINGS_SKIN_VARIANTS:
+        return SETTINGS_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolveSettingsResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
 
 
 class SettingsScreen(Screen, ConfigListScreen):
@@ -222,52 +273,113 @@ class SettingsScreen(Screen, ConfigListScreen):
     SPECIFICATION_VERSION = "0.7"
     ARCHITECTURE_VERSION = "0.3"
 
-    DESIGN_WIDTH = 600
-    DESIGN_HEIGHT = 465
+    # Device test round 59 -- changed from 600x465 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Build SettingsScreen's skin for an exact `width` x `height`
-        window, scaling from the 600x450 design resolution above --
-        see BrowserScreen._buildSkin() for the pattern this follows
-        (Build 0007, device test round 8).
+        Device test round 59 -- reuses MusicLibraryScreen's own
+        background-image approach (per direct request), simplified
+        for a single always-focused list: one header (a gear icon,
+        always shown "active"), one wide config list, an info area
+        showing the currently selected setting's own help text (new
+        this round), and a 5-item hint row (including a fixed-colour
+        YELLOW remote-button icon, unrecoloured unlike every other
+        hint icon -- see the background image generation script's own
+        comment for why).
         """
 
         sx = width / SettingsScreen.DESIGN_WIDTH
         sy = height / SettingsScreen.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
+        self._screen_width = width
+
+        self._screen_height = height
+
+        self._skin_variant = _resolveSettingsSkinVariant()
+
+        palette = SETTINGS_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3SettingsScreen"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Settings">
 
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
+
+            <widget name="header_title"
+                    {rect(88, 80, 1500, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_fg']}"
+                    transparent="1"/>
+
             <widget name="config"
-                    {rect(20, 20, 560, 380)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(40, 138, 1590, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="hint"
-                    {rect(20, 405, 560, 50)}
-                    {font(14)}
+            <widget name="info"
+                    {rect(60, 702, 1550, 130)}
+                    {font(26)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{palette['info_label_fg']}"
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="hint_text_ok"
+                    {rect(72, 874, 156, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(274, 874, 255, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_yellow"
+                    {rect(575, 874, 378, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(999, 874, 171, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1216, 874, 296, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -298,9 +410,39 @@ class SettingsScreen(Screen, ConfigListScreen):
 
         self.list = []
 
+        # Device test round 63 -- moved to BEFORE ConfigListScreen.
+        # __init__() below, which creates "config" internally: this
+        # project's own Round 7 paint-order rule (earlier self[name]=
+        # ... insertion paints underneath) means "background" must be
+        # inserted first. It was backwards here -- ConfigListScreen.
+        # __init__() ran first, so "config" was inserted before
+        # "background", and the background image painted ON TOP of
+        # the list once decoded. Confirmed directly: disabling the
+        # background entirely (round 62's own diagnostic) fixed the
+        # list's own text rendering completely, and the user's own
+        # description ("kuva latautui tekstin päälle ja kuulsi vähän
+        # läpi") matches this exactly.
+        self["background"] = Pixmap()
+
+        self._background_picload = ePicLoad()
+
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
         ConfigListScreen.__init__(self, self.list, session=session)
 
-        self["hint"] = self._makeHint()
+        self["header_title"] = Label(_("Settings"))
+
+        # Device test round 59 -- new: shows the currently selected
+        # setting's own short help text, per direct request
+        # ("Info-ikkunassa voisi olla asetuskohtainen ohje"). Didn't
+        # exist before this round.
+        self["info"] = Label("")
+
+        self["hint_text_ok"] = Label(_("OK: Edit"))
+        self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Change"))
+        self["hint_text_yellow"] = Label(_("YELLOW: Clear Radio History"))
+        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        self["hint_text_exit"] = Label(_("EXIT: Save & Back"))
 
         actions = {
             "ok": self.keyOK,
@@ -325,6 +467,19 @@ class SettingsScreen(Screen, ConfigListScreen):
 
         self._buildList()
 
+        # Device test round 62's own diagnostic (temporarily disabling
+        # this call) confirmed the background image was the cause of
+        # the reported "list flashes then fades" symptom -- round 63
+        # found and fixed the real root cause (a widget insertion-
+        # order bug: "background" was being created AFTER
+        # ConfigListScreen.__init__() had already created "config"
+        # internally, so the background painted on top of the list
+        # once decoded, instead of underneath it). Re-enabled now that
+        # the actual fix is in place.
+        self._decodeBackgroundImage()
+
+        self._updateSettingInfo()
+
         self._initialized = True
 
         self._log("Ready")
@@ -336,14 +491,6 @@ class SettingsScreen(Screen, ConfigListScreen):
         logger.info("[SettingsScreen] %s", message)
 
     # ------------------------------------------------------------------
-
-    def _makeHint(self):
-
-        from Components.Label import Label
-
-        return Label(
-            _("OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back")
-        )
 
 # End of Part 1
     # ------------------------------------------------------------------
@@ -418,6 +565,150 @@ class SettingsScreen(Screen, ConfigListScreen):
         self["config"].setList(self.list)
 
         self._last_visibility_state = (cfg.appearance.theme.value == "custom",)
+
+    # ------------------------------------------------------------------
+
+    # Device test round 59 -- one short help line per setting, shown
+    # in the new "info" widget as the selection moves. Keyed by the
+    # exact translated label text used above in _buildList() (matches
+    # what self["config"].getCurrent()[0] returns for the selected
+    # row) -- one entry ("Use ExtEplayer3 for radio") has a dynamic
+    # "(installed)"/"(NOT installed)" suffix appended at build time,
+    # so it's matched by prefix instead of exact equality below.
+    _SETTING_DESCRIPTIONS = {
+        _("Startup directory"): _("Folder the file Browser opens in by default."),
+        _("Music Library directory"): _("Folder scanned for the Music Library."),
+        _("Hidden files"): _("Show files and folders starting with a dot."),
+        _("Show in main menu (restart required)"): _("Add MediaPlayer3 to the main menu."),
+        "Language": _("Interface language."),
+        _("Skin"): _("Light or dark background style for the redesigned screens."),
+        _("Theme"): _("Colour theme for screens not yet using the new skin."),
+        _("Custom background color"): _("Background colour used when Theme is set to Custom."),
+        _("Resume playback (future)"): _("Resume the last track on startup (not yet implemented)."),
+        _("Automatically play next track"): _("Play the next track when one finishes."),
+        _("Seek step (seconds)"): _("How far each seek key press moves playback."),
+        _("Lyrics offset step (seconds)"): _("How far each lyrics-offset key press shifts timing."),
+        _("Use ffprobe for codec info"): _("Detect the real codec/bitrate instead of guessing from the file extension."),
+        _("Radio default country"): _("Country filter Internet Radio starts with."),
+        _("Radio default language"): _("Language filter Internet Radio starts with."),
+        _("Radio navigation mode"): _("Whether CH+/CH- browses favourites or history."),
+        _("Radio history size"): _("How many recently played stations to remember."),
+        _("Resume radio station on start"): _("Reopen the last playing station automatically."),
+        _("Use ExtEplayer3 for radio"): _("Use the ExtEplayer3 backend for Internet Radio playback."),
+        _("Yle EPG app_id"): _("API app_id for Yle radio programme data."),
+        _("Yle EPG app_key"): _("API app_key for Yle radio programme data."),
+        _("Podcast Index API key"): _("API key for searching podcasts."),
+        _("Podcast Index API secret"): _("API secret for searching podcasts."),
+        _("Show progress bar"): _("Show the playback progress bar on the Player screen."),
+        _("Show elapsed time"): _("Show elapsed time on the Player screen."),
+        _("Show remaining time"): _("Show remaining time on the Player screen."),
+        _("Show playback state"): _("Show Playing/Paused status on the Player screen."),
+        _("Log station codec info (Internet Radio)"): _("Write detected station codec info to the log."),
+        _("Logging level"): _("How much detail is written to the log file."),
+    }
+
+    def _updateSettingInfo(self) -> None:
+
+        try:
+            current = self["config"].getCurrent()
+
+        except Exception:
+
+            current = None
+
+        if not current:
+
+            self["info"].setText("")
+
+            return
+
+        label = current[0]
+
+        description = self._SETTING_DESCRIPTIONS.get(label)
+
+        if description is None:
+
+            # The one dynamic-suffix entry ("Use ExtEplayer3 for
+            # radio (installed)"/"(NOT installed)") won't match the
+            # dict's own exact key -- match by prefix instead.
+            for key, value in self._SETTING_DESCRIPTIONS.items():
+
+                if label.startswith(key):
+
+                    description = value
+
+                    break
+
+        self["info"].setText(description or "")
+
+    # ------------------------------------------------------------------
+
+    def selectionChanged(self) -> None:
+
+        ConfigListScreen.selectionChanged(self)
+
+        self._updateSettingInfo()
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 59 -- simpler than every
+    # other converted screen: a single state, decoded once, no
+    # per-focus swapping needed.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self) -> None:
+
+        if self["background"].instance is None:
+
+            logger.verbose("[SettingsScreen] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(self._decodeBackgroundImage)
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolveSettingsResolutionTier(self._screen_width),
+            "settings_background.png",
+        )
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            logger.verbose(f"[SettingsScreen] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[SettingsScreen] Unable to apply decoded background image: {error}")
 
     # ------------------------------------------------------------------
     # Event Handlers (SETTINGSSCREEN_SPEC.md section 7)

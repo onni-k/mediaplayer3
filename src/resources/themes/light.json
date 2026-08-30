@@ -1,10 +1,10 @@
 {
     "name": "Light",
-    "background": "#F2F2F2",
+    "background": "#E8F0FB",
     "text": "#1A1A1A",
-    "highlight": "#FF6A00",
+    "highlight": "#2E7DF0",
     "progress": "#1A1A1A",
-    "accent": "#D0D0D0",
+    "accent": "#C7DCF2",
     "inactive_highlight": "#ADD8E6",
     "selection_background": "#0056B3"
 }

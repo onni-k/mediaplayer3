@@ -175,8 +175,17 @@ def _parseVersion(version_string: str):
 # uses this fixed white/near-black pairing instead of the active
 # theme's own background/text colours, which stay reserved for the
 # outer screen edges only ("Reunat saavat jäädä harmaiksi").
-PANEL_BACKGROUND_COLOR = "#FFFFFF"
+PANEL_BACKGROUND_COLOR = "#F9F9F9"
 PANEL_TEXT_COLOR = "#1A1A1A"
+
+# Device test round 35 -- user-specified list-row selection colour
+# (164,145,251), deliberately separate from the active/
+# selection_background theme colour used for column-header
+# highlighting (RadioBrowserScreen etc. all still use blue there) --
+# the user asked specifically about "valitun alueen" (the selected
+# row within a list), not the header bar, so this only affects
+# backgroundColorSelected on list widgets that opt into it.
+SELECTED_ROW_COLOR = "#A491FB"
 
 
 def to_opaque_skin_color(hex_color: str) -> str:

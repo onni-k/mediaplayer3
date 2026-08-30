@@ -59,11 +59,15 @@ Subscribed Podcasts | Episodes), per PODCAST_SCREEN_SPEC.md.
 
 from __future__ import annotations
 
-from enigma import eTimer
+import os
+
+from enigma import ePicLoad, eTimer
 
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
+from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
@@ -77,16 +81,61 @@ from .help_screen import HelpScreen
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
+from .paths import SKIN_PATH
 from .playlist_manager import playlist_manager
 from .podcast_manager import podcast_manager
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .skin import to_opaque_skin_color
 
 COLUMNS = ("available", "subscribed", "episodes")
+
+# Device test round 56 -- background-image variant/tier system, a
+# copy of MusicLibraryScreen's own (round 39/46), matching the same
+# "reuse Music Library's images and colours" pattern already used for
+# RadioBrowserScreen (round 54) and BrowserScreen (round 55).
+PODCAST_SKIN_VARIANTS = ("light", "dark")
+
+PODCAST_DEFAULT_SKIN_VARIANT = "light"
+
+PODCAST_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "list_background_color": "#EAEAEA",
+        "panel_text_color": "#1A1A1A",
+        "header_inactive_fg": "#1E2334",
+        "header_active_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "info_label_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "list_background_color": "#161922",
+        "panel_text_color": "#F0F0F0",
+        "header_inactive_fg": "#F0F0F0",
+        "header_active_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "info_label_fg": "#7B9FE0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolvePodcastSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", PODCAST_DEFAULT_SKIN_VARIANT)
+
+    if variant not in PODCAST_SKIN_VARIANTS:
+        return PODCAST_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolvePodcastResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
+
 
 # CHANNEL UP/DOWN page-step, matching RadioBrowserScreen's own
 # PAGE_STEP convention for long lists.
@@ -155,123 +204,198 @@ class PodcastScreen(Screen):
 
     SPECIFICATION_VERSION = "0.1"
 
-    DESIGN_WIDTH = 700
-    DESIGN_HEIGHT = 540
+    # Device test round 56 -- changed from 700x540 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Three equal-width columns (Available | Subscribed | Episodes),
-        each with a highlighted title and a scrollable list below,
-        scaled from the 700x540 design resolution -- same canvas size
-        RadioBrowserScreen uses, for a consistent look between the two
-        three-column browsers.
+        Device test round 56 -- reuses MusicLibraryScreen's own
+        background-image approach exactly (per direct request: same
+        pattern already used for RadioBrowserScreen/BrowserScreen).
+        Icons: available->headphones, subscribed->checkmark,
+        episodes->microphone, cropped from the user's own Podcasts
+        mockup. New "info" widget shows the currently selected
+        podcast's or episode's own description (falls back to a
+        "press INFO to search" hint when nothing is available), per
+        direct request -- this screen never had a description display
+        before.
         """
 
         sx = width / PodcastScreen.DESIGN_WIDTH
         sy = height / PodcastScreen.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
-        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
+        self._screen_width = width
 
-        # Build 0010 -- BUILD_0010_PLAN.md "Visual Refinement":
-        # inactive column headers get a light blue background (not
-        # the neutral panel_background_color Build 0009's MainScreen
-        # panels used for "inactive") while the active header keeps
-        # the existing blue highlight. No theme key existed for this
-        # yet, so a sensible standalone default is used directly here
-        # rather than inventing a new getColor() key on the spot --
-        # can be promoted to a real theme colour once THEME_SPEC.md's
-        # Light/Dark themes are implemented.
-        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
+        self._screen_height = height
+
+        self._skin_variant = _resolvePodcastSkinVariant()
+
+        palette = PODCAST_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
-
-        column_width = 220
-
-        def column_x(index):
-            return 20 + index * (column_width + 10)
-
-        columns_xml = ""
-
-        titles = (_("Available Podcasts"), _("Subscribed Podcasts"), _("Episodes"))
-
-        for index, (column_name, title_text) in enumerate(zip(COLUMNS, titles)):
-
-            x = column_x(index)
-
-            columns_xml += f"""
-            <widget name="{column_name}_title_bg_normal"
-                    {rect(x, 45, column_width, 25)}
-                    backgroundColor="{inactive_color}"/>
-
-            <widget name="{column_name}_title_bg_active"
-                    {rect(x, 45, column_width, 25)}
-                    backgroundColor="{active_color}"/>
-
-            <widget name="{column_name}_title"
-                    {rect(x, 45, column_width, 25)}
-                    {font(16)}
-                    halign="left"
-                    valign="center"
-                    foregroundColor="{panel_text_color}"
-                    transparent="1"/>
-
-            <widget name="{column_name}_list"
-                    {rect(x, 75, column_width, 340)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"
-                    scrollbarMode="showOnDemand"/>
-            """
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3PodcastScreen"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Podcasts">
 
-            <widget name="status"
-                    {rect(20, 10, 660, 25)}
-                    {font(16)}
-                    halign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
 
-            <!-- Device test round 30: same red-background warning
-                 RadioBrowserScreen now has, per direct request
-                 ("Varoitus on niin hyva toiminto, etta se voisi olla
-                 radiolla ja podcastilla punaisella taustalla"). This
-                 screen has no separate info panel to add a dedicated
-                 row to the way RadioBrowserScreen did, so this sits
-                 at the exact same position as "status" instead,
-                 hidden by default: shown in its place (status
-                 hidden meanwhile) only while there's an actual
-                 warning to display. -->
+            <widget name="status"
+                    {rect(60, 19, 1550, 55)}
+                    {font(34)}
+                    halign="center"
+                    valign="center"
+                    foregroundColor="{panel_text_color}"
+                    transparent="1"/>
 
             <widget name="warning"
-                    {rect(20, 10, 660, 25)}
-                    {font(16)}
+                    {rect(60, 19, 1550, 55)}
+                    {font(28)}
                     halign="center"
+                    valign="center"
                     backgroundColor="#B00000"
                     foregroundColor="#FFFFFF"/>
 
-            {columns_xml}
-
-            <widget name="hint"
-                    {rect(20, 425, 660, 90)}
-                    {font(14)}
-                    halign="center"
+            <widget name="available_title_normal"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="available_title_active"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="subscribed_title_normal"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="subscribed_title_active"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="episodes_title_normal"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="episodes_title_active"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="available_list"
+                    {rect(40, 138, 498, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="subscribed_list"
+                    {rect(557, 138, 537, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="episodes_list"
+                    {rect(1112, 138, 518, 518)}
+                    backgroundColor="{palette['list_background_color']}"
+                    foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarMode="showOnDemand"/>
+
+            <widget name="info"
+                    {rect(60, 702, 1550, 130)}
+                    {font(22)}
+                    foregroundColor="{panel_text_color}"
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(74, 874, 249, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(339, 874, 200, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(589, 874, 159, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(798, 874, 141, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(989, 874, 128, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(1167, 874, 163, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1380, 874, 155, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -344,23 +468,42 @@ class PodcastScreen(Screen):
 
         self._log("Initializing")
 
+        self["background"] = Pixmap()
+
+        self._background_picload = ePicLoad()
+
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
+        self._background_pixmap_cache = {}
+
+        # Device test round 62 -- guards against starting a second
+        # concurrent decode while one is already running.
+        self._background_decode_in_progress = False
+
         self["status"] = Label("")
         self["warning"] = Label("")
         self["warning"].hide()
 
         for column_name in COLUMNS:
 
-            self[f"{column_name}_title_bg_normal"] = Label("")
-            self[f"{column_name}_title_bg_active"] = Label("")
-            self[f"{column_name}_title"] = Label("")
+            self[f"{column_name}_title_normal"] = Label("")
+            self[f"{column_name}_title_active"] = Label("")
+            self[f"{column_name}_title_active"].hide()
             self[f"{column_name}_list"] = MenuList([])
 
-        self["hint"] = Label(
-            _(
-                "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   "
-                "INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
-            )
-        )
+        # Device test round 56 -- new: shows the currently selected
+        # podcast's or episode's own description (falls back to a
+        # "press INFO to search" hint), per direct request. Didn't
+        # exist before this round.
+        self["info"] = Label("")
+
+        self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Column"))
+        self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
+        self["hint_text_ok"] = Label(_("OK: Actions"))
+        self["hint_text_info"] = Label(_("INFO: Search"))
+        self["hint_text_help"] = Label(_("HELP: Help"))
+        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        self["hint_text_exit"] = Label(_("EXIT: Back"))
 
         self._subscribed_podcasts = podcast_manager.getSubscriptions()
 
@@ -433,11 +576,19 @@ class PodcastScreen(Screen):
 
         for column_name, title_text in titles.items():
 
-            marker = "> " if column_name == self._focus else ""
+            # Device test round 57 -- the "> " marker removed: the
+            # background image's own colour already distinguishes the
+            # active column, and the marker's extra characters were
+            # causing the title to wrap onto two lines when selected
+            # (confirmed directly from the user's own screenshot).
 
-            self[f"{column_name}_title"].setText(f"{marker}{title_text}")
+            self[f"{column_name}_title_normal"].setText(title_text)
+
+            self[f"{column_name}_title_active"].setText(title_text)
 
         self._updateColumnHighlighting()
+
+        self._updateInfoDescription()
 
         if self._search_query:
 
@@ -451,6 +602,44 @@ class PodcastScreen(Screen):
             # this screen's own name now instead, reusing the exact
             # "Podcasts" string MainMenu's own entry already uses.
             self["status"].setText(_("Podcasts"))
+
+    # ------------------------------------------------------------------
+
+    def _updateInfoDescription(self) -> None:
+        """
+        Device test round 56 -- shows the currently selected podcast's
+        or episode's own "description" field (already fetched by
+        podcast_providers/podcastindex/podcastindex_provider.py for
+        both feeds and episodes, just never displayed anywhere before
+        this round) in the new "info" widget, matching whichever
+        column currently has focus. Falls back to a "press INFO to
+        search" hint whenever there's nothing to show -- the focused
+        list is empty (the case explicitly named in the request: no
+        podcasts visible yet), the selection index is out of range, or
+        the selected entry's own description is blank.
+        """
+
+        source = {
+            "available": self._available_podcasts,
+            "subscribed": self._subscribed_podcasts,
+            "episodes": self._episodes,
+        }.get(self._focus, [])
+
+        index = self[f"{self._focus}_list"].getSelectedIndex()
+
+        description = ""
+
+        if source and 0 <= index < len(source):
+
+            description = (source[index].get("description") or "").strip()
+
+        if description:
+
+            self["info"].setText(description)
+
+        else:
+
+            self["info"].setText(_("Press EPG/INFO to search"))
 
     # ------------------------------------------------------------------
 
@@ -474,25 +663,139 @@ class PodcastScreen(Screen):
 
     def _updateColumnHighlighting(self) -> None:
         """
-        Build 0010 -- see this file's own _buildSkin() docstring for
-        why this uses hide()/show() on a pair of pre-positioned
-        background rectangles per column, exactly mirroring
-        MainScreen's own confirmed-safe Build 0009 pattern, rather
-        than a runtime widget recolour.
+        Device test round 56 -- the active/inactive column-header
+        colouring now lives in one of three pre-rendered background
+        images (resources/skins/{variant}/{tier}/podcast_{focus}_
+        active.png), swapped here instead of toggling individual bg
+        widgets, matching MusicLibraryScreen's own round 39/45 and
+        RadioBrowserScreen's/BrowserScreen's own rounds 54/55. Header
+        TEXT stays real, translatable normal/active widget pairs,
+        toggled here too.
         """
+
+        self._decodeBackgroundImage(self._focus)
 
         for column_name in COLUMNS:
 
             is_active = column_name == self._focus
 
             try:
-                self[f"{column_name}_title_bg_normal"].hide() if is_active else self[f"{column_name}_title_bg_normal"].show()
+                self[f"{column_name}_title_normal"].hide() if is_active else self[f"{column_name}_title_normal"].show()
 
-                self[f"{column_name}_title_bg_active"].show() if is_active else self[f"{column_name}_title_bg_active"].hide()
+                self[f"{column_name}_title_active"].show() if is_active else self[f"{column_name}_title_active"].hide()
 
             except Exception as error:
 
                 logger.verbose(f"[Podcast] Unable to set column highlight visibility: {error}")
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 56 -- mirrors
+    # MusicLibraryScreen's own _decodeBackgroundImage()/
+    # _onBackgroundImageDecoded() exactly, including the per-state
+    # cache and stale-decode guard; see that file's own docstrings for
+    # the full reasoning, not repeated here.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self, focus_state: str) -> None:
+
+        if focus_state in self._background_pixmap_cache:
+
+            if self["background"].instance is not None:
+
+                self["background"].instance.setPixmap(self._background_pixmap_cache[focus_state])
+
+                self["background"].show()
+
+            return
+
+        # Device test round 62 -- real bug found from a device log on
+        # MainScreen (a slow decode, likely worsened by a concurrent
+        # "gAccel alloc failed" the same log showed, left this
+        # method's own cache check above still empty when another
+        # call arrived before the first decode finished, causing a
+        # second concurrent startDecode() on the same ePicLoad
+        # instance -- confirmed directly as "startDecode() reported
+        # failure" in the log). Same guard applied here defensively:
+        # ePicLoad only supports one decode at a time per instance;
+        # this simply skips starting a new one while one is already
+        # running.
+        if getattr(self, "_background_decode_in_progress", False):
+            return
+
+        if self["background"].instance is None:
+
+            logger.verbose("[Podcast] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(lambda: self._decodeBackgroundImage(focus_state))
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolvePodcastResolutionTier(self._screen_width),
+            f"podcast_{focus_state}_active.png",
+        )
+
+        self._pending_background_focus_state = focus_state
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            self._background_decode_in_progress = True
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            self._background_decode_in_progress = False
+
+            logger.verbose(f"[Podcast] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        # Device test round 62 -- cleared in a finally below so every
+        # branch (including early returns) reliably clears it once
+        # the decode has genuinely finished.
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            state = getattr(self, "_pending_background_focus_state", None)
+
+            if state is not None:
+
+                self._background_pixmap_cache[state] = pixmap
+
+            if state != self._focus:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[Podcast] Unable to apply decoded background image: {error}")
+
+        finally:
+
+            self._background_decode_in_progress = False
 
     # ------------------------------------------------------------------
     # Navigation
@@ -573,6 +876,16 @@ class PodcastScreen(Screen):
 
                 self._episode_codec_timer.start(EPISODE_CODEC_DEBOUNCE_MS, True)
 
+            # Device test round 57 -- fixes a real reported bug: moving
+            # within an already-loaded Episodes list never refreshed
+            # the info panel's own description, since only
+            # _updateDisplay() called _updateInfoDescription() and
+            # this method returned before reaching it. The first
+            # episode's description showed correctly (set by the
+            # _updateDisplay() call that ran when the episode list was
+            # first loaded), but scrolling further never updated it.
+            self._updateInfoDescription()
+
             return
 
         if self._focus not in ("available", "subscribed"):
@@ -584,6 +897,13 @@ class PodcastScreen(Screen):
             return
 
         self._loadEpisodes(podcast)
+
+        # Device test round 57 -- same fix as above, for the Available/
+        # Subscribed columns: show the newly selected podcast's own
+        # description immediately rather than waiting for
+        # _loadEpisodes()'s own eventual _updateDisplay() call (episode
+        # fetching is asynchronous and may take a moment).
+        self._updateInfoDescription()
 
     # ------------------------------------------------------------------
 

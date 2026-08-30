@@ -440,15 +440,13 @@ from .logger import logger
 from .mainmenu import MainMenu
 from .musiclibraryscreen import MusicLibraryScreen
 from .podcastscreen import PodcastScreen
-from .paths import CACHE_PATH, RESOURCE_PATH
+from .paths import CACHE_PATH, RESOURCE_PATH, SKIN_PATH
 from .playback_controller import PlaybackController
 from .playbackinfo_screen import PlaybackInfoScreen
 from .playlistscreen import PlaylistScreen
 from .radiobrowserscreen import RadioBrowserScreen
 from .settingsscreen import SettingsScreen
 from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
     skin_manager,
     to_opaque_skin_color,
 )
@@ -465,6 +463,48 @@ DEFAULT_ARTWORK_PATH = os.path.join(RESOURCE_PATH, "icons", "default_artwork.png
 # == self._cover_file" (None == None) and never run at all -- exactly
 # the bug the user reported ("nyt on aloituksessa tyhja").
 _COVER_ART_NOT_YET_CHECKED = object()
+
+# Device test round 64 -- background-image variant/tier system,
+# replacing the round-49/50 hardcoded "light"/"hd" path. Colours are
+# MusicLibraryScreen's own exact header palette (round 51 already
+# matched these for the light theme; the dark values are the same
+# ones sampled for MusicLibraryScreen's own dark theme, round 47/48).
+# This dict only covers what MainScreen's own background image
+# generation needs -- text-widget colours below reuse the same keys
+# directly rather than duplicating a second, separate colour set.
+MAINSCREEN_SKIN_VARIANTS = ("light", "dark")
+
+MAINSCREEN_DEFAULT_SKIN_VARIANT = "light"
+
+MAINSCREEN_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "panel_text_color": "#1A1A1A",
+        "header_inactive_fg": "#1E2334",
+        "header_active_fg": "#036DFA",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "panel_text_color": "#F0F0F0",
+        "header_inactive_fg": "#F0F0F0",
+        "header_active_fg": "#FFFFFF",
+    },
+}
+
+
+def _resolveMainScreenSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", MAINSCREEN_DEFAULT_SKIN_VARIANT)
+
+    if variant not in MAINSCREEN_SKIN_VARIANTS:
+        return MAINSCREEN_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolveMainScreenResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
 
 
 class MainScreen(Screen):
@@ -493,11 +533,22 @@ class MainScreen(Screen):
     # Design resolution the skin coordinates below are authored for;
     # _buildSkin() scales every coordinate and font size to whatever
     # the real desktop resolution turns out to be at runtime.
-    DESIGN_WIDTH = 700
-    DESIGN_HEIGHT = 520
+    #
+    # Device test round 50 -- changed from 700x520 to 1808x1024,
+    # matching the new background images' own native pixel size
+    # (same reasoning as MusicLibraryScreen's own round 39: every
+    # widget position below can now be taken directly from the same
+    # pixel measurements used to build those images, with zero unit-
+    # conversion arithmetic to get wrong). Round 49 deliberately kept
+    # the old 700x520 to avoid touching any existing widget while
+    # only validating the background-image mechanism itself; this
+    # round's changes touch nearly every widget's position anyway
+    # (per the user's own layout feedback), so there's no longer a
+    # reason to keep the mismatched design space.
+    DESIGN_WIDTH = 1808
+    DESIGN_HEIGHT = 1024
 
-    @staticmethod
-    def _buildSkin(width: int, height: int) -> str:
+    def _buildSkin(self, width: int, height: int) -> str:
         """
         Build MainScreen's skin for an exact `width` x `height`
         window, scaling every coordinate and font size from the
@@ -554,9 +605,16 @@ class MainScreen(Screen):
         sx = width / MainScreen.DESIGN_WIDTH
         sy = height / MainScreen.DESIGN_HEIGHT
 
+        # Device test round 64 -- resolved once here and stored on
+        # self so _decodeBackgroundImage() picks the matching image
+        # set, matching every other converted screen's own pattern.
+        self._skin_variant = _resolveMainScreenSkinVariant()
+
+        palette = MAINSCREEN_SKIN_PALETTES[self._skin_variant]
+
         background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
         selection_background_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
         progress_color = skin_manager.getColor("progress", "#E6E6E6")
         progress_track_color = to_opaque_skin_color(skin_manager.getColor("accent", "#4C4449"))
@@ -575,143 +633,177 @@ class MainScreen(Screen):
                 backgroundColor="{background_color}"
                 title="{get_version_string()}">
 
-            <!-- Top area: Album Art | Artist - Album / Song -->
+            <!-- Device test round 50: rewritten to match the new
+                 background images (mainscreen_player_active.png /
+                 mainscreen_info_active.png, resources/skins/light/hd/).
+                 Header colouring for Player/Playlist/Information now
+                 lives entirely in whichever background image is
+                 currently decoded (see _decodeBackgroundImage()'s own
+                 docstring for the swap logic), replacing the old
+                 <panel>_title_bg_normal/active widget pairs entirely.
+                 Text stays real, translatable widgets throughout
+                 (round 45's own lesson from MusicLibraryScreen,
+                 applied here from the start rather than needing its
+                 own follow-up round to fix). The background widget
+                 itself still uses the RAW width/height (not rect()),
+                 for the same reason round 49 established: aspect-
+                 ratio-safe scaling independent of this design space,
+                 which still matters even though DESIGN_WIDTH/HEIGHT
+                 now matches the background image's own native size:
+                 the background's OWN scaling is handled entirely by
+                 ePicLoad, this design space is only for the OTHER
+                 widgets below. -->
 
-            <widget name="cover"
-                    {rect(20, 10, 160, 160)}
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
                     alphatest="blend"/>
 
-            <widget name="player_title_bg_normal"
-                    {rect(200, 10, 480, 22)}
-                    backgroundColor="{panel_background_color}"/>
+            <!-- Top card: Player header + cover art + Artist/Album/
+                 Track/status. Card itself lives in the background
+                 image; only its dynamic content is real widgets. -->
 
-            <widget name="player_title_bg_active"
-                    {rect(200, 10, 480, 22)}
-                    backgroundColor="{selection_background_color}"/>
+            <!-- Device test round 52: header text styling matched
+                 to MusicLibraryScreen's own exactly, per direct
+                 request: "Bold" font family used directly (not this
+                 file's own theme-based font_family variable, the same
+                 choice MusicLibraryScreen already made), size 34, and
+                 a genuine normal/active colour-switching pair (the
+                 single-widget version before this round had one fixed
+                 colour regardless of which panel was active: the
+                 background bar changed colour on switch, the text
+                 never did). Colours are the exact same hex values as
+                 MusicLibraryScreen's own light-theme palette
+                 (header_inactive_fg/header_active_fg), hardcoded here
+                 rather than importing that dict, since MainScreen
+                 doesn't otherwise depend on MusicLibraryScreen's own
+                 module. -->
 
-            <widget name="player_title"
-                    {rect(200, 10, 480, 22)}
-                    {font(14)}
+            <widget name="player_title_normal"
+                    {rect(88, 18, 894, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
-                    foregroundColor="{panel_text_color}"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
                     transparent="1"/>
 
+            <widget name="player_title_active"
+                    {rect(88, 18, 894, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
+                    halign="left"
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="cover"
+                    {rect(46, 92, 210, 210)}
+                    alphatest="blend"/>
+
             <widget name="meta"
-                    {rect(200, 36, 480, 64)}
-                    {font(18)}
+                    {rect(290, 92, 1470, 140)}
+                    {font(36)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
             <widget name="media"
-                    {rect(200, 102, 480, 60)}
-                    {font(20)}
+                    {rect(332, 255, 1420, 45)}
+                    {font(38)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
-            <!-- Slim status line (StatusBar messages: "Seek failed",
-                 loading confirmations, etc.): not part of
-                 MAINSCREEN_SPEC.md's own ASCII layout diagram, which
-                 only captures the three main panels, but dropping
-                 transient status feedback entirely would be a real
-                 regression from Build 0008, so it's kept as a slim
-                 row in the gap between the top and middle areas. -->
-
             <widget name="status"
-                    {rect(200, 162, 480, 18)}
-                    {font(12)}
+                    {rect(290, 300, 1470, 32)}
+                    {font(22)}
                     halign="left"
                     valign="center"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
-            <!-- Progress bar row (device test round 23: moved back
-                 above the Playlist/Information panels, having
-                 previously sat at the very bottom since Build 0009's
-                 MainScreen 2.0 redesign) -->
+            <!-- Progress bar card: grown taller (round 50) so the
+                 bar row AND the track-position row underneath both
+                 fit inside the card's own bottom edge; previously
+                 the track-position text spilled out below the card
+                 entirely. -->
 
             <widget name="elapsed"
-                    {rect(20, 188, 100, 20)}
-                    {font(16)}
+                    {rect(36, 365, 150, 35)}
+                    {font(32)}
                     halign="left"
                     valign="center"
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
             <widget name="progressbar"
-                    {rect(130, 191, 440, 14)}
+                    {rect(200, 372, 1408, 20)}
                     borderWidth="1"
                     backgroundColor="{progress_track_color}"
                     foregroundColor="{progress_color}"/>
 
             <widget name="remaining"
-                    {rect(580, 188, 100, 20)}
-                    {font(16)}
+                    {rect(1622, 365, 150, 35)}
+                    {font(32)}
                     halign="right"
                     valign="center"
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
-            <!-- Queue position (device test round 24: moved up to sit
-                 directly under the progress bar, no longer at the
-                 very bottom of the screen) -->
-
             <widget name="queueposition"
-                    {rect(20, 214, 660, 18)}
-                    {font(13)}
+                    {rect(36, 415, 1734, 35)}
+                    {font(24)}
                     halign="center"
+                    valign="center"
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"/>
 
-            <!-- Middle area: Playlist | Information, the bulk of
-                 the screen, per MAINSCREEN_SPEC.md's "significantly
-                 more vertical space for the Information Panel":
-                 shifted down again from the queue position row now
-                 sitting above it (device test round 24); each
-                 panel's own height is still unchanged, including
-                 info_content, so Lyrics/other Information pages keep
-                 exactly the same amount of space they had before. -->
+            <!-- Playlist card (left) and Information card (right):
+                 headers now match Player's own treatment above.
+                 Coloured bar lives in the background image, text is
+                 a real widget positioned to sit next to that bar's
+                 own icon. -->
 
-            <widget name="playlist_title_bg_normal"
-                    {rect(20, 238, 160, 24)}
-                    backgroundColor="{panel_background_color}"/>
-
-            <widget name="playlist_title_bg_active"
-                    {rect(20, 238, 160, 24)}
-                    backgroundColor="{selection_background_color}"/>
-
-            <widget name="playlist_title"
-                    {rect(20, 238, 160, 24)}
-                    {font(15)}
+            <widget name="playlist_title_normal"
+                    {rect(88, 490, 774, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
-                    foregroundColor="{panel_text_color}"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="playlist_title_active"
+                    {rect(88, 490, 774, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
+                    halign="left"
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="playlist_list"
-                    {rect(20, 266, 160, 252)}
+                    {rect(36, 560, 841, 428)}
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="info_title_bg_normal"
-                    {rect(200, 238, 480, 24)}
-                    backgroundColor="{panel_background_color}"/>
-
-            <widget name="info_title_bg_active"
-                    {rect(200, 238, 480, 24)}
-                    backgroundColor="{selection_background_color}"/>
-
-            <widget name="info_title"
-                    {rect(200, 238, 480, 24)}
-                    {font(15)}
+            <widget name="info_title_normal"
+                    {rect(983, 490, 774, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
-                    foregroundColor="{panel_text_color}"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="info_title_active"
+                    {rect(983, 490, 774, 64)}
+                    font="Bold;{max(10, int(34 * sx))}"
+                    halign="left"
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="info_content"
-                    {rect(200, 266, 480, 252)}
-                    {font(15)}
+                    {rect(931, 560, 841, 428)}
+                    {font(28)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
@@ -734,11 +826,26 @@ class MainScreen(Screen):
 
             self.skin = self._buildSkin(desktop_size.width(), desktop_size.height())
 
+            # Device test round 49 -- stored for _decodeBackgroundImage()
+            # to use directly, the same fix MusicLibraryScreen's own
+            # background image needed in round 40 (querying
+            # self["background"].instance.size() at decode time
+            # produced a wrong, oversized result on a real device;
+            # using the confirmed real values from here instead
+            # sidesteps that regardless of the exact mechanism).
+            self._screen_width = desktop_size.width()
+
+            self._screen_height = desktop_size.height()
+
         except Exception as error:
 
             logger.warning("[MainScreen] Unable to determine desktop size, using design resolution: %s", error)
 
             self.skin = self._buildSkin(self.DESIGN_WIDTH, self.DESIGN_HEIGHT)
+
+            self._screen_width = self.DESIGN_WIDTH
+
+            self._screen_height = self.DESIGN_HEIGHT
 
         Screen.__init__(self, session)
 
@@ -871,6 +978,19 @@ class MainScreen(Screen):
         self._picload = ePicLoad()
         compatibility.connectPictureDataSignal(self._picload, self._onCoverArtDecoded)
 
+        # Device test round 49 -- separate ePicLoad instance for the
+        # new background image (resources/skins/light/hd/
+        # mainscreen_background.png for now; dark/SD variants and the
+        # rest of MusicLibraryScreen's own variant/tier selection
+        # machinery are deferred until this validates on a real
+        # device -- see _decodeBackgroundImage()'s own docstring).
+        # Can't reuse self._picload above for this: that instance is
+        # already dedicated to cover art, which decodes independently
+        # and would race with a background decode on the same
+        # instance's own single PictureData callback.
+        self._background_picload = ePicLoad()
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
         # Periodic refresh timer (MAINSCREEN_SPEC.md "Screen Refresh",
         # typical interval 1 second). eTimer is a base Enigma2 binding,
         # identical across images -- used directly, not through
@@ -907,20 +1027,48 @@ class MainScreen(Screen):
 
         systeminfo.logSystemInformation()
 
+        # Device test round 49 -- must be created before "cover" (and
+        # everything else), matching the skin's own widget order --
+        # Round 7's paint-order rule again: Python self[name]=...
+        # insertion order is what actually determines paint order, not
+        # the skin XML's own declaration order.
+        self["background"] = Pixmap()
+
+        # Device test round 50 -- cache of already-decoded background
+        # pixmaps, keyed by state ("player"/"info") -- see
+        # _decodeBackgroundImage()'s own docstring for why this is
+        # needed (called every second from the refresh timer).
+        self._background_pixmap_cache = {}
+
+        # Device test round 62 -- guards against starting a second
+        # concurrent decode while one is already running; see
+        # _decodeBackgroundImage()'s own comment for the real device
+        # log that confirmed this was needed.
+        self._background_decode_in_progress = False
+
         self["cover"] = Pixmap()
-        self["player_title_bg_normal"] = Label("")
-        self["player_title_bg_active"] = Label("")
-        self["player_title"] = Label(_("Player"))
+
+        # Device test round 52 -- normal/active pairs; text itself is
+        # set on both by _updatePanelHighlighting() (only one is ever
+        # visible, but both need to be ready with the right text).
+        self["player_title_normal"] = Label(_("Player"))
+        self["player_title_active"] = Label(_("Player"))
+        self["player_title_active"].hide()
+
         self["meta"] = Label("")
         self["media"] = Label(_("No media selected"))
         self["status"] = Label(_("Ready"))
-        self["playlist_title_bg_normal"] = Label("")
-        self["playlist_title_bg_active"] = Label("")
-        self["playlist_title"] = Label(_("Playlist"))
+
+        self["playlist_title_normal"] = Label(_("Playlist"))
+        self["playlist_title_active"] = Label(_("Playlist"))
+        self["playlist_title_active"].hide()
+
         self["playlist_list"] = MenuList([])
-        self["info_title_bg_normal"] = Label("")
-        self["info_title_bg_active"] = Label("")
-        self["info_title"] = Label(_("Information"))
+
+        self["info_title_normal"] = Label(_("Information"))
+        self["info_title_active"] = Label(_("Information"))
+        self["info_title_active"].hide()
+
         self["info_content"] = Label("")
         self["elapsed"] = Label("--:--")
         self["progressbar"] = ProgressBar()
@@ -1450,20 +1598,25 @@ class MainScreen(Screen):
 
         Build 0009, device test round 2: added a background-colour
         highlight per user request ("Otsikkorivilla voisi olla
-        sininen tausta, kun on valittuna"), using ONLY hide()/show()
-        rather than a runtime foreground/background-colour change --
-        Enigma2's exact API for recolouring an already-constructed
-        widget varies across images/versions and couldn't be verified
-        against real hardware from this environment. Each title has a
-        pair of identically-positioned background rectangles
-        (<title>_bg_normal/<title>_bg_active, see _buildSkin()) with
-        the title's own text on top (transparent background); only
-        one of the pair is ever shown at a time. hide()/show() are
-        long-confirmed safe in this codebase (cover art, and every
-        other widget-visibility toggle so far). The text marker
-        ("> ") from the previous round is kept alongside the colour --
-        costs nothing and still helps wherever the highlight colour
-        alone isn't distinct enough (e.g. a custom skin).
+        sininen tausta, kun on valittuna").
+
+        Device test round 50: the actual highlight colouring moved
+        from a pair of hide()/show()-toggled background rectangles
+        per title into the background image itself (matching
+        MusicLibraryScreen's own round 39 approach) -- see
+        _decodeBackgroundImage() for the two-image swap this now
+        triggers. Only Player and Information have their own "active"
+        background variant so far (explicitly requested this round);
+        Playlist reuses whichever of those two is currently shown,
+        always in its own light/inactive header style in both -- a
+        dedicated "Playlist active" third variant is real follow-up
+        work, not built this round.
+
+        Device test round 57: the "> " text marker (kept as of round
+        50, above) removed after all -- it was causing titles to wrap
+        onto two lines when selected, confirmed directly from a
+        device screenshot. The background image's own colour already
+        distinguishes the active panel without it.
 
         playlist_title also absorbs Build 0007's old "show the current
         playlist/folder/history name" behaviour (previously shown in
@@ -1473,34 +1626,49 @@ class MainScreen(Screen):
         than only in a toggled "favorites view".
         """
 
-        for panel_name, bg_normal_name, bg_active_name in (
-            ("player", "player_title_bg_normal", "player_title_bg_active"),
-            ("playlist", "playlist_title_bg_normal", "playlist_title_bg_active"),
-            ("information", "info_title_bg_normal", "info_title_bg_active"),
+        self._decodeBackgroundImage()
+
+        # Device test round 57 -- the "> " markers removed from all
+        # three panel titles: the background image's own colour
+        # already distinguishes the active panel, and the marker's
+        # extra characters were causing the title to wrap onto two
+        # lines when selected (confirmed directly from the user's own
+        # screenshot of the same issue on PodcastScreen).
+
+        player_text = _("Player")
+
+        self["player_title_normal"].setText(player_text)
+
+        self["player_title_active"].setText(player_text)
+
+        playlist_text = self._getPlaylistLabel()
+
+        self["playlist_title_normal"].setText(playlist_text)
+
+        self["playlist_title_active"].setText(playlist_text)
+
+        info_text = self._information_panel.getCurrentTitle()
+
+        self["info_title_normal"].setText(info_text)
+
+        self["info_title_active"].setText(info_text)
+
+        for panel_name, normal_name, active_name in (
+            ("player", "player_title_normal", "player_title_active"),
+            ("playlist", "playlist_title_normal", "playlist_title_active"),
+            ("information", "info_title_normal", "info_title_active"),
         ):
 
             is_active = panel_name == self._active_panel
 
             try:
-                self[bg_normal_name].hide() if is_active else self[bg_normal_name].show()
+                self[normal_name].hide() if is_active else self[normal_name].show()
 
-                self[bg_active_name].show() if is_active else self[bg_active_name].hide()
+                self[active_name].show() if is_active else self[active_name].hide()
 
             except Exception as error:
 
-                logger.verbose(f"[MainScreen] Unable to set panel highlight visibility: {error}")
-
-        player_marker = "> " if self._active_panel == "player" else ""
-
-        self["player_title"].setText(f"{player_marker}{_('Player')}")
-
-        playlist_marker = "> " if self._active_panel == "playlist" else ""
-
-        self["playlist_title"].setText(f"{playlist_marker}{self._getPlaylistLabel()}")
-
-        info_marker = "> " if self._active_panel == "information" else ""
-
-        self["info_title"].setText(f"{info_marker}{self._information_panel.getCurrentTitle()}")
+                logger.verbose(f"[MainScreen] Unable to set panel title visibility: {error}")
 
     # ------------------------------------------------------------------
 
@@ -2034,6 +2202,151 @@ class MainScreen(Screen):
             logger.verbose(f"[MainScreen] Cover art decode callback failed: {error}")
 
             self["cover"].hide()
+
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self) -> None:
+        """
+        Device test round 50 -- picks which of the two background
+        images (mainscreen_player_active.png / mainscreen_info_
+        active.png) matches self._active_panel and decodes it via
+        ePicLoad, exactly like _decodeCoverArt() above (same widget-
+        not-ready retry via a one-shot eTimer, same setPara() tuple
+        shape/scale_mode) -- MusicLibraryScreen's own rounds 36-38
+        confirmed a static Pixmap pixmap= attribute doesn't scale a
+        mismatched source image at all, only ePicLoad does.
+
+        Round 49's own version decoded unconditionally on every call;
+        this method is called from _updatePanelHighlighting(), which
+        runs from the 1-second refresh timer (_updateDisplay()) as
+        well as on every actual panel switch -- decoding on every one
+        of those calls would re-run ePicLoad needlessly every second.
+        Cached per state now, mirroring MusicLibraryScreen's own
+        self._background_pixmap_cache exactly (round 39): only
+        actually decodes the first time a given state is needed,
+        applies instantly from cache afterwards. Only "player" and
+        "info" have their own image; "playlist" (no dedicated variant
+        yet, explicitly out of scope this round) falls back to
+        whichever image "player" uses.
+
+        Device test round 64 -- now resolves variant/tier through the
+        same machinery as every other converted screen
+        (MAINSCREEN_SKIN_PALETTES, _resolveMainScreenSkinVariant(),
+        _resolveMainScreenResolutionTier()), replacing the round-49/50
+        hardcoded "light"/"hd" path. Dark palette colours are
+        MusicLibraryScreen's own exact values, not re-derived.
+        """
+
+        target_state = "info" if self._active_panel == "information" else "player"
+
+        if target_state in self._background_pixmap_cache:
+
+            if self["background"].instance is not None:
+
+                self["background"].instance.setPixmap(self._background_pixmap_cache[target_state])
+
+                self["background"].show()
+
+            return
+
+        # Device test round 62 -- real bug found from a device log: a
+        # slow decode (observed taking over a second on real hardware,
+        # likely worsened by a concurrent "gAccel alloc failed" the
+        # same log showed) left this method's own cache check above
+        # still empty when the 1-second refresh timer's own next call
+        # to _updatePanelHighlighting() arrived, so it tried to
+        # startDecode() the SAME image a second time on the same
+        # ePicLoad instance -- confirmed directly in the log as
+        # "startDecode() reported failure" immediately after "thread
+        # running" for the first, still-in-flight decode. ePicLoad
+        # only supports one decode at a time per instance; this guard
+        # simply skips starting a new one while one is already
+        # running, and the next 1-second tick (or the callback itself)
+        # will naturally retry once it's free.
+        if getattr(self, "_background_decode_in_progress", False):
+            return
+
+        if self["background"].instance is None:
+
+            logger.verbose("[MainScreen] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(self._decodeBackgroundImage)
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolveMainScreenResolutionTier(self._screen_width),
+            f"mainscreen_{target_state}_active.png",
+        )
+
+        self._pending_background_state = target_state
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            self._background_decode_in_progress = True
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            self._background_decode_in_progress = False
+
+            logger.verbose(f"[MainScreen] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        # Device test round 62 -- cleared here, in a finally, so every
+        # branch below (including the two early returns) reliably
+        # clears it once the decode has genuinely finished -- see
+        # _decodeBackgroundImage()'s own comment for what this flag
+        # guards against.
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            state = getattr(self, "_pending_background_state", None)
+
+            if state is not None:
+
+                self._background_pixmap_cache[state] = pixmap
+
+            # The user may have switched panels again while this
+            # decode was still in flight -- only actually apply the
+            # result if it's still the state currently wanted.
+            target_state = "info" if self._active_panel == "information" else "player"
+
+            if state != target_state:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[MainScreen] Unable to apply decoded background image: {error}")
+
+        finally:
+
+            self._background_decode_in_progress = False
 
     # ------------------------------------------------------------------
 

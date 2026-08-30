@@ -49,6 +49,12 @@
 #     "0010" -- the internal build/round-tracking identifier used
 #     throughout CHANGELOG.md and the per-build spec documents is
 #     unrelated to the user-facing VERSION string bumped here.
+#
+# 2026-08-31  Build 0010 (device test round 65)
+#   - Version bumped to 1.0.0-beta2 -- per direct request, reflecting
+#     the substantial round of changes since 1.0.0-beta (the full
+#     background-image skin redesign across all eight screens, rounds
+#     32-64). BUILD stays "0010" for the same reason noted above.
 # ------------------------------------------------------------------------------
 
 """
@@ -74,7 +80,7 @@ APPLICATION_ID = "org.enigma2.mediaplayer3"
 # Version information
 # ------------------------------------------------------------------------------
 
-VERSION = "1.0.0-beta"
+VERSION = "1.0.0-beta2"
 BUILD = "0010"
 
 # ------------------------------------------------------------------------------

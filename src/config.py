@@ -106,6 +106,17 @@
 #     regardless of what the user picked in Settings. Cross-checked
 #     every other declared cfg.* setting against _ENTRIES; this was
 #     the only one missing.
+#
+# 2026-08-24  Build 0010 (device test round 46)
+#   - Added "light"/"dark" to appearance.skin's own choices (was
+#     "default" only, placeholder from Build 0006). Deliberately
+#     separate from appearance.theme, which every OTHER screen still
+#     uses for its own colours -- appearance.skin is read only by
+#     MusicLibraryScreen for now (the one screen using the new
+#     background-image UI, see musiclibraryscreen.py's own change
+#     history), not yet a general replacement. Reusing this
+#     already-declared cfg key instead of adding a new one, since it
+#     was created for exactly this purpose and never used.
 # ------------------------------------------------------------------------------
 
 """
@@ -130,6 +141,7 @@ from Components.config import (
     ConfigInteger,
 )
 
+from .compatibility import compatibility
 from .logger import (
     logger,
     DEVELOPER_MODE_OFF,
@@ -158,6 +170,31 @@ if not hasattr(config.plugins, "mediaplayer3"):
 
 cfg = config.plugins.mediaplayer3
 
+
+# Device test round 65 -- per direct request, cfg.general.language's
+# own default now follows the receiver's own current Enigma2 system
+# language instead of always starting in Finnish regardless of what
+# box this happens to run on. Kept in sync with LocalizationManager's
+# own AVAILABLE_LANGUAGES by hand (localization.py isn't imported
+# here to avoid adding a new cross-module dependency at config.py's
+# own load time for what's otherwise a two-item tuple) -- if a new
+# language is ever added there, this tuple needs the same addition,
+# or the new language's own users will simply default to English
+# instead of their own system language (a safe, if slightly stale,
+# fallback -- not a crash).
+_AVAILABLE_LANGUAGE_CODES = ("en", "fi")
+
+
+def _defaultLanguageCode() -> str:
+
+    system_language = compatibility.getSystemLanguage(fallback_language_code="en")
+
+    if system_language in _AVAILABLE_LANGUAGE_CODES:
+        return system_language
+
+    return "en"
+
+
 # ------------------------------------------------------------------------------
 # Build 0008 -- Library (LIBRARY_MANAGER_SPEC.md)
 # ------------------------------------------------------------------------------
@@ -171,7 +208,7 @@ cfg.library = ConfigSubsection()
 cfg.general = ConfigSubsection()
 
 cfg.general.language = ConfigSelection(
-    default="fi",
+    default=_defaultLanguageCode(),
     choices=[
         ("fi", "Suomi"),
         ("en", "English"),
@@ -297,6 +334,8 @@ cfg.appearance.skin = ConfigSelection(
     default="default",
     choices=[
         ("default", "Default"),
+        ("light", "Light"),
+        ("dark", "Dark"),
     ],
 )
 

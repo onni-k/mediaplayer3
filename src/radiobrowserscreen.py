@@ -137,11 +137,15 @@
 
 from __future__ import annotations
 
-from enigma import eTimer
+import os
+
+from enigma import ePicLoad, eTimer
 
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
+from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
@@ -153,12 +157,8 @@ from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_p
 from .help_manager import help_manager
 from .help_screen import HelpScreen
 from .internetradio_manager import internetradio_manager
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .paths import SKIN_PATH
+from .skin import to_opaque_skin_color
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
@@ -200,6 +200,56 @@ _last_search_name = ""
 _last_region_name = None
 _last_language_name = None
 
+# Device test round 54 -- background-image variant/tier system,
+# mirroring MusicLibraryScreen's own SKIN_PALETTES/_resolveSkinVariant()/
+# _resolveResolutionTier() exactly (same hex values for light, since
+# this screen reuses MusicLibraryScreen's own colours per direct
+# request). A separate copy rather than importing MusicLibraryScreen's
+# own dict, since the two screens don't otherwise depend on each
+# other and duplicating a small, stable palette is simpler than
+# introducing a cross-module dependency for it.
+RADIO_SKIN_VARIANTS = ("light", "dark")
+
+RADIO_DEFAULT_SKIN_VARIANT = "light"
+
+RADIO_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "list_background_color": "#EAEAEA",
+        "panel_text_color": "#1A1A1A",
+        "header_inactive_fg": "#1E2334",
+        "header_active_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "list_background_color": "#161922",
+        "panel_text_color": "#F0F0F0",
+        "header_inactive_fg": "#F0F0F0",
+        "header_active_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolveRadioSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", RADIO_DEFAULT_SKIN_VARIANT)
+
+    if variant not in RADIO_SKIN_VARIANTS:
+        return RADIO_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolveRadioResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
+
 
 class RadioBrowserScreen(Screen):
     """
@@ -208,139 +258,207 @@ class RadioBrowserScreen(Screen):
 
     SPECIFICATION_VERSION = "0.1"
 
-    DESIGN_WIDTH = 700
-    DESIGN_HEIGHT = 540
+    # Device test round 54 -- changed from 700x540 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning: every
+    # widget position in _buildSkin() below is taken directly from
+    # the same pixel measurements used to build the (reused, icon-
+    # swapped) background images.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Build RadioBrowserScreen's skin for an exact `width` x
-        `height` window, scaling from the 700x540 design resolution
-        above (Build 0007, device test round 8).
+        Device test round 54 -- rewritten to reuse MusicLibraryScreen's
+        own background-image approach exactly (per direct request:
+        "otetaan musiikkikirjaston kuvat ja vaihdetaan vain
+        kuvakkeet"): same card layout, same header/hint styling, same
+        colours, same DESIGN_WIDTH/HEIGHT (1672x941, matching the
+        background images' own native size). Only the icons differ
+        (wifi/globe/flag instead of person/disc/musicnote, cropped
+        from the user's own Internet Radio dark mockup), and the
+        bottom info area is a single text block plus the existing red
+        "warning" row (RadioBrowserScreen's own info format doesn't
+        split into MusicLibraryScreen's label/value pairs). The hint
+        row has 7 items here, not 6 (CH+/CH-: page jumping is unique
+        to this screen) -- spacing recomputed from scratch for 7
+        items rather than reusing MusicLibraryScreen's own 6-item
+        layout, which wouldn't have fit an extra item at the same
+        sizes.
         """
 
         sx = width / RadioBrowserScreen.DESIGN_WIDTH
         sy = height / RadioBrowserScreen.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
-        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
-        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
+        self._screen_width = width
+
+        self._screen_height = height
+
+        self._skin_variant = _resolveRadioSkinVariant()
+
+        palette = RADIO_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
-
-        # Build 0010, device test round 6 -- BUILD_0010_PLAN.md "Visual
-        # Refinement", same fix and reasoning as MusicLibraryScreen's
-        # own _buildSkin() comment.
-        panel_rects = {
-            "stations": (20, 45, 300, 25),
-            "language": (330, 45, 170, 25),
-            "region": (510, 45, 170, 25),
-        }
-
-        highlight_xml = ""
-
-        for panel_name, (x, y, w, h) in panel_rects.items():
-
-            highlight_xml += f"""
-            <widget name="{panel_name}_title_bg_normal"
-                    {rect(x, y, w, h)}
-                    backgroundColor="{inactive_color}"/>
-
-            <widget name="{panel_name}_title_bg_active"
-                    {rect(x, y, w, h)}
-                    backgroundColor="{active_color}"/>
-            """
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3RadioBrowserScreen"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Internet Radio">
 
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
+
             <widget name="status"
-                    {rect(20, 10, 660, 25)}
-                    {font(16)}
+                    {rect(60, 19, 1550, 55)}
+                    {font(34)}
                     halign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
-
-            {highlight_xml}
-
-            <widget name="stations_title"
-                    {rect(20, 45, 300, 25)}
-                    {font(18)}
+                    valign="center"
                     foregroundColor="{panel_text_color}"
                     transparent="1"/>
 
-            <widget name="language_title"
-                    {rect(330, 45, 170, 25)}
-                    {font(18)}
-                    foregroundColor="{panel_text_color}"
+            <widget name="stations_title_normal"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
                     transparent="1"/>
 
-            <widget name="region_title"
-                    {rect(510, 45, 170, 25)}
-                    {font(18)}
-                    foregroundColor="{panel_text_color}"
+            <widget name="stations_title_active"
+                    {rect(135, 80, 383, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="language_title_normal"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="language_title_active"
+                    {rect(652, 80, 422, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="region_title_normal"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="region_title_active"
+                    {rect(1207, 80, 403, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="stations"
-                    {rect(20, 75, 300, 280)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(40, 138, 498, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="language"
-                    {rect(330, 75, 170, 280)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(557, 138, 537, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="region"
-                    {rect(510, 75, 170, 280)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(1112, 138, 518, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
-                    {rect(20, 365, 660, 96)}
-                    {font(16)}
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
-
-            <!-- Device test round 30: dedicated red-background
-                 warning row, per direct request ("Varoitus on niin
-                 hyva toiminto, etta se voisi olla radiolla ja
-                 podcastilla punaisella taustalla"): a plain text
-                 line inside "info" itself can't have its own
-                 different background color, so this is a separate
-                 widget, hidden via hide()/show() (same convention as
-                 title_bg_active/normal elsewhere in this project)
-                 whenever there's no warning to show. -->
+                    {rect(60, 702, 1550, 90)}
+                    {font(22)}
+                    foregroundColor="{panel_text_color}"
+                    backgroundColor="{panel_background_color}"/>
 
             <widget name="warning"
-                    {rect(20, 465, 660, 20)}
-                    {font(14)}
+                    {rect(60, 800, 1550, 36)}
+                    {font(20)}
                     halign="center"
                     valign="center"
                     backgroundColor="#B00000"
                     foregroundColor="#FFFFFF"/>
 
-            <widget name="hint"
-                    {rect(20, 495, 660, 40)}
-                    {font(14)}
-                    halign="center"
+            <widget name="hint_text_leftright"
+                    {rect(74, 874, 249, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(373, 874, 200, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_chpage"
+                    {rect(623, 874, 159, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(832, 874, 141, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(1023, 874, 128, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(1201, 874, 163, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1414, 874, 155, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -387,28 +505,56 @@ class RadioBrowserScreen(Screen):
 
         self._log("Initializing")
 
-        self["status"] = Label("")
+        # Device test round 54 -- must be created before everything
+        # else (Round 7's own paint-order rule: Python self[name]=...
+        # insertion order determines paint order).
+        self["background"] = Pixmap()
 
-        # Build 0010, device test round 7 -- see MusicLibraryScreen's
-        # own _initialize() comment for why bg widgets must be added
-        # before the title widgets here.
-        for panel_name in PANELS:
+        self._background_picload = ePicLoad()
 
-            self[f"{panel_name}_title_bg_normal"] = Label("")
-            self[f"{panel_name}_title_bg_active"] = Label("")
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
 
-        self["stations_title"] = Label(_("Stations"))
-        self["region_title"] = Label(_("Region"))
-        self["language_title"] = Label(_("Language"))
+        self._background_pixmap_cache = {}
+
+        # Device test round 62 -- guards against starting a second
+        # concurrent decode while one is already running.
+        self._background_decode_in_progress = False
+
+        self["status"] = Label(_("Internet Radio"))
+
+        self["stations_title_normal"] = Label(_("Stations"))
+        self["stations_title_active"] = Label(_("Stations"))
+        self["stations_title_active"].hide()
+
+        self["language_title_normal"] = Label(_("Language"))
+        self["language_title_active"] = Label(_("Language"))
+        self["language_title_active"].hide()
+
+        self["region_title_normal"] = Label(_("Region"))
+        self["region_title_active"] = Label(_("Region"))
+        self["region_title_active"].hide()
+
         self["stations"] = MenuList([])
         self["region"] = MenuList([])
         self["language"] = MenuList([])
         self["info"] = Label("")
         self["warning"] = Label("")
         self["warning"].hide()
-        self["hint"] = Label(
-            _("LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back")
-        )
+
+        # Device test round 54 -- 7 icon+text pairs replacing the old
+        # single "hint" Label, matching MusicLibraryScreen's own round
+        # 33/45 pattern (icons baked into the background image, text
+        # as real translatable widgets). One extra item versus
+        # MusicLibraryScreen's own 6 (CH+/CH-: page jumping is unique
+        # to this screen) -- spacing recomputed from scratch for 7
+        # items, see _buildSkin()'s own docstring.
+        self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Panel"))
+        self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
+        self["hint_text_chpage"] = Label(_("CH+/CH-: Page"))
+        self["hint_text_ok"] = Label(_("OK: Options"))
+        self["hint_text_info"] = Label(_("INFO: Search"))
+        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        self["hint_text_exit"] = Label(_("EXIT: Back"))
 
         actions = {
             "ok": self.okPressed,
@@ -920,22 +1066,138 @@ class RadioBrowserScreen(Screen):
 
     def _updateColumnHighlighting(self) -> None:
         """
-        Build 0010, device test round 6 -- see this file's own
-        _buildSkin() comment / MusicLibraryScreen's identical fix.
+        Device test round 54 -- the active/inactive column-header
+        colouring now lives in one of three pre-rendered background
+        images (resources/skins/{variant}/{tier}/radiobrowser_
+        {focus}_active.png), swapped here instead of toggling
+        individual bg widgets, matching MusicLibraryScreen's own round
+        39/45. Header TEXT stays real, translatable normal/active
+        widget pairs (round 45's own lesson), toggled here too.
         """
+
+        self._decodeBackgroundImage(self._focus)
 
         for panel_name in PANELS:
 
             is_active = panel_name == self._focus
 
             try:
-                self[f"{panel_name}_title_bg_normal"].hide() if is_active else self[f"{panel_name}_title_bg_normal"].show()
+                self[f"{panel_name}_title_normal"].hide() if is_active else self[f"{panel_name}_title_normal"].show()
 
-                self[f"{panel_name}_title_bg_active"].show() if is_active else self[f"{panel_name}_title_bg_active"].hide()
+                self[f"{panel_name}_title_active"].show() if is_active else self[f"{panel_name}_title_active"].hide()
 
             except Exception as error:
 
                 logger.verbose(f"[RadioBrowser] Unable to set column highlight visibility: {error}")
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 54 -- mirrors
+    # MusicLibraryScreen's own _decodeBackgroundImage()/
+    # _onBackgroundImageDecoded() exactly, including the per-state
+    # cache and stale-decode guard; see that file's own docstrings for
+    # the full reasoning, not repeated here.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self, focus_state: str) -> None:
+
+        if focus_state in self._background_pixmap_cache:
+
+            if self["background"].instance is not None:
+
+                self["background"].instance.setPixmap(self._background_pixmap_cache[focus_state])
+
+                self["background"].show()
+
+            return
+
+        # Device test round 62 -- real bug found from a device log on
+        # MainScreen (a slow decode, likely worsened by a concurrent
+        # "gAccel alloc failed" the same log showed, left this
+        # method's own cache check above still empty when another
+        # call arrived before the first decode finished, causing a
+        # second concurrent startDecode() on the same ePicLoad
+        # instance -- confirmed directly as "startDecode() reported
+        # failure" in the log). Same guard applied here defensively:
+        # ePicLoad only supports one decode at a time per instance;
+        # this simply skips starting a new one while one is already
+        # running.
+        if getattr(self, "_background_decode_in_progress", False):
+            return
+
+        if self["background"].instance is None:
+
+            logger.verbose("[RadioBrowser] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(lambda: self._decodeBackgroundImage(focus_state))
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolveRadioResolutionTier(self._screen_width),
+            f"radiobrowser_{focus_state}_active.png",
+        )
+
+        self._pending_background_focus_state = focus_state
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            self._background_decode_in_progress = True
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            self._background_decode_in_progress = False
+
+            logger.verbose(f"[RadioBrowser] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        # Device test round 62 -- cleared in a finally below so every
+        # branch (including early returns) reliably clears it once
+        # the decode has genuinely finished.
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            state = getattr(self, "_pending_background_focus_state", None)
+
+            if state is not None:
+
+                self._background_pixmap_cache[state] = pixmap
+
+            if state != self._focus:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[RadioBrowser] Unable to apply decoded background image: {error}")
+
+        finally:
+
+            self._background_decode_in_progress = False
 
     # ------------------------------------------------------------------
 

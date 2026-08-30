@@ -587,6 +587,49 @@ class Compatibility:
 
     # ------------------------------------------------------------------
 
+    def getSystemLanguage(self, fallback_language_code: str = "en") -> str:
+        """
+        Return the receiver's own current Enigma2 system language, as
+        a bare 2-letter code (e.g. "fi", "de"), or `fallback_language_
+        code` if it can't be determined.
+
+        Device test round 65 -- per direct request: MediaPlayer3
+        should default to the same language as the box itself,
+        instead of always starting in Finnish (BUILD_0010_PLAN's own
+        cfg.general.language default) regardless of what receiver
+        this happens to be running on. Enigma2's own system language
+        lives in config.osd.language.value, in a locale-style format
+        ("fi_FI", "en_EN", "de_DE") -- only the leading 2-letter part
+        is meaningful here, since that's all LocalizationManager's own
+        AVAILABLE_LANGUAGES distinguishes between. Callers are
+        responsible for checking the returned code against their own
+        set of actually-shipped languages and falling back themselves
+        if it isn't one of them (this method has no way to know what
+        languages MediaPlayer3 itself ships translations for -- that
+        would be a layering violation, config.py already owns that
+        list).
+        """
+
+        try:
+            from Components.config import config
+
+            raw_value = config.osd.language.value
+
+            language_code = raw_value.split("_")[0].lower()
+
+            if not language_code:
+                return fallback_language_code
+
+            return language_code
+
+        except Exception as error:
+
+            logger.warning("[Compatibility] Unable to determine system language, using fallback: %s", error)
+
+            return fallback_language_code
+
+    # ------------------------------------------------------------------
+
     def getChannelUpKeyActionNames(self):
         """
         Return the candidate ActionMap action names for the CHANNEL UP

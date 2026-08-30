@@ -112,22 +112,68 @@
 
 from __future__ import annotations
 
+import os
+
+from enigma import ePicLoad, eTimer
+
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
+from Components.Pixmap import Pixmap
 from Screens.Screen import Screen
 
 from .compatibility import compatibility
+from .config import config_manager
 from .help_manager import help_manager
 from .help_screen import HelpScreen
 from .localization import _
 from .logger import logger
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .paths import SKIN_PATH
+from .skin import skin_manager, to_opaque_skin_color
+
+# Device test round 64 -- background-image variant/tier system, a
+# copy of SettingsScreen's own simpler single-image pattern (round
+# 59): MainMenu has no multi-panel focus either, so no per-state
+# swapping is needed here, matching Settings rather than the more
+# complex 6-screen pattern.
+MAINMENU_SKIN_VARIANTS = ("light", "dark")
+
+MAINMENU_DEFAULT_SKIN_VARIANT = "light"
+
+MAINMENU_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "panel_text_color": "#1A1A1A",
+        "header_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "panel_text_color": "#F0F0F0",
+        "header_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolveMainMenuSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", MAINMENU_DEFAULT_SKIN_VARIANT)
+
+    if variant not in MAINMENU_SKIN_VARIANTS:
+        return MAINMENU_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolveMainMenuResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
 
 # ------------------------------------------------------------------------------
 # Menu entries (MAINMENU_SPEC.md section 5)
@@ -168,58 +214,82 @@ class MainMenu(Screen):
     SPECIFICATION_VERSION = "0.1"
     ARCHITECTURE_VERSION = "0.3"
 
-    DESIGN_WIDTH = 440
-    DESIGN_HEIGHT = 360
+    # Device test round 64 -- changed from 440x360 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Build MainMenu's skin for an exact `width` x `height` window,
-        scaling from the 440x360 design resolution above (Build 0007,
-        device test round 8).
+        Device test round 64 -- reuses SettingsScreen's own simpler
+        single-image background approach (round 59): MainMenu has no
+        multi-panel focus either, so no per-state swapping is needed.
+        Header icon is the menu/hamburger icon rather than Settings'
+        own gear, matching what this screen actually represents.
         """
 
         sx = width / MainMenu.DESIGN_WIDTH
         sy = height / MainMenu.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
+        self._screen_width = width
+
+        self._screen_height = height
+
+        self._skin_variant = _resolveMainMenuSkinVariant()
+
+        palette = MAINMENU_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3MainMenu"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Main Menu">
 
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
+
             <widget name="title"
-                    {rect(20, 10, 400, 30)}
-                    {font(22)}
-                    halign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    {rect(88, 80, 1500, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_fg']}"
+                    transparent="1"/>
 
             <widget name="menu"
-                    {rect(20, 50, 400, 280)}
+                    {rect(40, 138, 1590, 622)}
                     backgroundColor="{panel_background_color}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="hint"
-                    {rect(20, 330, 400, 25)}
-                    {font(14)}
-                    halign="center"
+            <widget name="hint_text_ok"
+                    {rect(82, 792, 149, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(297, 792, 233, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -256,8 +326,16 @@ class MainMenu(Screen):
 
         self._log("Initializing")
 
+        self["background"] = Pixmap()
+
+        self._background_picload = ePicLoad()
+
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
         self["title"] = Label("MediaPlayer3")
-        self["hint"] = Label(_("OK: Select   MENU/EXIT: Close"))
+
+        self["hint_text_ok"] = Label(_("OK: Select"))
+        self["hint_text_exit"] = Label(_("MENU/EXIT: Close"))
 
         self["menu"] = MenuList([entry[0] for entry in self._entries])
 
@@ -278,7 +356,71 @@ class MainMenu(Screen):
             -1,
         )
 
+        self._decodeBackgroundImage()
+
         self._log("Ready")
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 64 -- mirrors
+    # SettingsScreen's own single-state _decodeBackgroundImage()/
+    # _onBackgroundImageDecoded() exactly; see that file's own
+    # docstrings for the full reasoning, not repeated here.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self) -> None:
+
+        if self["background"].instance is None:
+
+            logger.verbose("[MainMenu] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(self._decodeBackgroundImage)
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolveMainMenuResolutionTier(self._screen_width),
+            "mainmenu_background.png",
+        )
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            logger.verbose(f"[MainMenu] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[MainMenu] Unable to apply decoded background image: {error}")
 
 # End of Part 1
     # ------------------------------------------------------------------

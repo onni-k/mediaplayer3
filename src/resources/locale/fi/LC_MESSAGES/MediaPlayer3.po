@@ -652,3 +652,156 @@ msgstr "Yle EPG app_id"
 
 msgid "Yle EPG app_key"
 msgstr "Yle EPG app_key"
+
+msgid "LEFT/RIGHT: Panel"
+msgstr "VASEN/OIKEA: Paneeli"
+
+msgid "UP/DOWN: Move"
+msgstr "YLÖS/ALAS: Siirry"
+
+msgid "OK: Play"
+msgstr "OK: Soita"
+
+msgid "INFO: Search"
+msgstr "INFO: Haku"
+
+msgid "MENU: Menu"
+msgstr "MENU: Valikko"
+
+msgid "EXIT: Back"
+msgstr "EXIT: Takaisin"
+
+msgid "CH+/CH-: Page"
+msgstr "CH+/CH-: Sivu"
+
+msgid "OK: Options"
+msgstr "OK: Valinnat"
+
+msgid "LEFT/RIGHT: Column"
+msgstr "VASEN/OIKEA: Sarake"
+
+msgid "OK: Actions"
+msgstr "OK: Toiminnot"
+
+msgid "PLAY: Play"
+msgstr "PLAY: Soita"
+
+msgid "INFO: Select Playlist"
+msgstr "INFO: Valitse soittolista"
+
+msgid "HELP: Help"
+msgstr "HELP: Ohje"
+
+msgid "No playlist selected"
+msgstr "Ei soittolistaa valittu"
+
+msgid "Press EPG/INFO to search"
+msgstr "Paina EPG/INFO hakeaksesi"
+
+msgid "%d station(s)"
+msgstr "%d asema(a)"
+
+msgid "OK: Edit"
+msgstr "OK: Muokkaa"
+
+msgid "LEFT/RIGHT: Change"
+msgstr "VASEN/OIKEA: Vaihda"
+
+msgid "YELLOW: Clear Radio History"
+msgstr "YELLOW: Tyhjennä radiohistoria"
+
+msgid "EXIT: Save & Back"
+msgstr "EXIT: Tallenna ja takaisin"
+
+msgid "Folder the file Browser opens in by default."
+msgstr "Kansio, jonka Tiedostoselain avaa oletuksena."
+
+msgid "Folder scanned for the Music Library."
+msgstr "Kansio, joka skannataan Musiikkikirjastoa varten."
+
+msgid "Show files and folders starting with a dot."
+msgstr "Näytä pisteellä alkavat tiedostot ja kansiot."
+
+msgid "Add MediaPlayer3 to the main menu."
+msgstr "Lisää MediaPlayer3 päävalikkoon."
+
+msgid "Interface language."
+msgstr "Käyttöliittymän kieli."
+
+msgid "Light or dark background style for the redesigned screens."
+msgstr "Vaalea tai tumma tausta uudistetuille näytöille."
+
+msgid "Colour theme for screens not yet using the new skin."
+msgstr "Väriteema näytöille, jotka eivät vielä käytä uutta ulkoasua."
+
+msgid "Background colour used when Theme is set to Custom."
+msgstr "Taustaväri, kun Teema on asetettu mukautetuksi."
+
+msgid "Resume the last track on startup (not yet implemented)."
+msgstr "Jatka viimeisintä kappaletta käynnistyksessä (ei vielä toteutettu)."
+
+msgid "Play the next track when one finishes."
+msgstr "Soita seuraava kappale edellisen loputtua."
+
+msgid "How far each seek key press moves playback."
+msgstr "Kuinka pitkälle jokainen kelauspainallus siirtää toistoa."
+
+msgid "How far each lyrics-offset key press shifts timing."
+msgstr "Kuinka paljon jokainen sanoitusten ajastuspainallus siirtää ajoitusta."
+
+msgid "Detect the real codec/bitrate instead of guessing from the file extension."
+msgstr "Tunnista todellinen koodekki/bittinopeus tiedostopäätteen arvaamisen sijaan."
+
+msgid "Country filter Internet Radio starts with."
+msgstr "Maasuodatin, jolla Internet-radio käynnistyy."
+
+msgid "Language filter Internet Radio starts with."
+msgstr "Kielisuodatin, jolla Internet-radio käynnistyy."
+
+msgid "Whether CH+/CH- browses favourites or history."
+msgstr "Selaako CH+/CH- suosikkeja vai historiaa."
+
+msgid "How many recently played stations to remember."
+msgstr "Kuinka monta viimeksi soitettua asemaa muistetaan."
+
+msgid "Reopen the last playing station automatically."
+msgstr "Avaa viimeksi soinut asema automaattisesti uudelleen."
+
+msgid "Use the ExtEplayer3 backend for Internet Radio playback."
+msgstr "Käytä ExtEplayer3-taustajärjestelmää Internet-radion toistoon."
+
+msgid "API app_id for Yle radio programme data."
+msgstr "API app_id Ylen radio-ohjelmatietoja varten."
+
+msgid "API app_key for Yle radio programme data."
+msgstr "API app_key Ylen radio-ohjelmatietoja varten."
+
+msgid "API key for searching podcasts."
+msgstr "API-avain podcastien hakuun."
+
+msgid "API secret for searching podcasts."
+msgstr "API-salaisuus podcastien hakuun."
+
+msgid "Show the playback progress bar on the Player screen."
+msgstr "Näytä toiston edistymispalkki Soitin-näytöllä."
+
+msgid "Show elapsed time on the Player screen."
+msgstr "Näytä kulunut aika Soitin-näytöllä."
+
+msgid "Show remaining time on the Player screen."
+msgstr "Näytä jäljellä oleva aika Soitin-näytöllä."
+
+msgid "Show Playing/Paused status on the Player screen."
+msgstr "Näytä Toistetaan/Pysäytetty-tila Soitin-näytöllä."
+
+msgid "Write detected station codec info to the log."
+msgstr "Kirjoita tunnistetut asematiedot lokiin."
+
+msgid "How much detail is written to the log file."
+msgstr "Kuinka paljon tietoa kirjoitetaan lokitiedostoon."
+
+msgid "OK: Select"
+msgstr "OK: Valitse"
+
+msgid "MENU/EXIT: Close"
+msgstr "MENU/EXIT: Sulje"

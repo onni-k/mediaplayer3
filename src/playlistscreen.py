@@ -138,34 +138,108 @@ from __future__ import annotations
 
 import os
 
+from enigma import ePicLoad, eTimer
+
 from Components.ActionMap import ActionMap
+from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
+from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
+from .config import config_manager
 from .help_manager import help_manager
 from .help_screen import HelpScreen
 from .internetradio_manager import internetradio_manager
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
+from .paths import SKIN_PATH
 from .playlist_manager import playlist_manager
-from .skin import (
-    PANEL_BACKGROUND_COLOR,
-    PANEL_TEXT_COLOR,
-    skin_manager,
-    to_opaque_skin_color,
-)
+from .skin import to_opaque_skin_color
+
+# Device test round 58 -- background-image variant/tier system, a
+# copy of MusicLibraryScreen's own (round 39/46), matching the same
+# "reuse Music Library's images and colours" pattern already used for
+# RadioBrowserScreen/BrowserScreen/PodcastScreen (rounds 54-56). Two
+# columns instead of three this time, per direct request.
+PLAYLIST_SKIN_VARIANTS = ("light", "dark")
+
+PLAYLIST_DEFAULT_SKIN_VARIANT = "light"
+
+PLAYLIST_SKIN_PALETTES = {
+    "light": {
+        "panel_background_color": "#F9F9F9",
+        "list_background_color": "#EAEAEA",
+        "panel_text_color": "#1A1A1A",
+        "header_inactive_fg": "#1E2334",
+        "header_active_fg": "#036DFA",
+        "hint_fg": "#036DFA",
+        "info_label_fg": "#036DFA",
+        "selected_row_bg": "#A491FB",
+        "selected_row_fg": "#1A1A1A",
+    },
+    "dark": {
+        "panel_background_color": "#1C202B",
+        "list_background_color": "#161922",
+        "panel_text_color": "#F0F0F0",
+        "header_inactive_fg": "#F0F0F0",
+        "header_active_fg": "#FFFFFF",
+        "hint_fg": "#F0F0F0",
+        "info_label_fg": "#7B9FE0",
+        "selected_row_bg": "#2B2F39",
+        "selected_row_fg": "#C7AC4E",
+    },
+}
+
+
+def _resolvePlaylistSkinVariant() -> str:
+
+    variant = config_manager.get("appearance.skin", PLAYLIST_DEFAULT_SKIN_VARIANT)
+
+    if variant not in PLAYLIST_SKIN_VARIANTS:
+        return PLAYLIST_DEFAULT_SKIN_VARIANT
+
+    return variant
+
+
+def _resolvePlaylistResolutionTier(screen_width: int) -> str:
+
+    return "hd" if screen_width >= 1000 else "sd"
 
 # Build 0010, device test round 6 -- named for _updateColumnHighlighting()'s
 # loop, matching RadioBrowserScreen/MusicLibraryScreen/PodcastScreen's own
 # PANELS/COLUMNS convention (this screen previously used the "playlists"/
 # "tracks" string literals directly everywhere else, which is unaffected).
 PANELS = ("playlists", "tracks")
+
+
+def _formatPlaylistDuration(total_seconds: int) -> str:
+    """
+    Device test round 58 -- formats a playlist's total duration as
+    "H:MM:SS" or "M:SS", matching PodcastScreen's own _formatDuration()
+    pattern. Returns "" when there's nothing usable (e.g. every track
+    was missing duration data) rather than showing "0:00", which would
+    misleadingly imply the playlist itself is empty.
+    """
+
+    if total_seconds <= 0:
+        return ""
+
+    hours, remainder = divmod(total_seconds, 3600)
+
+    minutes, secs = divmod(remainder, 60)
+
+    if hours:
+
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+
+    return f"{minutes}:{secs:02d}"
+
 
 
 class PlaylistScreen(Screen):
@@ -175,102 +249,155 @@ class PlaylistScreen(Screen):
 
     SPECIFICATION_VERSION = "0.1"
 
-    DESIGN_WIDTH = 700
-    DESIGN_HEIGHT = 500
+    # Device test round 58 -- changed from 700x500 to 1672x941,
+    # matching MusicLibraryScreen's own round 39 reasoning.
+    DESIGN_WIDTH = 1672
+    DESIGN_HEIGHT = 941
 
     # ------------------------------------------------------------------
 
     def _buildSkin(self, width: int, height: int) -> str:
         """
-        Build PlaylistScreen's skin for an exact `width` x `height`
-        window, scaling from the 700x500 design resolution above
-        (Build 0007, device test round 8).
+        Device test round 58 -- reuses MusicLibraryScreen's own
+        background-image approach exactly (per direct request: same
+        pattern already used for RadioBrowserScreen/BrowserScreen/
+        PodcastScreen), but with two wider columns instead of three
+        ("täytyy jakaa vain kuva 2 sarakkeeseen"). Icons: playlists->
+        playlist (the list-with-dots icon), tracks->track (music
+        note, already used elsewhere). New "info" widget shows the
+        current playlist's own track count and total duration, per
+        direct request -- this screen never had a description/info
+        display before.
         """
 
         sx = width / PlaylistScreen.DESIGN_WIDTH
         sy = height / PlaylistScreen.DESIGN_HEIGHT
 
-        background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(PANEL_BACKGROUND_COLOR)
-        panel_text_color = PANEL_TEXT_COLOR
-        active_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
-        inactive_color = to_opaque_skin_color(skin_manager.getColor("inactive_highlight", "#ADD8E6"))
+        self._screen_width = width
+
+        self._screen_height = height
+
+        self._skin_variant = _resolvePlaylistSkinVariant()
+
+        palette = PLAYLIST_SKIN_PALETTES[self._skin_variant]
+
+        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        panel_text_color = palette["panel_text_color"]
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
-            return f'font="Regular;{max(10, int(size * sx))}"'
-
-        # Build 0010, device test round 6 -- BUILD_0010_PLAN.md "Visual
-        # Refinement", same fix and reasoning as MusicLibraryScreen/
-        # RadioBrowserScreen's own _buildSkin() comments.
-        panel_rects = {
-            "playlists": (20, 45, 320, 25),
-            "tracks": (360, 45, 320, 25),
-        }
-
-        highlight_xml = ""
-
-        for panel_name, (x, y, w, h) in panel_rects.items():
-
-            highlight_xml += f"""
-            <widget name="{panel_name}_title_bg_normal"
-                    {rect(x, y, w, h)}
-                    backgroundColor="{inactive_color}"/>
-
-            <widget name="{panel_name}_title_bg_active"
-                    {rect(x, y, w, h)}
-                    backgroundColor="{active_color}"/>
-            """
+            return f'font="Bold;{max(10, int(size * sx))}"'
 
         return f"""
         <screen name="MediaPlayer3PlaylistScreen"
                 position="0,0"
                 size="{width},{height}"
-                backgroundColor="{background_color}"
+                backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Playlists">
 
+            <widget name="background"
+                    position="0,0"
+                    size="{width},{height}"
+                    alphatest="blend"/>
+
             <widget name="status"
-                    {rect(20, 10, 660, 25)}
-                    {font(16)}
+                    {rect(60, 19, 1550, 55)}
+                    {font(34)}
                     halign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
-
-            {highlight_xml}
-
-            <widget name="playlists_title"
-                    {rect(20, 45, 320, 25)}
-                    {font(18)}
+                    valign="center"
                     foregroundColor="{panel_text_color}"
                     transparent="1"/>
 
-            <widget name="tracks_title"
-                    {rect(360, 45, 320, 25)}
-                    {font(18)}
-                    foregroundColor="{panel_text_color}"
+            <widget name="playlists_title_normal"
+                    {rect(104, 80, 700, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="playlists_title_active"
+                    {rect(104, 80, 700, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="tracks_title_normal"
+                    {rect(919, 80, 700, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="tracks_title_active"
+                    {rect(919, 80, 700, 57)}
+                    {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="playlists"
-                    {rect(20, 75, 320, 360)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(40, 138, 775, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="tracks"
-                    {rect(360, 75, 320, 360)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(855, 138, 775, 518)}
+                    backgroundColor="{palette['list_background_color']}"
                     foregroundColor="{panel_text_color}"
+                    backgroundColorSelected="{palette['selected_row_bg']}"
+                    foregroundColorSelected="{palette['selected_row_fg']}"
+                    scrollbarBackgroundColor="#E0E0E0"
                     scrollbarMode="showOnDemand"/>
 
-            <widget name="hint"
-                    {rect(20, 450, 660, 40)}
-                    {font(14)}
+            <widget name="info"
+                    {rect(60, 702, 1550, 130)}
+                    {font(28)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
-                    foregroundColor="{panel_text_color}"/>
+                    foregroundColor="{palette['info_label_fg']}"
+                    backgroundColor="{panel_background_color}"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(82, 874, 299, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(447, 874, 240, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(753, 874, 169, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(988, 874, 196, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1250, 874, 186, 63)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
 
         </screen>
         """
@@ -320,23 +447,39 @@ class PlaylistScreen(Screen):
 
         self._log("Initializing")
 
+        self["background"] = Pixmap()
+
+        self._background_picload = ePicLoad()
+
+        compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
+
+        self._background_pixmap_cache = {}
+
+        # Device test round 62 -- guards against starting a second
+        # concurrent decode while one is already running.
+        self._background_decode_in_progress = False
+
         self["status"] = Label("")
 
-        # Build 0010, device test round 7 -- see MusicLibraryScreen's
-        # own _initialize() comment for why bg widgets must be added
-        # before the title widgets here.
         for panel_name in PANELS:
 
-            self[f"{panel_name}_title_bg_normal"] = Label("")
-            self[f"{panel_name}_title_bg_active"] = Label("")
+            self[f"{panel_name}_title_normal"] = Label("")
+            self[f"{panel_name}_title_active"] = Label("")
+            self[f"{panel_name}_title_active"].hide()
 
-        self["playlists_title"] = Label(_("Playlists"))
-        self["tracks_title"] = Label(_("Tracks"))
         self["playlists"] = MenuList([])
         self["tracks"] = MenuList([])
-        self["hint"] = Label(
-            _("LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back")
-        )
+
+        # Device test round 58 -- new: shows the current playlist's
+        # own track count and total duration, per direct request.
+        # Didn't exist before this round.
+        self["info"] = Label("")
+
+        self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Panel"))
+        self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
+        self["hint_text_ok"] = Label(_("OK: Options"))
+        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        self["hint_text_exit"] = Label(_("EXIT: Back"))
 
         actions = {
             "ok": self.okPressed,
@@ -426,6 +569,8 @@ class PlaylistScreen(Screen):
 
             self["tracks"].setList([])
 
+            self._updatePlaylistInfo()
+
             return
 
         if self._current_entry_type == "radio":
@@ -445,6 +590,8 @@ class PlaylistScreen(Screen):
 
         self["tracks"].setList(display)
 
+        self._updatePlaylistInfo()
+
         logger.verbose(
             f"[Playlist] Track list updated\n\n"
             f"List: {self._current_playlist} ({self._current_entry_type})\n\n"
@@ -461,29 +608,209 @@ class PlaylistScreen(Screen):
 
         self["status"].setText(_("Playlists"))
 
+        # Device test round 58 -- titles are static (never change
+        # dynamically, unlike Podcast/BrowserScreen's own titles), but
+        # now need setting explicitly since the normal/active pair
+        # widgets start out empty (Label("")) rather than being
+        # constructed with their final text directly, matching how
+        # every other converted screen sets its own titles.
+        self["playlists_title_normal"].setText(_("Playlists"))
+
+        self["playlists_title_active"].setText(_("Playlists"))
+
+        self["tracks_title_normal"].setText(_("Tracks"))
+
+        self["tracks_title_active"].setText(_("Tracks"))
+
         self._updateColumnHighlighting()
+
+        self._updatePlaylistInfo()
 
     # ------------------------------------------------------------------
 
     def _updateColumnHighlighting(self) -> None:
         """
-        Build 0010, device test round 6 -- see this file's own
-        _buildSkin() comment / MusicLibraryScreen/RadioBrowserScreen's
-        identical fix.
+        Device test round 58 -- the active/inactive column-header
+        colouring now lives in one of two pre-rendered background
+        images (resources/skins/{variant}/{tier}/playlist_{focus}_
+        active.png), swapped here instead of toggling individual bg
+        widgets, matching MusicLibraryScreen's own round 39/45 and
+        RadioBrowserScreen's/BrowserScreen's/PodcastScreen's own
+        rounds 54-56. Header TEXT stays real, translatable normal/
+        active widget pairs, toggled here too.
         """
+
+        self._decodeBackgroundImage(self._focus)
 
         for panel_name in PANELS:
 
             is_active = panel_name == self._focus
 
             try:
-                self[f"{panel_name}_title_bg_normal"].hide() if is_active else self[f"{panel_name}_title_bg_normal"].show()
+                self[f"{panel_name}_title_normal"].hide() if is_active else self[f"{panel_name}_title_normal"].show()
 
-                self[f"{panel_name}_title_bg_active"].show() if is_active else self[f"{panel_name}_title_bg_active"].hide()
+                self[f"{panel_name}_title_active"].show() if is_active else self[f"{panel_name}_title_active"].hide()
 
             except Exception as error:
 
                 logger.verbose(f"[Playlist] Unable to set column highlight visibility: {error}")
+
+    # ------------------------------------------------------------------
+    # Background image (device test round 58 -- mirrors
+    # MusicLibraryScreen's own _decodeBackgroundImage()/
+    # _onBackgroundImageDecoded() exactly, including the per-state
+    # cache and stale-decode guard; see that file's own docstrings for
+    # the full reasoning, not repeated here.)
+    # ------------------------------------------------------------------
+
+    def _decodeBackgroundImage(self, focus_state: str) -> None:
+
+        if focus_state in self._background_pixmap_cache:
+
+            if self["background"].instance is not None:
+
+                self["background"].instance.setPixmap(self._background_pixmap_cache[focus_state])
+
+                self["background"].show()
+
+            return
+
+        # Device test round 62 -- real bug found from a device log on
+        # MainScreen (a slow decode, likely worsened by a concurrent
+        # "gAccel alloc failed" the same log showed, left this
+        # method's own cache check above still empty when another
+        # call arrived before the first decode finished, causing a
+        # second concurrent startDecode() on the same ePicLoad
+        # instance -- confirmed directly as "startDecode() reported
+        # failure" in the log). Same guard applied here defensively:
+        # ePicLoad only supports one decode at a time per instance;
+        # this simply skips starting a new one while one is already
+        # running.
+        if getattr(self, "_background_decode_in_progress", False):
+            return
+
+        if self["background"].instance is None:
+
+            logger.verbose("[Playlist] background widget not ready yet, retrying decode shortly.")
+
+            retry_timer = eTimer()
+
+            retry_timer.callback.append(lambda: self._decodeBackgroundImage(focus_state))
+
+            retry_timer.start(100, True)
+
+            self._pending_background_retry_timer = retry_timer
+
+            return
+
+        image_path = os.path.join(
+            SKIN_PATH,
+            self._skin_variant,
+            _resolvePlaylistResolutionTier(self._screen_width),
+            f"playlist_{focus_state}_active.png",
+        )
+
+        self._pending_background_focus_state = focus_state
+
+        try:
+            width, height = self._screen_width, self._screen_height
+
+            aspect = AVSwitch().getFramebufferScale()
+
+            self._background_picload.setPara((width, height, aspect[0], aspect[1], False, 1, "#00000000"))
+
+            self._background_decode_in_progress = True
+
+            if self._background_picload.startDecode(image_path) != 0:
+                raise RuntimeError("startDecode() reported failure")
+
+        except Exception as error:
+
+            self._background_decode_in_progress = False
+
+            logger.verbose(f"[Playlist] Unable to decode background image {image_path}: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _onBackgroundImageDecoded(self, picture_info=None) -> None:
+
+        # Device test round 62 -- cleared in a finally below so every
+        # branch (including early returns) reliably clears it once
+        # the decode has genuinely finished.
+        try:
+            pixmap = self._background_picload.getData()
+
+            if pixmap is None:
+                return
+
+            state = getattr(self, "_pending_background_focus_state", None)
+
+            if state is not None:
+
+                self._background_pixmap_cache[state] = pixmap
+
+            if state != self._focus:
+                return
+
+            self["background"].instance.setPixmap(pixmap)
+
+            self["background"].show()
+
+        except Exception as error:
+
+            logger.verbose(f"[Playlist] Unable to apply decoded background image: {error}")
+
+        finally:
+
+            self._background_decode_in_progress = False
+
+    # ------------------------------------------------------------------
+
+    def _updatePlaylistInfo(self) -> None:
+        """
+        Device test round 58 -- shows the current playlist's own
+        track count and total duration in the new "info" widget, per
+        direct request. Radio-favourites lists have no duration data
+        (they're live streams, not fixed-length tracks), so only the
+        track count is shown for those; regular playlists show both.
+        Falls back to a translated placeholder when nothing is
+        selected.
+        """
+
+        if not self._current_playlist:
+
+            self["info"].setText(_("No playlist selected"))
+
+            return
+
+        count = len(self._current_tracks)
+
+        if self._current_entry_type == "radio":
+
+            self["info"].setText(_("%d station(s)") % count)
+
+            return
+
+        total_seconds = 0
+
+        for track in self._current_tracks:
+
+            try:
+                total_seconds += int(track.get("duration") or 0)
+
+            except (TypeError, ValueError):
+
+                pass
+
+        duration_text = _formatPlaylistDuration(total_seconds)
+
+        if duration_text:
+
+            self["info"].setText(f"{count} {_('track(s)')} \u2022 {duration_text}")
+
+        else:
+
+            self["info"].setText(f"{count} {_('track(s)')}")
 
     # ------------------------------------------------------------------
     # Navigation (PLAYLISTSCREEN_SPEC.md "Navigation")
