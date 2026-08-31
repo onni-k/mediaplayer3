@@ -85,7 +85,7 @@ from Plugins.Plugin import PluginDescriptor
 from Screens.MessageBox import MessageBox
 
 from .compatibility import compatibility
-from .config import config_manager
+from .config import config_manager, resolveLanguageCode
 from .internetradio_manager import internetradio_manager
 from .localization import localization_manager
 from .localization import _
@@ -153,7 +153,7 @@ def main(session, **kwargs):
     # startup.
     #
     try:
-        localization_manager.setLanguage(config_manager.get("general.language", "fi"))
+        localization_manager.setLanguage(resolveLanguageCode(config_manager.get("general.language", "fi")))
 
     except Exception as error:
 

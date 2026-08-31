@@ -171,21 +171,28 @@ if not hasattr(config.plugins, "mediaplayer3"):
 cfg = config.plugins.mediaplayer3
 
 
-# Device test round 65 -- per direct request, cfg.general.language's
-# own default now follows the receiver's own current Enigma2 system
-# language instead of always starting in Finnish regardless of what
-# box this happens to run on. Kept in sync with LocalizationManager's
-# own AVAILABLE_LANGUAGES by hand (localization.py isn't imported
-# here to avoid adding a new cross-module dependency at config.py's
-# own load time for what's otherwise a two-item tuple) -- if a new
-# language is ever added there, this tuple needs the same addition,
-# or the new language's own users will simply default to English
-# instead of their own system language (a safe, if slightly stale,
-# fallback -- not a crash).
+# Device test round 65 -- guards against a language MediaPlayer3
+# doesn't actually ship a catalog for; round 66's own resolveLanguageCode()
+# below is the only place this list is consulted now.
 _AVAILABLE_LANGUAGE_CODES = ("en", "fi")
 
 
-def _defaultLanguageCode() -> str:
+def resolveLanguageCode(configured_value: str) -> str:
+    """
+    Device test round 66 -- resolves cfg.general.language's own
+    configured value ("fi", "en", or "system") to an actual 2-letter
+    language code LocalizationManager can load. "system" is resolved
+    fresh every time this is called (at plugin startup, and again
+    whenever Settings applies a language change live) rather than
+    baked into a config default once -- so if the receiver's own OSD
+    language changes later, MediaPlayer3 picks that up on its own
+    next start too, without the user needing to re-select anything
+    here. Replaces round 65's own _defaultLanguageCode(), which only
+    computed the system language once, at config-creation time.
+    """
+
+    if configured_value != "system":
+        return configured_value
 
     system_language = compatibility.getSystemLanguage(fallback_language_code="en")
 
@@ -208,8 +215,9 @@ cfg.library = ConfigSubsection()
 cfg.general = ConfigSubsection()
 
 cfg.general.language = ConfigSelection(
-    default=_defaultLanguageCode(),
+    default="system",
     choices=[
+        ("system", "Järjestelmä"),
         ("fi", "Suomi"),
         ("en", "English"),
     ],

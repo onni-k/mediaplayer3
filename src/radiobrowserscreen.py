@@ -152,7 +152,7 @@ from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
-from .config import config_manager
+from .config import config_manager, resolveLanguageCode
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .help_manager import help_manager
 from .help_screen import HelpScreen
@@ -783,7 +783,7 @@ class RadioBrowserScreen(Screen):
         """
 
         app_language_name = self._APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(
-            config_manager.get("general.language", "fi")
+            resolveLanguageCode(config_manager.get("general.language", "fi"))
         )
 
         if not app_language_name:

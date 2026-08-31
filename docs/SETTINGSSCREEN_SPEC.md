@@ -59,6 +59,15 @@ Language
 Selects LocalizationManager's active language. Applied immediately;
 see LOCALIZATION_MANAGER_SPEC.md.
 
+Device test round 66: added a "System" choice (the new default) that
+resolves dynamically, at every point the language is actually applied
+(startup, and again whenever this setting itself changes), to the
+receiver's own current Enigma2 OSD language -- see config.py's own
+resolveLanguageCode(). Falls back to English if the receiver's own
+language isn't one MediaPlayer3 ships a catalog for. Choosing "Suomi"
+or "English" explicitly still pins that language regardless of what
+the receiver's own OSD language is or later becomes.
+
 Skin
 
 Selects SkinManager's active skin. Falls back to the default skin if

@@ -119,6 +119,14 @@ translate() itself never raises and never returns an empty string for
 a non-empty input -- a missing translation returns the original text
 (or an explicit `default` argument, if given).
 
+Device test round 66: LocalizationManager itself is unchanged by the
+new "System" language option (Settings -> Language) -- setLanguage()
+still only ever receives an actual 2-letter code ("en"/"fi"), never
+the literal string "system". Resolving "System" to a real language
+code is config.py's own responsibility (resolveLanguageCode()), one
+layer above LocalizationManager; see SETTINGSSCREEN_SPEC.md's own
+Language section for how and when that resolution happens.
+
 ---
 
 # 8. Translation Diagnostics

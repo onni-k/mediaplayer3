@@ -15,6 +15,21 @@ loads theme colour palettes.
 
 Skin management is implemented in skin.py.
 
+Device test round 66 -- scope note: everything below still describes
+SkinManager itself accurately (it's unchanged), but since round 32 it
+is no longer the primary source of a screen's own visual appearance.
+Every one of MediaPlayer3's eight screens now generates its own
+background image (a separate system: pre-rendered PNG cards, colour-
+coded active/inactive panel headers, per-screen palette dicts) and
+only reads a handful of colours from SkinManager directly (mostly the
+outermost screen backgroundColor, and a few progress-bar-related
+colours on MainScreen). SkinManager's own "Theme" concept (Settings ->
+Theme, distinct from the newer "Skin" setting) is still fully
+functional and still governs those few remaining reads, but no longer
+governs a screen's overall look the way it did through Build 0009.
+See CONFIG_SPEC.md and SETTINGSSCREEN_SPEC.md's own Language/Skin/
+Theme entries for how the two systems currently coexist.
+
 ---
 
 # 2. Responsibilities

@@ -5395,3 +5395,123 @@ request from Round 23 -- the .zip now also includes mediaplayer3.bb
 at the project root. Version string in both packages' own metadata
 (the .ipk control file's own Version: field, and the app's own
 internal VERSION) now reads 1.0.0-beta2.
+
+---
+
+## Round 66 (2026-08-31) -- "System" language option, documentation update
+
+User confirmed all four fresh device logs (OpenViX, OpenPLI, OpenATV,
+OpenBH) passed clean -- checked directly rather than taking this on
+faith: no tracebacks or crashes in any of the four, only the already-
+characterized harmless "gSurface accelAlloc failed" warning in one.
+Asked for two more things: a proper "System" choice for the language
+setting (round 65's own fix only computed a one-time install default,
+not a live-following choice), and a documentation update given how
+much has changed.
+
+### "System" language option -- a real improvement over round 65's own approach
+
+Round 65's _defaultLanguageCode() only ran once, at config-creation
+time -- correct for a fresh install, but it couldn't reflect a later
+change to the receiver's own OSD language, and offered no visible way
+for the user to see or choose "follow the system" as an ongoing
+mode. Replaced it with resolveLanguageCode(configured_value): "fi"/
+"en" pass through unchanged, but the new literal value "system" is
+resolved fresh via compatibility.getSystemLanguage() every time it's
+actually needed, not baked into a default once. Added "system" as
+cfg.general.language's own new default choice (label "Järjestelmä",
+matching this project's own convention of leaving skin/theme/language
+choice labels untranslated for findability, per round 31's own
+precedent for the "Language" entry's own label).
+
+Found and fixed three call sites that would have mishandled the new
+raw value if left untouched -- checked each directly rather than
+assuming only the obvious one needed updating:
+- plugin.py's own startup call passed cfg's raw value straight to
+  localization_manager.setLanguage(), which only understands actual
+  2-letter codes -- "system" would have silently behaved as an
+  invalid language (falling back to English) instead of resolving
+  correctly.
+- settingsscreen.py's own live-apply comparison
+  (cfg.general.language.value != localization_manager.getLanguage())
+  would never equal "system", so every settings-apply cycle would
+  have called setLanguage("system") unconditionally -- same
+  underlying problem, worse because it would fire repeatedly rather
+  than just once at startup.
+- radiobrowserscreen.py's own _promoteAppLanguage() used the raw
+  config value as a dict key to find RadioBrowser's own name for the
+  app's current language (to move it near the top of the Language
+  filter panel) -- "system" isn't a key in that dict, so this would
+  have silently degraded to a no-op (not a crash, but a real feature
+  regression) for exactly the choice most users would likely pick.
+
+All three now call resolveLanguageCode() first. Verified the
+resolution logic directly against six scenarios (fi, en, de, sv, fr,
+empty string) and confirmed a circular-import check before adding
+`from .compatibility import compatibility` to config.py's own
+top-level imports (same AST-walk-restricted-to-module-level technique
+established in round 65, re-run rather than assumed still valid).
+
+### Documentation
+
+Given the sheer number of docs (49 files under docs/) and the scale
+of what's changed since 1.0.0-beta, prioritized the highest-value,
+most load-bearing updates rather than attempting a full technical
+rewrite of all eight *_SCREEN_SPEC.md files in one pass (each would
+need its entire skin/widget documentation re-derived from the new
+background-image system, a genuinely separate undertaking):
+
+- README.md: version bump, feature list updated to describe the new
+  shared background-image skin system instead of the stale "three-
+  column browsing model" phrasing, Configuration section mentions
+  the new System language option.
+- CHANGELOG.md: added a second "BUILD 0010" closing note (the first
+  one was written at round 19, well before the skin redesign began)
+  covering rounds 20-66 in the same closing-note prose style
+  established for every previous build, and updated the Build History
+  table's own Build 0010 row to reflect the full scope, not just the
+  original three-column/File-Browser work.
+- HISTORY.md: found its own Project Timeline stopped at Build 0009
+  entirely (no Build 0010 entry existed yet) and added one, matching
+  every earlier entry's own architectural-narrative style -- covering
+  both the original ~19-round feature set and the later 47-round skin
+  redesign, framed around what changed architecturally (a new Screen-
+  Layer-only background-image system, no Core module changes) rather
+  than re-listing every individual bug.
+- SETTINGSSCREEN_SPEC.md: Language section now documents the new
+  "System" choice and resolveLanguageCode()'s own behaviour.
+- LOCALIZATION_MANAGER_SPEC.md: added a note clarifying that
+  LocalizationManager itself is unchanged (setLanguage() never sees
+  the literal string "system") and pointing to where that resolution
+  actually happens, so a reader isn't left wondering where "System"
+  fits into this module's own documented interface.
+- SKIN_MANAGER_SPEC.md: added a scope note distinguishing SkinManager's
+  own still-accurate (but now much narrower) responsibilities from the
+  separate background-image system most screens now primarily use,
+  rather than leaving the document read as if SkinManager still
+  governs a screen's overall appearance the way it did through Build
+  0009.
+
+Confirmed via a final grep across every top-level and docs/ markdown
+file that no bare "1.0.0-beta" (missing the "2") mentions remain
+anywhere.
+
+### Testing
+
+Full plugin.main() regression passes (syntax-checked: config.py,
+plugin.py, settingsscreen.py, radiobrowserscreen.py, compatibility.py,
+project.py -- every file touched this round). Case-insensitive AST
+undefined-name sweep clean for all four Python files with real logic
+changes. Directly tested resolveLanguageCode()'s own branching logic
+against six system-language scenarios. Full-codebase translation
+sweep clean (no new user-facing strings this round -- "Järjestelmä"
+is a choice label, not translated, matching established convention).
+Confirmed via a targeted grep that all three of plugin.py's,
+settingsscreen.py's, and radiobrowserscreen.py's own reads of general.
+language now resolve "system" before using it, not just the two most
+obvious ones.
+
+### Delivery
+
+Both .zip and .ipk built and delivered together, per the ongoing
+request from Round 23.

@@ -1365,6 +1365,54 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 
 ---
 
+## BUILD 0010 -- SKIN REDESIGN & LANGUAGE DETECTION (rounds 20-66)
+
+Closing note (a second, much larger round of device testing since the
+note above -- 47 further rounds, across OpenViX, OpenATV, OpenPLI, and
+OpenBH): starting from a user-provided mockup, every one of
+MediaPlayer3's eight screens (Music Library, Internet Radio, the file
+Browser, Podcasts, Playlists, the Main Player, the Main Menu, and
+Settings) was redesigned around a shared background-image system --
+rounded cards, colour-coded active/inactive panel headers, consistent
+iconography (several icons hand-cropped from the user's own reference
+mockups, several more drawn fresh to match), and full Light/Dark
+support with matching HD/SD resolution tiers. MainScreen and Settings
+each gained a new per-item information display (Now Playing details
+and a description panel respectively; a per-setting help line for
+Settings) that didn't exist before. The redesign proceeded one screen
+at a time, each validated independently before moving to the next,
+following the exact same background-image mechanism validated first
+on Music Library (rounds 36-39) and reused with only cosmetic changes
+(icons, column counts, hint-row wording) for every screen after it.
+
+Two real, previously-invisible bugs were found this way that had
+nothing to do with the redesign itself: a concurrent background-image
+decode race (confirmed directly from a device log's own "startDecode()
+reported failure", round 62) that could affect any of the newly-
+converted screens under a slow enough decode, not just the one it was
+first observed on; and a widget insertion-order bug on Settings (round
+63) that made its own background image paint over the config list's
+text instead of underneath it, root-caused directly from the user's
+own description of watching it happen rather than guessed at. Two
+real crashes reached a device during this stretch (round 60 -- an
+import removed by mistake while cleaning up after the redesign; round
+61's own attribute fix was a real improvement but not the actual
+cause, discovered by a user-run diagnostic build in round 62 before
+round 63 found the true one), both fixed the same session they were
+reported, and both traced to a specific, named line in a device log
+rather than assumed.
+
+MediaPlayer3 now also defaults to the receiver's own current Enigma2
+system language automatically (a new "System" choice, Settings ->
+Language, replacing the previous always-Finnish default) -- resolved
+fresh every time the language is actually applied, so a receiver's own
+later OSD language change is picked up automatically too, not just at
+MediaPlayer3's own first install.
+
+See Claude_notes_build0010.txt for the full, round-by-round record.
+
+---
+
 # Build History
 
 | Build | Version | Status |
@@ -1378,7 +1426,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0007 | 0.7.0-dev | Media collections: playlists, Internet Radio (RadioBrowser), storage management |
 | 0008 | 0.8.0-dev | Music discovery & help: Music Library, lyrics, MainScreen info views, context-sensitive help |
 | 0009 | 0.9.0-dev | MainScreen 2.0 & Radio EPG: three-panel navigation, Finland (Yle/Bauer) radio EPG, ExtEplayer3 option |
-| 0010 | 1.0.0-beta | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys, Light/Dark themes, MainScreen OK Menu, main menu integration |
+| 0010 | 1.0.0-beta2 | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys; full background-image Light/Dark skin redesign across all eight screens; automatic system-language detection; main menu integration |
 
 ---
 

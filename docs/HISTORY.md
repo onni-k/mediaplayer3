@@ -346,6 +346,76 @@ the full, round-by-round record.
 
 ---
 
+Build 0010
+
+Three-column browsing, File Browser redesign, and a full visual
+redesign.
+
+The first ~19 rounds extended the three-panel navigation model Build
+0009 established for MainScreen to Podcasts and the file Browser (a
+full redesign of the latter around it), added a local, offline-capable
+RadioBrowser station database (manual and automatic updates), a
+bundled default Podcast Index/Yle Teksti-TV API key pair (obfuscated,
+always overridable by the user's own key), Light/Dark themes via the
+existing SkinManager/Theme system, MainScreen's own OK Menu, and
+Enigma2 main menu integration. Confirmed across 19 rounds of device
+testing (OpenViX and Vu+ Duo2), with two previously-invisible bugs
+found and fixed as a side effect (a podcast episode URL silently
+failing a local-file-assuming playlist check; every panel screen's
+column-header highlight colours never actually varying by theme,
+since the keys involved were never defined in any theme file) and one
+real crash (a missing import, fixed the same session reported).
+
+Starting from a user-provided mockup shortly after, a much larger
+second phase (47 further rounds) replaced the OLD SkinManager/Theme-
+driven appearance entirely for every one of MediaPlayer3's eight
+screens with a new background-image system: pre-rendered PNG cards
+(rounded corners, colour-coded active/inactive panel headers) behind
+real, translatable text widgets, with matching Light/Dark palettes and
+HD/SD resolution tiers. The mechanism was proven on Music Library
+first (async decode via ePicLoad, confirmed only that API -- not a
+static Pixmap's own `pixmap=` attribute -- actually scales a
+mismatched source image) and then reused, with only cosmetic
+adjustments per screen (icon set, column count, hint-row wording), for
+Internet Radio, the file Browser, Podcasts, Playlists, the Main
+Player, the Main Menu, and finally Settings. MainScreen and Settings
+each gained an information display that didn't exist before (Now
+Playing details; a per-selection description panel).
+
+Two real bugs surfaced during this second phase that had nothing to
+do with the redesign's own visual goals: a concurrent background-
+image decode race (ePicLoad only supports one decode per instance at
+a time; a slow enough decode could overlap with a screen's own
+periodic refresh and fail outright -- confirmed directly from a
+device log's own "startDecode() reported failure"), and a widget
+insertion-order bug specific to Settings (its own background image
+painted over the config list's text instead of underneath it, because
+ConfigListScreen's own __init__() -- which creates the list widget
+internally -- ran before the background widget was created, the
+opposite of every other screen's own correct order). Both were
+root-caused directly from device-log evidence and a user-run
+diagnostic build, not guessed at from symptoms alone. Two crashes
+reached a device during this stretch (both from import cleanup
+mistakes made while simplifying a screen's own dependencies after its
+redesign), both fixed the same session reported.
+
+The build closes with MediaPlayer3 defaulting to the receiver's own
+current Enigma2 system language automatically (a new "System" choice
+replacing the previous always-Finnish default, resolved fresh every
+time the language is actually applied rather than fixed once at
+install), and a corrected bitbake recipe added to the project (its
+own LIC_FILES_CHKSUM didn't match the project's actual LICENSE file,
+which would have failed a real build's own license QA check).
+
+No changes to the layered architecture itself -- the new background-
+image system is a Screen Layer concern (each screen's own skin
+generation and widget wiring), and doesn't introduce, remove, or
+restructure any Core module. See CHANGELOG.md's two "BUILD 0010"
+closing notes and Claude_notes_build0010.txt for the full, round-by-
+round record.
+
+---
+
 # 4. Major Architecture Decisions
 
 MainScreen

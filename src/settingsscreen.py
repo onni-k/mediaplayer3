@@ -201,7 +201,7 @@ from Screens.Screen import Screen
 from .compatibility import compatibility
 from .help_manager import help_manager
 from .help_screen import HelpScreen
-from .config import cfg, config_manager
+from .config import cfg, config_manager, resolveLanguageCode
 from .internetradio_manager import internetradio_manager
 from .localization import _, localization_manager
 from .logger import logger
@@ -917,9 +917,18 @@ class SettingsScreen(Screen, ConfigListScreen):
         # rather than waiting for a restart, so the user can see the
         # effect right away. Each call falls back safely on its own
         # if the new value turns out to be invalid.
-        if cfg.general.language.value != localization_manager.getLanguage():
+        #
+        # Device test round 66 -- resolveLanguageCode() added: cfg.
+        # general.language.value can now be the literal string
+        # "system" (a real, selectable choice, not an internal-only
+        # value), which setLanguage() itself has no way to resolve --
+        # passing it through unresolved would have made "system"
+        # silently behave as if the language never changed correctly.
+        resolved_language = resolveLanguageCode(cfg.general.language.value)
 
-            localization_manager.setLanguage(cfg.general.language.value)
+        if resolved_language != localization_manager.getLanguage():
+
+            localization_manager.setLanguage(resolved_language)
 
         if cfg.appearance.skin.value != skin_manager.getSkinName():
 
