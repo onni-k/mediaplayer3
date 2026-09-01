@@ -203,7 +203,7 @@ def _resolveBrowserResolutionTier(screen_width: int) -> str:
 
 # CHANNEL UP/DOWN page-step, matching RadioBrowserScreen/PodcastScreen's
 # own PAGE_STEP convention for long lists.
-PAGE_STEP = 10
+PAGE_STEP = 15
 
 
 def _defaultPlayPlaylistName() -> str:
@@ -936,9 +936,13 @@ class BrowserScreen(Screen):
 
     def pageUp(self) -> None:
 
-        for _step in range(PAGE_STEP):
+        widget = self[f"{self._focus}_list"]
 
-            self[f"{self._focus}_list"].up()
+        steps = min(PAGE_STEP, widget.getSelectedIndex())
+
+        for _step in range(steps):
+
+            widget.up()
 
         self._onSelectionChanged()
 
@@ -946,9 +950,15 @@ class BrowserScreen(Screen):
 
     def pageDown(self) -> None:
 
-        for _step in range(PAGE_STEP):
+        widget = self[f"{self._focus}_list"]
 
-            self[f"{self._focus}_list"].down()
+        entries = widget.list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - widget.getSelectedIndex()))
+
+        for _step in range(steps):
+
+            widget.down()
 
         self._onSelectionChanged()
 

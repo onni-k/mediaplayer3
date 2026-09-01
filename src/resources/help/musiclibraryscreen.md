@@ -7,8 +7,8 @@ read from your files rather than folder names.
 
 - LEFT / RIGHT: switch between the artists, albums and tracks panels.
 - UP / DOWN: move within the active panel.
-- CH+ / CH-: jump 10 entries at a time in the active panel (may not
-  work on every remote/image).
+- CH+ / CH-: jump 15 entries at a time in the active panel, stopping
+  at the top/bottom of the list.
 - OK: play. On the artists panel, plays every track by that artist;
   on the albums panel, plays the whole album; on the tracks panel,
   starts from that track and continues through the rest of the album.

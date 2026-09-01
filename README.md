@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.0.0-beta2 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.0.0-beta3 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external

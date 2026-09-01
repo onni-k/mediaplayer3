@@ -8,6 +8,8 @@ together, side by side with their contents.
 - LEFT / RIGHT: switch between the list panel and the tracks/stations
   panel.
 - UP / DOWN: move within the active panel.
+- CH+ / CH-: jump 15 entries at a time in the active panel, stopping
+  at the top/bottom of the list.
 - OK: open options for the selected playlist/list, or the selected
   track/station -- play, rename, delete, and more.
 - INFO: show information for whichever panel currently has focus.

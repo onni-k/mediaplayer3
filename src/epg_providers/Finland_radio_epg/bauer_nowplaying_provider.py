@@ -112,6 +112,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Optional
@@ -159,6 +160,18 @@ _NEXT_DATA_PATTERN = re.compile(
 )
 
 
+# Device test round 67 -- same real bug as YleTeletextScheduleProvider's
+# own SCHEDULE_CACHE_TTL_SECONDS (see that constant's own comment for
+# the full device-log evidence): InformationPanel.refresh() calls
+# getNowPlaying() roughly once per second for as long as a matched
+# Bauer station keeps playing, with no caching at all before this
+# round. A shorter TTL than Yle's own 5 minutes, since a track
+# typically only plays for a few minutes and "now playing" is
+# meant to feel reasonably current -- but still eliminates the vast
+# majority of once-per-second calls.
+NOW_PLAYING_CACHE_TTL_SECONDS = 20
+
+
 class BauerNowPlayingProvider(NowPlayingProvider):
     """
     Fetches a single Bauer Media Finland station's rayo.fi page and
@@ -186,6 +199,12 @@ class BauerNowPlayingProvider(NowPlayingProvider):
 
         self._station_slug = station_slug
         self._timeout_seconds = timeout_seconds
+
+        # Device test round 67 -- see NOW_PLAYING_CACHE_TTL_SECONDS's
+        # own comment above.
+        self._cached_html = None
+
+        self._cache_timestamp = 0.0
 
     # ------------------------------------------------------------------
 
@@ -216,6 +235,16 @@ class BauerNowPlayingProvider(NowPlayingProvider):
     # ------------------------------------------------------------------
 
     def _fetchPage(self) -> str:
+        """
+        Device test round 67 -- cached now; see
+        NOW_PLAYING_CACHE_TTL_SECONDS's own comment for why.
+        """
+
+        now = time.monotonic()
+
+        if self._cached_html is not None and (now - self._cache_timestamp) < NOW_PLAYING_CACHE_TTL_SECONDS:
+
+            return self._cached_html
 
         url = f"{self.BASE_URL}/{self._station_slug}"
 
@@ -223,7 +252,13 @@ class BauerNowPlayingProvider(NowPlayingProvider):
 
         with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
 
-            return response.read().decode("utf-8", errors="replace")
+            html = response.read().decode("utf-8", errors="replace")
+
+        self._cached_html = html
+
+        self._cache_timestamp = now
+
+        return html
 
     # ------------------------------------------------------------------
 

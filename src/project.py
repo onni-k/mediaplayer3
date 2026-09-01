@@ -55,6 +55,13 @@
 #     the substantial round of changes since 1.0.0-beta (the full
 #     background-image skin redesign across all eight screens, rounds
 #     32-64). BUILD stays "0010" for the same reason noted above.
+#
+# 2026-08-31  Build 0010 (device test round 73)
+#   - Version bumped to 1.0.0-beta3 -- per direct request, reflecting
+#     the GStreamer-position bug fixes (rounds 71-72, device-confirmed
+#     on Vu+ Duo2) and PodcastScreen layout fixes (round 73: header
+#     title wrapping, footer hint-icon text overlap). BUILD stays
+#     "0010" for the same reason noted above.
 # ------------------------------------------------------------------------------
 
 """
@@ -80,7 +87,7 @@ APPLICATION_ID = "org.enigma2.mediaplayer3"
 # Version information
 # ------------------------------------------------------------------------------
 
-VERSION = "1.0.0-beta2"
+VERSION = "1.0.0-beta3"
 BUILD = "0010"
 
 # ------------------------------------------------------------------------------

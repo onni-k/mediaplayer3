@@ -805,3 +805,21 @@ msgstr "OK: Select"
 
 msgid "MENU/EXIT: Close"
 msgstr "MENU/EXIT: Close"
+
+msgid "Radio search result limit (0 = unlimited)"
+msgstr "Radio search result limit (0 = unlimited)"
+
+msgid "Unlimited results for own language"
+msgstr "Unlimited results for own language"
+
+msgid "Maximum stations shown per search. 0 shows every match, however many that is."
+msgstr "Maximum stations shown per search. 0 shows every match, however many that is."
+
+msgid "Ignore the result limit when the Language filter matches your own app language."
+msgstr "Ignore the result limit when the Language filter matches your own app language."
+
+msgid "Radio station limit (0 = unlimited)"
+msgstr "Radio station limit (0 = unlimited)"
+
+msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+msgstr "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."

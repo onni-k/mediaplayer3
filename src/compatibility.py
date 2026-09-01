@@ -301,8 +301,18 @@ class Compatibility:
     # device log showed zero "[RadioBrowser] CH+/CH- pressed." lines
     # for any of them). Confirmed candidates moved first; the earlier
     # guesses are kept as further candidates for other images/skins.
-    CHANNEL_UP_KEY_ACTIONS = ("BOUQUET+", "channelUp", "keyChannelUp", "chup", "zapUp", "prevBouquet")
-    CHANNEL_DOWN_KEY_ACTIONS = ("BOUQUET-", "channelDown", "keyChannelDown", "chdown", "zapDown", "nextBouquet")
+    #
+    # Device test round 77's own log finally exercised the
+    # "prevBouquet"/"nextBouquet" fallback candidates directly (once
+    # round 77 fixed the missing MediaPlayerActions ActionMap context
+    # elsewhere) and showed they'd been placed in the wrong tuple all
+    # along: KEY_CHANNELUP resolves to "nextBouquet" on this
+    # receiver's own keymap, and KEY_CHANNELDOWN to "prevBouquet" --
+    # the reverse of what rounds 2-3 had guessed back when neither
+    # name had ever actually been confirmed to fire at all. Swapped
+    # (round 78) so CH+ pages up and CH- pages down again.
+    CHANNEL_UP_KEY_ACTIONS = ("BOUQUET+", "channelUp", "keyChannelUp", "chup", "zapUp", "nextBouquet")
+    CHANNEL_DOWN_KEY_ACTIONS = ("BOUQUET-", "channelDown", "keyChannelDown", "chdown", "zapDown", "prevBouquet")
 
     # ------------------------------------------------------------------
     # Initialization

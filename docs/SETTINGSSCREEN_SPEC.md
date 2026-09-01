@@ -89,6 +89,36 @@ Default search filters applied when opening RadioBrowserScreen
 (INTERNETRADIO_MANAGER_SPEC.md). Left blank by default -- MediaPlayer3
 cannot reliably detect the receiver's actual region/language.
 
+Radio station limit (0 = unlimited)
+
+Device test round 68: caps how many stations a single search's own
+local-database filter returns (INTERNETRADIO_MANAGER_SPEC.md
+"Search"). 100 by default -- raising it (or setting 0, meaning no
+cap at all) shows more of the local database's own matches per
+search, at the cost of a longer list to scroll through.
+
+Device test round 69: this same setting (renamed from "Radio search
+result limit" to reflect the wider scope) now also governs how many
+stations updateStationDatabase() fetches from RadioBrowser itself,
+via proper offset-based pagination in DATABASE_DOWNLOAD_PAGE_SIZE-
+sized pages rather than one single request. 0 means the database
+update fetches RadioBrowser's entire real catalogue (confirmed
+against a live comparison: a user reported RadioBrowser's own website
+showing 58362 total stations / 88 Finnish, while MediaPlayer3's own
+database had stalled at exactly the old hardcoded 20000-station
+download cap regardless of this setting -- that hardcoded cap
+(DATABASE_DOWNLOAD_LIMIT) is now only an ultimate safety ceiling,
+not the actual per-update target).
+
+Unlimited results for own language
+
+Device test round 68: when on, a search whose Language filter matches
+the app's own current UI language (general.language, resolved through
+config.py's own resolveLanguageCode()) ignores the result limit above
+entirely for that one search, regardless of its own value -- letting
+a user see every station in their own language without raising the
+general limit for every other search too. Off by default.
+
 Radio navigation mode
 
 Selects whether MainScreen's LEFT/RIGHT/UP/DOWN Internet Radio

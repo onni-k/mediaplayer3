@@ -7,8 +7,8 @@ Directories | Files | Playlist.
 
 - LEFT/RIGHT: switch between the Directories, Files and Playlist
   columns.
-- UP/DOWN: move within the current column. CH+/CH- jumps 10 rows at
-  a time.
+- UP/DOWN: move within the current column. CH+/CH- jumps 15 rows at
+  a time, stopping at the top/bottom of the column.
 - Moving within Directories updates the Files column with a preview
   of the highlighted directory's contents.
 - OK: open the action menu for the current selection.

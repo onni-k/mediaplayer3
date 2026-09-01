@@ -139,7 +139,7 @@ def _resolvePodcastResolutionTier(screen_width: int) -> str:
 
 # CHANNEL UP/DOWN page-step, matching RadioBrowserScreen's own
 # PAGE_STEP convention for long lists.
-PAGE_STEP = 10
+PAGE_STEP = 15
 
 # Device test round 29 -- matches RadioBrowserScreen's own
 # CODEC_LOG_DEBOUNCE_MS exactly (same reasoning: long enough that
@@ -274,42 +274,42 @@ class PodcastScreen(Screen):
                     foregroundColor="#FFFFFF"/>
 
             <widget name="available_title_normal"
-                    {rect(135, 80, 383, 57)}
+                    {rect(115, 80, 403, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_inactive_fg']}"
                     transparent="1"/>
 
             <widget name="available_title_active"
-                    {rect(135, 80, 383, 57)}
+                    {rect(115, 80, 403, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="subscribed_title_normal"
-                    {rect(652, 80, 422, 57)}
+                    {rect(632, 80, 442, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_inactive_fg']}"
                     transparent="1"/>
 
             <widget name="subscribed_title_active"
-                    {rect(652, 80, 422, 57)}
+                    {rect(632, 80, 442, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
             <widget name="episodes_title_normal"
-                    {rect(1207, 80, 403, 57)}
+                    {rect(1187, 80, 423, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_inactive_fg']}"
                     transparent="1"/>
 
             <widget name="episodes_title_active"
-                    {rect(1207, 80, 403, 57)}
+                    {rect(1187, 80, 423, 57)}
                     {font(34)}
                     valign="center"
                     foregroundColor="{palette['header_active_fg']}"
@@ -349,49 +349,49 @@ class PodcastScreen(Screen):
                     backgroundColor="{panel_background_color}"/>
 
             <widget name="hint_text_leftright"
-                    {rect(74, 874, 249, 63)}
+                    {rect(89, 874, 249, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_updown"
-                    {rect(339, 874, 200, 63)}
+                    {rect(366, 874, 200, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_ok"
-                    {rect(589, 874, 159, 63)}
+                    {rect(616, 874, 159, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_info"
-                    {rect(798, 874, 141, 63)}
+                    {rect(825, 874, 141, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_help"
-                    {rect(989, 874, 128, 63)}
+                    {rect(1016, 874, 128, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_menu"
-                    {rect(1167, 874, 163, 63)}
+                    {rect(1182, 874, 163, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
 
             <widget name="hint_text_exit"
-                    {rect(1380, 874, 155, 63)}
+                    {rect(1395, 874, 155, 63)}
                     font="Bold;{max(10, int(20 * sx))}"
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
@@ -533,6 +533,7 @@ class PodcastScreen(Screen):
             [
                 "OkCancelActions",
                 "DirectionActions",
+                "MediaPlayerActions",
                 "MenuActions",
                 "InfoActions",
                 "InfobarActions",
@@ -839,9 +840,13 @@ class PodcastScreen(Screen):
 
     def pageUp(self) -> None:
 
-        for _step in range(PAGE_STEP):
+        widget = self[f"{self._focus}_list"]
 
-            self[f"{self._focus}_list"].up()
+        steps = min(PAGE_STEP, widget.getSelectedIndex())
+
+        for _step in range(steps):
+
+            widget.up()
 
         self._onSelectionChanged()
 
@@ -849,9 +854,15 @@ class PodcastScreen(Screen):
 
     def pageDown(self) -> None:
 
-        for _step in range(PAGE_STEP):
+        widget = self[f"{self._focus}_list"]
 
-            self[f"{self._focus}_list"].down()
+        entries = widget.list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - widget.getSelectedIndex()))
+
+        for _step in range(steps):
+
+            widget.down()
 
         self._onSelectionChanged()
 

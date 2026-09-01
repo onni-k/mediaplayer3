@@ -101,6 +101,13 @@ from ...logger import logger
 
 TELETEXT_BASE_URL = "https://external.api.yle.fi/v1/teletext/pages"
 
+# Device test round 67 -- see __init__'s own comment for why this
+# exists. 5 minutes: a full day's schedule doesn't meaningfully
+# change more often than that, so this eliminates the vast majority
+# of once-per-second refresh() calls without making the displayed
+# schedule noticeably stale.
+SCHEDULE_CACHE_TTL_SECONDS = 300
+
 # Confirmed real page numbers (see this file's change history) --
 # 340-342 from Yle Teksti-TV's own page 300 index, 777/778 supplied
 # by the user directly. Exposed so callers can build providers for
@@ -169,6 +176,32 @@ class YleTeletextScheduleProvider(EPGScheduleProvider):
         self._app_key = app_key
         self._timeout_seconds = timeout_seconds
 
+        # Device test round 67 -- real bug found from a device log:
+        # InformationPanel.refresh() calls getSchedule() (which calls
+        # _fetchPage() below) roughly once per second for as long as a
+        # matched station keeps playing, on the documented assumption
+        # that refresh() itself is "cheap enough... no I/O of its own"
+        # (information_panel.py's own docstring) -- an assumption that
+        # was true for every other page type, but not for this one,
+        # which was doing a full network fetch on every single call
+        # with no caching at all. Confirmed directly: a device log
+        # showed dozens of "[EPG] Schedule for station ...: 78
+        # entr(y/ies)" lines within a single minute, several less than
+        # a second apart, coinciding exactly with repeated multi-
+        # second gaps in the same log's own 1-second UI refresh timer
+        # -- i.e. the main GUI thread was blocking on this fetch,
+        # sometimes for several seconds at a time, which is also
+        # consistent with the user's own separately-reported ~20s
+        # remote-control lag on a slower/more congested network than
+        # the one that produced this particular log. A full day's
+        # schedule (this method's own return shape) doesn't need
+        # fresher data than every few minutes at most, so a 5-minute
+        # cache eliminates the vast majority of these calls entirely
+        # without making the displayed schedule noticeably stale.
+        self._cached_page_data = None
+
+        self._cache_timestamp = 0.0
+
     # ------------------------------------------------------------------
 
     def getSchedule(self, station: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -226,7 +259,18 @@ class YleTeletextScheduleProvider(EPGScheduleProvider):
         makes the request safe regardless of what's actually in
         there, and .strip() guards against stray leading/trailing
         whitespace from config storage/display padding.
+
+        Device test round 67 -- cached now; see __init__'s own
+        comment for why. A cache hit returns instantly with no I/O at
+        all, matching what every OTHER page type's own refresh() call
+        already assumed was true here too.
         """
+
+        now = time.monotonic()
+
+        if self._cached_page_data is not None and (now - self._cache_timestamp) < SCHEDULE_CACHE_TTL_SECONDS:
+
+            return self._cached_page_data
 
         app_id = urllib.parse.quote(self._app_id.strip())
 
@@ -240,7 +284,13 @@ class YleTeletextScheduleProvider(EPGScheduleProvider):
 
             raw_data = response.read().decode("utf-8")
 
-            return json.loads(raw_data)
+            page_data = json.loads(raw_data)
+
+        self._cached_page_data = page_data
+
+        self._cache_timestamp = now
+
+        return page_data
 
     # ------------------------------------------------------------------
 

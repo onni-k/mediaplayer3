@@ -805,3 +805,21 @@ msgstr "OK: Valitse"
 
 msgid "MENU/EXIT: Close"
 msgstr "MENU/EXIT: Sulje"
+
+msgid "Radio search result limit (0 = unlimited)"
+msgstr "Radion hakutulosraja (0 = rajoittamaton)"
+
+msgid "Unlimited results for own language"
+msgstr "Rajoittamattomat tulokset omalle kielelle"
+
+msgid "Maximum stations shown per search. 0 shows every match, however many that is."
+msgstr "Enimmäismäärä asemia hakua kohti. 0 näyttää kaikki osumat, montapa niitä onkin."
+
+msgid "Ignore the result limit when the Language filter matches your own app language."
+msgstr "Ohita tulosraja, kun Kieli-suodatin vastaa sovelluksen omaa kieltä."
+
+msgid "Radio station limit (0 = unlimited)"
+msgstr "Radioasemien raja (0 = rajoittamaton)"
+
+msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+msgstr "Enimmäismäärä asemia hakua ja asematietokannan päivitystä kohti. 0 tarkoittaa ei rajaa -- niin monta kuin RadioBrowserilla oikeasti on."

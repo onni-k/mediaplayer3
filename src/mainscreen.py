@@ -1271,10 +1271,33 @@ class MainScreen(Screen):
 
         self._updateCoverArt(filename)
 
+        # Device test round 72 -- real bug found from a device log and
+        # a direct user question ("käyttääkö aikanäyttö ja sanoitukset
+        # gstreamer aikaa?"): checked lyrics first and confirmed they
+        # already use getEstimatedElapsedTime() (round 10's own fix,
+        # information_panel.py's own _buildLyricsPage() calls it
+        # directly rather than using the elapsed value passed through
+        # from here) -- lyrics were never affected. This elapsed/
+        # remaining/progress-bar display, however, was still calling
+        # getElapsedTime() directly, which round 71 confirmed can get
+        # stuck at a stale GStreamer-reported value for the entire
+        # remainder of a track once the tolerance check (round 71's
+        # own fix stopped the STUCK value from ending the track early,
+        # but never touched this separate display path) accepts it --
+        # and once accepted, it stays accepted every subsequent tick
+        # too, since the tolerance check only guards against a reading
+        # running too far AHEAD of the estimate, not one that's simply
+        # stopped advancing while the estimate keeps climbing past it.
+        # display_elapsed mirrors getEstimatedElapsedTime()'s own
+        # fallback behaviour (raw elapsed when no estimate is
+        # available yet) so this never behaves worse than before this
+        # round in that edge case.
+        display_elapsed = self._playback.getEstimatedElapsedTime()
+
         elapsed = self._playback.getElapsedTime()
         duration = self._playback.getDuration()
 
-        self["elapsed"].setText(self._formatTime(elapsed))
+        self["elapsed"].setText(self._formatTime(display_elapsed))
 
         # Build 0008, device test round 7 -- "remaining" always shows
         # actual time remaining now. Build 0007's favorites-view
@@ -1284,15 +1307,25 @@ class MainScreen(Screen):
         # this, making it here redundant ("Alhaalla lukee oikein
         # kokonaisaika ja kappalemäärä, joten jäljellä olevan ajan
         # kohdalla ei tarvitsisi lukea kappalemäärää").
-        if duration is not None and elapsed is not None:
+        if duration is not None and display_elapsed is not None:
 
-            self["remaining"].setText(self._formatTime(max(0, duration - elapsed)))
+            self["remaining"].setText(self._formatTime(max(0, duration - display_elapsed)))
 
         else:
 
             self["remaining"].setText("--:--")
 
-        progress = self._playback.getProgress()
+        # Device test round 72 -- computed from display_elapsed
+        # directly rather than calling getProgress() (which still
+        # uses the raw, potentially-stuck position internally), for
+        # the same reason as the elapsed/remaining text above.
+        if display_elapsed is not None and duration:
+
+            progress = max(0.0, min(1.0, display_elapsed / duration))
+
+        else:
+
+            progress = None
 
         self["progressbar"].setValue(int(progress * 100) if progress is not None else 0)
 
@@ -1306,8 +1339,8 @@ class MainScreen(Screen):
 
         logger.verbose(
             "[MainScreen] Progress bar update\n\nElapsed: %s\n\nRemaining: %s\n\nProgress: %s\n",
-            self._formatTime(elapsed),
-            self._formatTime(duration - elapsed) if duration is not None and elapsed is not None else "--:--",
+            self._formatTime(display_elapsed),
+            self._formatTime(duration - display_elapsed) if duration is not None and display_elapsed is not None else "--:--",
             f"{int(progress * 100)}%" if progress is not None else "Unknown",
         )
 

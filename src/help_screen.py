@@ -66,8 +66,13 @@ class HelpScreen(Screen):
 
     # Number of text lines shown at once -- same conservative,
     # not-dynamically-measured estimate approach as DeveloperScreen's
-    # own VISIBLE_LINES (Build 0006 device test round 2).
-    VISIBLE_LINES = 20
+    # own VISIBLE_LINES (Build 0006 device test round 2). Lowered
+    # from 20 to 18 (round 81, per direct request): 20 lines' worth of
+    # rendered text height was landing right at the edge of the
+    # content box for this font/line-height, so the last line only
+    # partially fit; 18 leaves enough headroom that every line is
+    # always shown in full.
+    VISIBLE_LINES = 18
 
     DESIGN_WIDTH = 700
     DESIGN_HEIGHT = 540
@@ -148,6 +153,16 @@ class HelpScreen(Screen):
         self._title = title or _("Help")
 
         self._lines = (content or _("No help available.")).split("\n")
+
+        # Device test round 81 -- a trailing blank buffer line, added
+        # here rather than to each help document's own Markdown source
+        # (HelpManager._collapseBlankLines() strips trailing blank
+        # lines before this ever sees the content, so editing the
+        # source files alone would have no effect). Guarantees the
+        # last real line of any help text is never the very last line
+        # rendered, so it's never the one a too-tight content box
+        # would partially clip.
+        self._lines.append("")
 
         self._scroll_offset = 0
 

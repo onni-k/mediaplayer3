@@ -11,8 +11,8 @@ Episodes (for whichever podcast is currently selected).
 - UP / DOWN: move within the active column. Moving within Available
   Podcasts or Subscribed Podcasts updates the Episodes column to
   match.
-- CH+ / CH-: jump 10 entries at a time in the active column (may not
-  work on every remote/image).
+- CH+ / CH-: jump 15 entries at a time in the active column, stopping
+  at the top/bottom of the column.
 - OK: open options for the selected item -- subscribe/open a podcast,
   or play/add an episode to a playlist.
 - INFO: search for podcasts by name.

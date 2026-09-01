@@ -114,6 +114,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from .compatibility import compatibility
 from .logger import logger
 from .project import PROJECT_NAME, VERSION
 from .storage import storage_manager
@@ -127,7 +128,18 @@ MIRROR_DISCOVERY_HOST = "all.api.radio-browser.info"
 # RadioBrowser mirror, better than having no fallback whatsoever.
 FALLBACK_SERVER = "https://de1.api.radio-browser.info"
 
-USER_AGENT = f"{PROJECT_NAME}/{VERSION}"
+# Device test round 70 -- per direct request: RadioBrowser's own API
+# documentation (api.radio-browser.info) asks clients to identify
+# themselves via User-Agent; this now also names the actual runtime
+# (Enigma2, and the specific Python version already exposed by
+# compatibility.py's own getPythonVersion() -- reused rather than
+# querying sys.version/platform directly a second time) so
+# RadioBrowser's own maintainers can see what environments are
+# actually querying their database, not just which app version.
+# compatibility.getPythonVersion() only reads a value cached once at
+# CompatibilityLayer's own construction (platform.python_version()),
+# so calling it here at module import time is safe and free of I/O.
+USER_AGENT = f"{PROJECT_NAME}/{VERSION} (Enigma2; Python/{compatibility.getPythonVersion()})"
 
 REQUEST_TIMEOUT_SECONDS = 8
 
@@ -441,7 +453,14 @@ class InternetRadioManager:
 
         if self._stations_db:
 
-            results = self._filterStations(self._stations_db, name, country, language, tag)[:limit]
+            filtered = self._filterStations(self._stations_db, name, country, language, tag)
+
+            # Device test round 68 -- limit=0 means "no limit" (a new
+            # user-facing setting, radio.search_limit, can be set to
+            # 0 for exactly this), which needed its own explicit
+            # check here: Python's own list[:0] slice returns an
+            # EMPTY list, the opposite of what "0 = unlimited" needs.
+            results = filtered if limit == 0 else filtered[:limit]
 
             self._log(f"Search completed (local database): {len(results)} station(s).")
 
@@ -454,7 +473,13 @@ class InternetRadioManager:
             "country": country,
             "language": language,
             "tag": tag,
-            "limit": limit,
+            # Device test round 68 -- same "0 = unlimited" meaning as
+            # the local-database path above, but RadioBrowser's own
+            # API behaviour for a literal limit=0 isn't something this
+            # project can verify -- reusing DATABASE_DOWNLOAD_LIMIT
+            # (already trusted elsewhere in this file as "as many as
+            # we'd ever realistically want") instead of assuming.
+            "limit": self.DATABASE_DOWNLOAD_LIMIT if limit == 0 else limit,
             "hidebroken": "true",
             "order": "name",
         }
@@ -605,10 +630,29 @@ class InternetRadioManager:
     # benefit. hidebroken=true + ordering by click count (RadioBrowser's
     # own popularity signal) biases the local copy toward stations
     # actually worth having offline, rather than an arbitrary or
-    # purely-alphabetical slice. Not full pagination-based mirroring
-    # of the entire catalogue -- a deliberate, documented trade-off,
-    # not an oversight.
-    DATABASE_DOWNLOAD_LIMIT = 20000
+    # purely-alphabetical slice.
+    #
+    # Device test round 69 -- per direct request (a user comparing
+    # against radio-browser.info's own reported totals -- 58362
+    # stations, 88 of them Finnish -- found MediaPlayer3's own local
+    # database stalled at exactly this constant's value, and asked for
+    # the real full catalogue instead): this is now only the ultimate
+    # safety ceiling (in case radio.search_limit is left at some very
+    # large value by mistake), not the actual per-download target.
+    # updateStationDatabase() below now honours radio.search_limit's
+    # own "0 = unlimited" meaning (round 68) here too, fetched via
+    # proper offset-based pagination in DATABASE_DOWNLOAD_PAGE_SIZE-
+    # sized pages rather than one single oversized request -- a single
+    # request for tens of thousands of stations was never confirmed to
+    # actually work end-to-end against RadioBrowser's own live API
+    # (unverifiable from this environment), whereas paging in
+    # reasonably-sized chunks is the standard, robust way to fetch an
+    # arbitrarily large result set from a REST API regardless of
+    # whatever server-side per-request limit RadioBrowser may or may
+    # not itself enforce.
+    DATABASE_DOWNLOAD_LIMIT = 100000
+
+    DATABASE_DOWNLOAD_PAGE_SIZE = 5000
 
     def _stationsDbPath(self) -> str:
         return os.path.join(storage_manager.getRadioPath(), "stations.json")
@@ -726,14 +770,62 @@ class InternetRadioManager:
 
         self._log("Station database update started.")
 
-        params = {
-            "hidebroken": "true",
-            "order": "clickcount",
-            "reverse": "true",
-            "limit": self.DATABASE_DOWNLOAD_LIMIT,
-        }
+        from .config import config_manager
 
-        results = self._apiGet("json/stations", params)
+        # Device test round 69 -- reuses radio.search_limit (round 68)
+        # as the actual download target too, not just the per-search
+        # result cap: a user who sets this to 0 expects "no limit,
+        # anywhere," matching the report that motivated this round.
+        target_limit = config_manager.get("radio.search_limit", 100)
+
+        if target_limit <= 0:
+
+            target_limit = self.DATABASE_DOWNLOAD_LIMIT
+
+        results = []
+
+        offset = 0
+
+        while len(results) < target_limit:
+
+            page_size = min(self.DATABASE_DOWNLOAD_PAGE_SIZE, target_limit - len(results))
+
+            params = {
+                "hidebroken": "true",
+                "order": "clickcount",
+                "reverse": "true",
+                "limit": page_size,
+                "offset": offset,
+            }
+
+            page = self._apiGet("json/stations", params)
+
+            if not isinstance(page, list) or not page:
+
+                # Either a request failed (None) or RadioBrowser has
+                # genuinely run out of stations to return (empty
+                # list) -- either way, stop paginating rather than
+                # looping forever. A failure partway through still
+                # keeps whatever pages were already fetched, subject
+                # to the same "keep the existing database on overall
+                # failure" rule below (results is only trusted once
+                # it passes the emptiness/validity check that follows
+                # this loop).
+                break
+
+            results.extend(page)
+
+            offset += len(page)
+
+            if len(page) < page_size:
+
+                # RadioBrowser returned fewer than asked for -- this
+                # is the real end of the catalogue, not just this
+                # page's own size; stop rather than requesting an
+                # empty page next time round.
+                break
+
+        self._log(f"Station database update: fetched {len(results)} station(s) across {offset // self.DATABASE_DOWNLOAD_PAGE_SIZE + 1} page(s).")
 
         if not isinstance(results, list) or not results:
 

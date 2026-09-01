@@ -1334,8 +1334,46 @@ class PlaybackController:
             duration if duration is not None else "Unknown",
         )
 
-        if elapsed is not None and duration and elapsed >= duration:
+        if estimated_position is not None and duration and estimated_position >= duration - 0.5:
 
+            # Device test round 71 -- real bug found from a device
+            # log and a user-submitted fix: GStreamer's own reported
+            # elapsed got stuck at a single value (here, exactly
+            # matching duration) for many consecutive ticks while
+            # estimated_position kept advancing correctly and
+            # smoothly (256, 257, 258, 259...) -- the tolerance check
+            # above kept correctly rejecting the stuck value as
+            # implausible for a while, but that tolerance itself grows
+            # with estimated_position (POSITION_DRIFT_TOLERANCE_RATIO),
+            # so it eventually widened enough to accept the still-
+            # stale, stuck reading. The moment that happened, it
+            # exactly equalled duration, triggering the old elapsed>=
+            # duration check below roughly 13 seconds before the track
+            # had actually finished playing. Deciding "finished" from
+            # estimated_position instead avoids this specific failure
+            # mode entirely, since it's the value proven accurate
+            # throughout the whole episode in the log that surfaced
+            # this. The "duration -" guard (not in the originally
+            # submitted patch) is needed because live radio streams
+            # typically report no fixed duration (None) -- without it,
+            # this check would raise a TypeError for every radio tick.
+
+            self._handleTrackFinished()
+
+        elif estimated_position is None and elapsed is not None and duration and elapsed >= duration:
+
+            # Fallback for the brief window before estimated_position
+            # is available at all (self._track_start_wall_time not
+            # yet set). The "estimated_position is None" check here is
+            # essential, not incidental: without it, this branch would
+            # still fire whenever the primary check above was false
+            # for ANY reason -- including the exact bug scenario this
+            # round fixes (estimated_position available but below the
+            # finished threshold) -- silently reintroducing the same
+            # premature-finish bug through this fallback path. Caught
+            # by testing the exact logged scenario directly before
+            # trusting this fix, not assumed correct from the
+            # structure alone.
             self._handleTrackFinished()
 
     # ------------------------------------------------------------------

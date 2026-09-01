@@ -1365,6 +1365,77 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 
 ---
 
+## BUILD 0010 -- POST-BETA2 FIXES (rounds 67-81, single-device: Vu+ Duo2)
+
+Closing note: everything in this section happened after 1.0.0-beta2's
+own multi-platform confirmation (the note above, rounds 20-66, across
+OpenViX, OpenATV, OpenPLI and OpenBH) and before 1.0.0-beta3 -- all of
+it tested on a single Vu+ Duo2 device only, not yet re-confirmed
+across the other three images.
+
+A real, previously-unreported performance bug was found and fixed:
+Finland Radio EPG (Yle Teksti-TV / Bauer) had no caching at all,
+making a real network request roughly once per second for as long as
+a matched station played, blocking the GUI thread each time -- this
+was the actual cause of a reported stuttering/lag symptom on certain
+stations, root-caused directly from gaps in the device log's own
+once-per-second UI-refresh line (round 67). Two related station-count
+limits were found and fixed as a result of a user-noticed discrepancy
+against radio-browser.info's own website: a client-side display cap
+on search results (round 68, now configurable, 0 = unlimited) and a
+separate, harder cap on the one-time database download itself (round
+69, replaced with real offset-based pagination). The RadioBrowser
+User-Agent was expanded to name the runtime environment (Enigma2/
+Python version) for that service's own statistics (round 70).
+
+Two real GStreamer position bugs were fixed, both affecting local
+playback near the end of a track: a track could end up to ~13 seconds
+early because GStreamer's own reported "elapsed" value could get
+stuck while the estimated position kept advancing correctly (round
+71, catching a logic error in the user's own proposed patch before it
+shipped); and the elapsed/remaining time display and progress bar
+could separately freeze at full duration/0 remaining for the last few
+seconds of a track, fixed by switching the display to the same
+estimated-position method already used for lyric sync (round 72).
+Both were confirmed fixed on-device (round 73).
+
+PodcastScreen picked up two layout fixes reported from screenshots: a
+column header wrapping to two lines on some screens (round 73) and
+footer hint-icon text overlapping its own icon, adjusted twice as
+follow-up feedback narrowed down exactly which hints still needed
+more room (rounds 73-74).
+
+CH+/CH- (page-jump through a list) went through a real, multi-round
+root-causing process rather than a guess: round 75's code review
+found nothing wrong, but a device log proved the key was never
+reaching any Python handler at all; round 76's first fix (a missing
+ActionMap context) was itself proven wrong by a second log, which
+pointed at the real cause -- a different missing context
+("MediaPlayerActions"), already present (and working) in BrowserScreen,
+which is why only that screen had ever worked (round 77). Once
+reaching the handler, CH+ and CH- turned out to be swapped in the
+opposite direction from what was assumed (round 78). All of this was
+then rolled out across every screen that pages a list --
+MusicLibraryScreen and PodcastScreen had the exact same missing-context
+bug, fixed proactively once round 77 established the pattern;
+PlaylistScreen gained CH+/CH- for the first time, having never had it
+before; and the page-jump size was raised from 10 to 15 entries
+everywhere (round 79). Finally, the jump was clamped to stop cleanly
+at the top/bottom of a list instead of wrapping past it when fewer
+than 15 entries remained (round 80).
+
+HelpScreen's own last line of text was being partially clipped while
+scrolling -- fixed by lowering how many lines it estimates fit on
+screen and guaranteeing a trailing blank buffer line regardless of
+what a given help document's own Markdown source contains (round 81).
+That round also reviewed every one of the twelve bundled help
+documents against current behaviour and updated the five that had
+fallen behind the CH+/CH- work above.
+
+See Claude_notes_build0010.txt for the full, round-by-round record.
+
+---
+
 ## BUILD 0010 -- SKIN REDESIGN & LANGUAGE DETECTION (rounds 20-66)
 
 Closing note (a second, much larger round of device testing since the
@@ -1427,6 +1498,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0008 | 0.8.0-dev | Music discovery & help: Music Library, lyrics, MainScreen info views, context-sensitive help |
 | 0009 | 0.9.0-dev | MainScreen 2.0 & Radio EPG: three-panel navigation, Finland (Yle/Bauer) radio EPG, ExtEplayer3 option |
 | 0010 | 1.0.0-beta2 | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys; full background-image Light/Dark skin redesign across all eight screens; automatic system-language detection; main menu integration |
+| 0010 | 1.0.0-beta3 | Finland Radio EPG caching (fixed a real stuttering/lag bug), configurable radio station limits with real pagination, GStreamer position fixes (premature track end, frozen elapsed/remaining display), PodcastScreen layout fixes, CH+/CH- page-jump fixed and rolled out across five screens, HelpScreen display fix and help-document review |
 
 ---
 

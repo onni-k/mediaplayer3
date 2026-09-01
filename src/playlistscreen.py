@@ -217,6 +217,13 @@ def _resolvePlaylistResolutionTier(screen_width: int) -> str:
 # "tracks" string literals directly everywhere else, which is unaffected).
 PANELS = ("playlists", "tracks")
 
+# CHANNEL UP/DOWN jump this many entries at once in the focused panel,
+# matching BrowserScreen/MusicLibraryScreen/PodcastScreen/
+# RadioBrowserScreen's own PAGE_STEP convention for long lists
+# (added round 79, per direct request -- this screen never had CH+/
+# CH- paging before this round).
+PAGE_STEP = 15
+
 
 def _formatPlaylistDuration(total_seconds: int) -> str:
     """
@@ -494,11 +501,25 @@ class PlaylistScreen(Screen):
         for action_name in compatibility.getInfoKeyActionNames():
             actions[action_name] = self.infoPressed
 
+        for action_name in compatibility.getChannelUpKeyActionNames():
+            actions[action_name] = self.pageUp
+
+        for action_name in compatibility.getChannelDownKeyActionNames():
+            actions[action_name] = self.pageDown
+
         for action_name in compatibility.getHelpKeyActionNames():
             actions[action_name] = self.helpPressed
 
         self["actions"] = ActionMap(
-            ["OkCancelActions", "DirectionActions", "MenuActions", "InfoActions", "InfobarEPGActions", "HelpActions"],
+            [
+                "OkCancelActions",
+                "DirectionActions",
+                "MediaPlayerActions",
+                "MenuActions",
+                "InfoActions",
+                "InfobarEPGActions",
+                "HelpActions",
+            ],
             actions,
             -1,
         )
@@ -865,6 +886,64 @@ class PlaylistScreen(Screen):
         else:
 
             self["tracks"].down()
+
+    # ------------------------------------------------------------------
+
+    def pageUp(self) -> None:
+        """
+        CH+ -- jump PAGE_STEP entries up in the focused panel
+        (round 79, matching BrowserScreen/MusicLibraryScreen/
+        PodcastScreen/RadioBrowserScreen's own CH+/CH- convention).
+        Clamped so it stops at the top of the list instead of
+        wrapping around when fewer than PAGE_STEP entries remain
+        (round 80, per direct request).
+        """
+
+        logger.verbose("[Playlist] CH+ pressed. focus=%s", self._focus)
+
+        widget = self[self._focus]
+
+        steps = min(PAGE_STEP, widget.getSelectedIndex())
+
+        if self._focus == "playlists":
+
+            for _step in range(steps):
+
+                widget.up()
+
+            self._onPlaylistSelectionChanged()
+
+        else:
+
+            for _step in range(steps):
+
+                widget.up()
+
+    # ------------------------------------------------------------------
+
+    def pageDown(self) -> None:
+
+        logger.verbose("[Playlist] CH- pressed. focus=%s", self._focus)
+
+        widget = self[self._focus]
+
+        entries = widget.list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - widget.getSelectedIndex()))
+
+        if self._focus == "playlists":
+
+            for _step in range(steps):
+
+                widget.down()
+
+            self._onPlaylistSelectionChanged()
+
+        else:
+
+            for _step in range(steps):
+
+                widget.down()
 
     # ------------------------------------------------------------------
 

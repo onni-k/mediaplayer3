@@ -176,7 +176,7 @@ PANELS = ("stations", "language", "region")
 # CHANNEL UP/DOWN jump this many entries at once in the focused panel
 # (requested after real device testing: long lists of stations/
 # countries/languages are slow to scroll one entry at a time).
-PAGE_STEP = 10
+PAGE_STEP = 15
 
 # Device test round 27 -- how long the Stations-column selection must
 # sit still before _logSelectedStationCodec() actually runs. Long
@@ -582,6 +582,7 @@ class RadioBrowserScreen(Screen):
             [
                 "OkCancelActions",
                 "DirectionActions",
+                "MediaPlayerActions",
                 "MenuActions",
                 "InfoActions",
                 "InfobarActions",
@@ -837,10 +838,29 @@ class RadioBrowserScreen(Screen):
 
     def _search(self) -> None:
 
+        search_language = self._selectedLanguage()
+
+        # Device test round 68 -- see config.py's own comments for
+        # radio.search_limit/radio.unlimited_for_own_language for the
+        # full reasoning; this is the one place both settings actually
+        # take effect.
+        limit = config_manager.get("radio.search_limit", 100)
+
+        if search_language and config_manager.get("radio.unlimited_for_own_language", False):
+
+            app_language_code = resolveLanguageCode(config_manager.get("general.language", "fi"))
+
+            app_language_name = self._APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(app_language_code)
+
+            if app_language_name and search_language.lower() == app_language_name.lower():
+
+                limit = 0
+
         self._stations = internetradio_manager.search(
             name=self._search_name or None,
             country=self._selectedRegion(),
-            language=self._selectedLanguage(),
+            language=search_language,
+            limit=limit,
         )
 
         self["stations"].setList([entry.get("name", "?") for entry in self._stations])
@@ -931,12 +951,16 @@ class RadioBrowserScreen(Screen):
     def pageUp(self) -> None:
         """
         CH+ -- jump PAGE_STEP entries up in the focused panel
-        (requested after real device testing).
+        (requested after real device testing). Clamped so it stops at
+        the top of the list instead of wrapping around when fewer
+        than PAGE_STEP entries remain (round 80, per direct request).
         """
 
-        logger.verbose("[RadioBrowser] CH+ pressed.")
+        logger.verbose("[RadioBrowser] CH+ pressed. focus=%s", self._focus)
 
-        for _step in range(PAGE_STEP):
+        steps = min(PAGE_STEP, self[self._focus].getSelectedIndex())
+
+        for _step in range(steps):
 
             self[self._focus].up()
 
@@ -946,9 +970,13 @@ class RadioBrowserScreen(Screen):
 
     def pageDown(self) -> None:
 
-        logger.verbose("[RadioBrowser] CH- pressed.")
+        logger.verbose("[RadioBrowser] CH- pressed. focus=%s", self._focus)
 
-        for _step in range(PAGE_STEP):
+        entries = self[self._focus].list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - self[self._focus].getSelectedIndex()))
+
+        for _step in range(steps):
 
             self[self._focus].down()
 

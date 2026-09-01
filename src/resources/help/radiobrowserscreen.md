@@ -8,8 +8,8 @@ by language and region.
 - LEFT / RIGHT: switch between the stations, language and region
   panels.
 - UP / DOWN: move within the active panel.
-- CH+ / CH-: jump 10 entries at a time in the active panel (may not
-  work on every remote/image).
+- CH+ / CH-: jump 15 entries at a time in the active panel, stopping
+  at the top/bottom of the list.
 - OK: open options for the selected station -- play, add to
   favorites, view station information, update the station database,
   or clear the station list.

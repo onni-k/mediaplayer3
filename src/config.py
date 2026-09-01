@@ -391,6 +391,40 @@ cfg.radio.default_language = ConfigText(
     fixed_size=False,
 )
 
+# Device test round 68 -- per direct request, after a user noticed
+# the Language filter's own "Any" search only ever returned 100
+# stations even though the local database itself had 20000: that 100
+# was never a RadioBrowser API limit (updateStationDatabase() already
+# downloads the full DATABASE_DOWNLOAD_LIMIT worth locally) -- it's
+# InternetRadioManager.search()'s own DEFAULT_SEARCH_LIMIT, applied
+# every time a search's own local-database filter is sliced down to a
+# result count, regardless of how many of the locally-stored stations
+# actually matched. 0 means "no limit" (return every match); see
+# internetradio_manager.py's own search() for why slicing with a
+# limit of 0 needed its own explicit check rather than relying on
+# Python's own list[:0] (which means "give me zero", the opposite of
+# what a "0 = unlimited" setting needs).
+cfg.radio.search_limit = ConfigInteger(
+    default=100,
+    limits=(0, 20000),
+)
+
+# Device test round 68 -- per direct request ("hae käytössä olevan
+# kielen kaikki kanavat"): when on, a search whose own Language filter
+# matches the app's own current UI language (general.language,
+# resolved through config.py's own resolveLanguageCode()) ignores
+# radio.search_limit entirely for that one search, returning every
+# matching station regardless of the general cap -- letting a user
+# browse their own language's full station list without needing to
+# raise radio.search_limit for every OTHER search too (a plain "Any"
+# search across every language in the database is a very different,
+# much larger result set than "just my own language"). Off by
+# default, since a very large local-language station count could
+# otherwise surprise a user who never asked for it.
+cfg.radio.unlimited_for_own_language = ConfigYesNo(
+    default=False
+)
+
 # MainScreen's LEFT/RIGHT/UP/DOWN station navigation
 # (BUILD_0007_PLAN.md "MainScreen Navigation") switches between
 # favorites or history depending on this setting.
@@ -598,6 +632,8 @@ _ENTRIES: Dict[str, Any] = {
 
     "radio.default_country": cfg.radio.default_country,
     "radio.default_language": cfg.radio.default_language,
+    "radio.search_limit": cfg.radio.search_limit,
+    "radio.unlimited_for_own_language": cfg.radio.unlimited_for_own_language,
     "radio.navigation_mode": cfg.radio.navigation_mode,
     "radio.history_size": cfg.radio.history_size,
     "radio.resume_on_start": cfg.radio.resume_on_start,

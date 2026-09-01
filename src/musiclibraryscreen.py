@@ -172,7 +172,7 @@ PANELS = ("artists", "albums", "tracks")
 # screen specifically: CH+/CH- is itself unconfirmed to even reach
 # RadioBrowserScreen on real hardware (Build 0007, device test rounds
 # 4-9) -- left in as harmless best-effort, same reasoning as there.
-PAGE_STEP = 10
+PAGE_STEP = 15
 
 
 class MusicLibraryScreen(Screen):
@@ -605,6 +605,7 @@ class MusicLibraryScreen(Screen):
             [
                 "OkCancelActions",
                 "DirectionActions",
+                "MediaPlayerActions",
                 "MenuActions",
                 "InfoActions",
                 "InfobarActions",
@@ -1017,7 +1018,9 @@ class MusicLibraryScreen(Screen):
 
         logger.verbose("[MusicLibrary] CH+ pressed.")
 
-        for _step in range(PAGE_STEP):
+        steps = min(PAGE_STEP, self[self._focus].getSelectedIndex())
+
+        for _step in range(steps):
             self[self._focus].up()
 
         self._onSelectionChanged()
@@ -1028,7 +1031,11 @@ class MusicLibraryScreen(Screen):
 
         logger.verbose("[MusicLibrary] CH- pressed.")
 
-        for _step in range(PAGE_STEP):
+        entries = self[self._focus].list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - self[self._focus].getSelectedIndex()))
+
+        for _step in range(steps):
             self[self._focus].down()
 
         self._onSelectionChanged()
