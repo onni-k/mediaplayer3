@@ -142,6 +142,7 @@ from Components.config import (
 )
 
 from .compatibility import compatibility
+from .localization import _
 from .logger import (
     logger,
     DEVELOPER_MODE_OFF,
@@ -171,10 +172,115 @@ if not hasattr(config.plugins, "mediaplayer3"):
 cfg = config.plugins.mediaplayer3
 
 
+class ConfigBrowseOnlyText(ConfigText):
+    """
+    Round 103, per direct request (a real device screenshot, three
+    rounds running: 99's own keyOK/keyNumberGlobal guard, 100's own
+    keyLeft/keyRight guard, neither actually stopped the virtual
+    keyboard from appearing on these fields on real hardware) -- a
+    plain ConfigText's own handleKey() is what Enigma2's ConfigList
+    itself calls for ANY key pressed while it's the selected item,
+    independent of which screen-level key method (keyOK/keyLeft/
+    keyRight/keyNumberGlobal/possibly others not yet identified)
+    happened to route there first; guarding screen-level handlers one
+    at a time was chasing each new entry point instead of the actual
+    cause. Overriding handleKey() itself as a no-op removes the
+    capability at its source, for every key and every screen that
+    might ever display one of these fields -- immune to any future
+    ActionMap/key-routing detail not yet discovered, not just the
+    ones already found.
+
+    Used for exactly the four config values that are only ever meant
+    to be set through a dedicated picker flow, never typed:
+    general.startup_directory, library.scan_directory,
+    radio.default_country, radio.default_language.
+    """
+
+    def handleKey(self, key) -> None:
+
+        pass
+
+
+class ConfigBrowsePath(ConfigSelection):
+    """
+    Round 104, per direct request -- a follow-up on round 103's own
+    ConfigBrowseOnlyText: that fix stopped the field from actually
+    being editable, but a real device screenshot showed Enigma2's own
+    numeric/T9 entry hint bar still appearing above it regardless --
+    that hint is tied to the widget's own declared TYPE (ConfigText),
+    not to whether handleKey() does anything once pressed. Per direct
+    suggestion ("Käynnistyshakemiston kohdan voisi muuttaa tavalliseksi
+    tekstiksi"): pose as a ConfigSelection with exactly one choice
+    (the current value) instead -- a categorically different type to
+    Enigma2 (a fixed-choice cycler, not free text), which shouldn't
+    trigger a text-entry hint at all.
+
+    NOTE: this is a best-effort attempt based on general Enigma2
+    knowledge, not confirmed against this project's own real device
+    testing -- the exact mechanism behind the hint bar wasn't
+    something this project could verify directly. If it doesn't
+    resolve the hint, the field is still fully functional either way
+    (value display, OK-triggered browsing, and LEFT/RIGHT/number-key
+    safety from round 103 are all independent of this class change).
+
+    LEFT/RIGHT cycle through choices as normal, but there's only ever
+    one, so nothing visibly changes; OK is still intercepted by
+    SettingsScreen's own keyOK() (an identity check against this
+    exact object) before it would ever reach this element's own
+    default behaviour.
+    """
+
+    def __init__(self, default: str = ""):
+
+        ConfigSelection.__init__(self, choices=[(default, default)], default=default)
+
+    def setValue(self, new_value: str) -> None:
+
+        # Re-runs __init__ with the new single choice rather than
+        # poking at ConfigSelection's own internal attributes
+        # directly -- more robust against exactly which attributes
+        # those are, since __init__ is guaranteed to set up whatever
+        # internal state a freshly-constructed instance needs.
+        ConfigSelection.__init__(self, choices=[(new_value, new_value)], default=new_value)
+
+    value = property(ConfigSelection.getValue, setValue)
+
+
+class ConfigYesNoLocalized(ConfigYesNo):
+    """
+    Round 103, per direct request (a device screenshot showed "Kyllä"/
+    "Ei" -- Finnish -- for every Yes/No setting even with the app's
+    own language switched to Swedish): plain ConfigYesNo's own yes/no
+    labels come from Enigma2's own global language setting, resolved
+    once when the ConfigYesNo object is first constructed (module
+    import time) -- entirely independent of MediaPlayer3's own
+    Settings -> Language, and never live-updates even when that's
+    changed afterwards. Overrides getText() to use this project's own
+    _() (localization.py's own module-level function, always reading
+    the CURRENT language live, not baked in once) instead, computed
+    fresh on every call rather than cached -- matches every other
+    on-screen string in Settings, which already updates immediately
+    on a language change with no restart needed.
+
+    self.value itself is untouched (still a plain bool) -- every
+    existing `if cfg.xxx.value:` check elsewhere in this codebase
+    keeps working exactly as before; only the on-screen label changes.
+    """
+
+    def getText(self) -> str:
+
+        return _("Yes") if self.value else _("No")
+
+
+
+
 # Device test round 65 -- guards against a language MediaPlayer3
 # doesn't actually ship a catalog for; round 66's own resolveLanguageCode()
-# below is the only place this list is consulted now.
-_AVAILABLE_LANGUAGE_CODES = ("en", "fi")
+# below is the only place THIS copy of the list is consulted. A
+# second, separate copy (localization.py's own AVAILABLE_LANGUAGES)
+# is what LocalizationManager itself actually checks before loading a
+# catalog -- keep both in sync when adding a language (round 102).
+_AVAILABLE_LANGUAGE_CODES = ("en", "fi", "sv", "de", "es")
 
 
 def resolveLanguageCode(configured_value: str) -> str:
@@ -220,14 +326,17 @@ cfg.general.language = ConfigSelection(
         ("system", "Järjestelmä"),
         ("fi", "Suomi"),
         ("en", "English"),
+        ("sv", "Svenska"),
+        ("de", "Deutsch"),
+        ("es", "Español"),
     ],
 )
 
-cfg.general.startup_directory = ConfigText(
+cfg.general.startup_directory = ConfigBrowsePath(
     default=default_media_directory()
 )
 
-cfg.general.hidden_files = ConfigYesNo(
+cfg.general.hidden_files = ConfigYesNoLocalized(
     default=False
 )
 
@@ -241,7 +350,7 @@ cfg.general.hidden_files = ConfigYesNo(
 # own menu-visibility toggles. MediaPlayer3's own Extensions/Plugin
 # menu entry (WHERE_PLUGINMENU) is unaffected either way -- this only
 # adds or removes the additional WHERE_MENU entry.
-cfg.general.show_in_main_menu = ConfigYesNo(
+cfg.general.show_in_main_menu = ConfigYesNoLocalized(
     default=False
 )
 
@@ -249,7 +358,7 @@ cfg.general.show_in_main_menu = ConfigYesNo(
 # independent of general.startup_directory (BUILD_0008_PLAN.md "Music
 # Library is intentionally separated from Browser."). Defaults to the
 # same folder for convenience, but can be pointed elsewhere.
-cfg.library.scan_directory = ConfigText(
+cfg.library.scan_directory = ConfigBrowsePath(
     default=default_media_directory()
 )
 
@@ -259,14 +368,19 @@ cfg.library.scan_directory = ConfigText(
 
 cfg.playback = ConfigSubsection()
 
-cfg.playback.resume_playback = ConfigYesNo(
+# Round 98, per direct request: replaces the never-implemented
+# "Resume playback (future)" placeholder with an actual feature --
+# restart the playlist from track 1 when Automatic Next Track (below)
+# reaches the end instead of stopping. Read by PlaybackController.
+# _handleTrackFinished().
+cfg.playback.loop_playlist = ConfigYesNoLocalized(
     default=False
 )
 
 # Automatic Next Track (Build 0005 -- PLAYBACK_QUEUE_SPEC.md /
 # BUILD_0005_PLAN.md). Read by PlaybackController._handleTrackFinished()
 # every time a track ends.
-cfg.playback.auto_play_next = ConfigYesNo(
+cfg.playback.auto_play_next = ConfigYesNoLocalized(
     default=False
 )
 
@@ -302,7 +416,7 @@ cfg.playback.lyrics_offset_step_seconds = ConfigInteger(
 # see ffprobe_helper.probe()'s own docstring -- while viewing the
 # Codec information page, or while radiobrowserscreen.py's own
 # opt-in codec logging, cfg.logging.log_station_codecs, is enabled).
-cfg.playback.enable_ffprobe = ConfigYesNo(
+cfg.playback.enable_ffprobe = ConfigYesNoLocalized(
     default=True
 )
 
@@ -316,19 +430,19 @@ cfg.playback.enable_ffprobe = ConfigYesNo(
 
 cfg.ui = ConfigSubsection()
 
-cfg.ui.show_progress_bar = ConfigYesNo(
+cfg.ui.show_progress_bar = ConfigYesNoLocalized(
     default=True
 )
 
-cfg.ui.show_elapsed_time = ConfigYesNo(
+cfg.ui.show_elapsed_time = ConfigYesNoLocalized(
     default=True
 )
 
-cfg.ui.show_remaining_time = ConfigYesNo(
+cfg.ui.show_remaining_time = ConfigYesNoLocalized(
     default=True
 )
 
-cfg.ui.show_playback_state = ConfigYesNo(
+cfg.ui.show_playback_state = ConfigYesNoLocalized(
     default=True
 )
 
@@ -381,14 +495,12 @@ cfg.radio = ConfigSubsection()
 # Left blank by default -- MediaPlayer3 has no reliable way to detect
 # the receiver's actual region/language on its own; the user sets
 # these once in Settings if they want a default filter applied.
-cfg.radio.default_country = ConfigText(
+cfg.radio.default_country = ConfigBrowsePath(
     default="",
-    fixed_size=False,
 )
 
-cfg.radio.default_language = ConfigText(
+cfg.radio.default_language = ConfigBrowsePath(
     default="",
-    fixed_size=False,
 )
 
 # Device test round 68 -- per direct request, after a user noticed
@@ -421,7 +533,7 @@ cfg.radio.search_limit = ConfigInteger(
 # much larger result set than "just my own language"). Off by
 # default, since a very large local-language station count could
 # otherwise surprise a user who never asked for it.
-cfg.radio.unlimited_for_own_language = ConfigYesNo(
+cfg.radio.unlimited_for_own_language = ConfigYesNoLocalized(
     default=False
 )
 
@@ -449,7 +561,7 @@ cfg.radio.history_size = ConfigInteger(
 # surprising. See docs/Claude_notes_build0007.txt for what this does
 # and does NOT cover -- it only resumes on MediaPlayer3's own normal
 # launch, not via a global hardware key from outside the plugin.
-cfg.radio.resume_on_start = ConfigYesNo(
+cfg.radio.resume_on_start = ConfigYesNoLocalized(
     default=False
 )
 
@@ -481,7 +593,7 @@ cfg.radio.resume_on_start = ConfigYesNo(
 # (it's still the documented fix for this general class of issue
 # elsewhere) but no longer expected to help on this specific
 # hardware/stream combination -- kept off by default.
-cfg.radio.use_exteplayer3 = ConfigYesNo(
+cfg.radio.use_exteplayer3 = ConfigYesNoLocalized(
     default=False
 )
 
@@ -492,7 +604,7 @@ cfg.radio.use_exteplayer3 = ConfigYesNo(
 # database_update_interval_days is that interval, only consulted
 # when auto-update is on. See internetradio_manager.py's
 # shouldAutoUpdateDatabase() for how these are used together.
-cfg.radio.database_auto_update = ConfigYesNo(
+cfg.radio.database_auto_update = ConfigYesNoLocalized(
     default=True
 )
 
@@ -578,7 +690,7 @@ cfg.logging.keep_log_files = ConfigInteger(
 # round 29). On by default since round 29 -- confirmed useful and not
 # problematic across real device testing, superseding round 27's own
 # "off by default" reasoning.
-cfg.logging.log_station_codecs = ConfigYesNo(
+cfg.logging.log_station_codecs = ConfigYesNoLocalized(
     default=True
 )
 
@@ -595,7 +707,7 @@ cfg.developer = ConfigSubsection()
 # Settings-screen visibility changed, not what MediaPlayer3 actually
 # does. Always defaults to False (restore TV, the everyday-safe
 # behaviour) since it can no longer be turned on through the UI.
-cfg.developer.disable_restore_tv_on_exit = ConfigYesNo(
+cfg.developer.disable_restore_tv_on_exit = ConfigYesNoLocalized(
     default=False
 )
 
@@ -615,7 +727,7 @@ _ENTRIES: Dict[str, Any] = {
 
     "library.scan_directory": cfg.library.scan_directory,
 
-    "playback.resume_playback": cfg.playback.resume_playback,
+    "playback.loop_playlist": cfg.playback.loop_playlist,
     "playback.auto_play_next": cfg.playback.auto_play_next,
     "playback.seek_step_seconds": cfg.playback.seek_step_seconds,
     "playback.lyrics_offset_step_seconds": cfg.playback.lyrics_offset_step_seconds,
@@ -842,6 +954,28 @@ class ConfigurationManager:
         if isinstance(entry, ConfigYesNo):
             return isinstance(value, bool)
 
+        if isinstance(entry, ConfigBrowsePath):
+
+            # Round 106, per direct request (clearing a Radio default
+            # back to "Any" needs to actually work): ConfigBrowsePath
+            # (round 104) is really a disguised free-text field --
+            # ConfigSelection is only used for its side effect of
+            # avoiding Enigma2's own text-entry hint bar (round 103's
+            # own ConfigBrowseOnlyText fix didn't achieve that), not
+            # for genuine fixed-choice semantics. Its own .choices
+            # always contains exactly the CURRENT value and nothing
+            # else (setValue() replaces the whole list every time), so
+            # the general ConfigSelection check below -- "is the new
+            # value already among the current choices" -- can never
+            # pass for an actual change: round 105 stopped this from
+            # crashing, but never let a genuinely new value through
+            # either (config_manager.set() would silently reject it
+            # and keep the old value, exactly like a first attempt to
+            # clear one back to "" after it had already been set to
+            # something else would have). Validated the same way
+            # ConfigText already is instead: any string is acceptable.
+            return isinstance(value, str)
+
         if isinstance(entry, ConfigInteger):
 
             try:
@@ -853,7 +987,27 @@ class ConfigurationManager:
                 return False
 
         if isinstance(entry, ConfigSelection):
-            return value in [choice[0] for choice in entry.choices]
+
+            # Round 105, per direct request (a real device crash: a
+            # full stack-trace dump pinpointed IndexError: string
+            # index out of range right here). Enigma2's own
+            # ConfigSelection collapses a (value, description) choice
+            # tuple into a bare string internally when value ==
+            # description -- exactly what ConfigBrowsePath (round 104)
+            # always passes, e.g. choices=[("", "")] before any real
+            # path/language has ever been set. entry.choices then
+            # yields plain strings instead of tuples for those
+            # entries, and the old `choice[0]` here indexed into that
+            # STRING's own first CHARACTER instead of a tuple's first
+            # ELEMENT -- "" has no first character, hence the crash.
+            # Handles both shapes now, safe for any ConfigSelection
+            # regardless of whether its own choices happen to collapse
+            # this way or not.
+            choice_values = [
+                choice[0] if isinstance(choice, (tuple, list)) else choice for choice in entry.choices
+            ]
+
+            return value in choice_values
 
         if isinstance(entry, ConfigText):
             return isinstance(value, str)

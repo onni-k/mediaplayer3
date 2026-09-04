@@ -64,11 +64,14 @@ from .paths import LOCALE_PATH
 
 DOMAIN = "MediaPlayer3"
 
-# Languages MediaPlayer3 ships translations for. Additional languages
-# can be added by dropping a new resources/locale/<code>/LC_MESSAGES/
-# MediaPlayer3.mo file in -- no source changes required
-# (BUILD_0006_PLAN.md "Localization").
-AVAILABLE_LANGUAGES = ("en", "fi")
+# Languages MediaPlayer3 ships a translation catalog for. A new
+# language needs both its own resources/locale/<code>/LC_MESSAGES/
+# MediaPlayer3.mo file AND its code added here -- this tuple is what
+# LocalizationManager actually checks before trying to load one
+# (config.py's own _AVAILABLE_LANGUAGE_CODES is a second, separate
+# copy of this same list, consulted before this one ever runs, for
+# Settings' own Language choices; keep both in sync).
+AVAILABLE_LANGUAGES = ("en", "fi", "sv", "de", "es")
 
 FALLBACK_LANGUAGE = "en"
 

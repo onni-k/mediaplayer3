@@ -262,8 +262,14 @@ class MusicLibraryScreen(Screen):
         return f"""
         <screen name="MusicLibraryScreen" position="0,0" size="{width},{height}" backgroundColor="{panel_background_color}" flags="wfNoBorder">
 
+            <!-- Round 96: same zPosition fix as MainMenu/
+                 LyricsFullscreenScreen's own round 95/96 fix for a
+                 title flashing then hiding behind this background
+                 once its own async decode completes; explicit,
+                 permanent z-order pin, immune to decode timing. -->
             <widget name="background"
                     {rect(0, 0, 1672, 941)}
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <!-- Device test round 45: user request: header/hint

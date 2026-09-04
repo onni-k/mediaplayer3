@@ -6,7 +6,10 @@ station -- along with cover art, playback progress and metadata.
 ## Keys
 
 - OK: if nothing is playing, opens a chooser (Internet Radio / Local
-  Music / Playlists). Otherwise resumes or replays.
+  Music / Playlists). Otherwise opens an action menu: Back, Stop/
+  Resume, Show lyrics fullscreen, Show cover art fullscreen, Cancel
+  (plus Clear history/Add to Favorites/Remove from Favorites while an
+  Internet Radio station is playing).
 - PLAY / PAUSE / STOP: control playback.
 - LEFT / RIGHT: seek a short step back/forward (local files), or
   switch between favorite/history lists (Internet Radio).

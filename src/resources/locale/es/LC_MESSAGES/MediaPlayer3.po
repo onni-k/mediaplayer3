@@ -1,0 +1,1059 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Ready"
+msgstr "Listo"
+
+msgid "No media selected"
+msgstr "Ningún medio seleccionado"
+
+msgid "Unknown Artist"
+msgstr "Artista desconocido"
+
+msgid "Unknown Album"
+msgstr "Álbum desconocido"
+
+msgid "Unknown"
+msgstr "Desconocido"
+
+msgid "Playback failed"
+msgstr "Error de reproducción"
+
+msgid "Seek failed"
+msgstr "Error al buscar"
+
+msgid "No next track"
+msgstr "No hay siguiente pista"
+
+msgid "Already at first track"
+msgstr "Ya en la primera pista"
+
+msgid "Browser"
+msgstr "Explorador"
+
+msgid "Playback Information"
+msgstr "Información de reproducción"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Developer Tools"
+msgstr "Herramientas de desarrollo"
+
+msgid "About"
+msgstr "Acerca de"
+
+msgid "Exit"
+msgstr "Salir"
+
+msgid "General"
+msgstr "General"
+
+msgid "Playback"
+msgstr "Reproducción"
+
+msgid "Logging"
+msgstr "Registro"
+
+msgid "Developer"
+msgstr "Desarrollador"
+
+msgid "User Interface"
+msgstr "Interfaz de usuario"
+
+msgid "OK: Select   MENU/EXIT: Close"
+msgstr "OK: Seleccionar   MENU/EXIT: Cerrar"
+
+msgid "Select a file to play"
+msgstr "Selecciona un archivo para reproducir"
+
+msgid "Track"
+msgstr "Pista"
+
+msgid "Pause failed"
+msgstr "Error al pausar"
+
+msgid "Stop failed"
+msgstr "Error al detener"
+
+msgid "Resume failed"
+msgstr "Error al reanudar"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the startup directory"
+msgstr "Navega hasta la carpeta deseada y pulsa VERDE para establecerla como carpeta de inicio"
+
+msgid "Playlists"
+msgstr "Listas de reproducción"
+
+msgid "Internet Radio"
+msgstr "Radio por Internet"
+
+msgid "Tracks"
+msgstr "Pistas"
+
+msgid "Stations"
+msgstr "Emisoras"
+
+msgid "Region"
+msgstr "Región"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Exported"
+msgstr "Exportado"
+
+msgid "Create New"
+msgstr "Crear nueva"
+
+msgid "Playlist already exists"
+msgstr "La lista de reproducción ya existe"
+
+msgid "Create playlist"
+msgstr "Crear lista de reproducción"
+
+msgid "Empty Playlist"
+msgstr "Lista de reproducción vacía"
+
+msgid "New playlist name"
+msgstr "Nuevo nombre de la lista de reproducción"
+
+msgid "New favorite list name"
+msgstr "Nuevo nombre de la lista de favoritos"
+
+msgid "Select playlist"
+msgstr "Seleccionar lista de reproducción"
+
+msgid "Select favorite list"
+msgstr "Seleccionar lista de favoritos"
+
+msgid "Search stations by name"
+msgstr "Buscar emisoras por nombre"
+
+msgid "Codec"
+msgstr "Códec"
+
+msgid "Bitrate"
+msgstr "Tasa de bits"
+
+msgid "Country"
+msgstr "País"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Tags"
+msgstr "Etiquetas"
+
+msgid "Homepage"
+msgstr "Página web"
+
+msgid "Any"
+msgstr "Cualquiera"
+
+msgid "Path"
+msgstr "Ruta"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Information"
+msgstr "Información"
+
+msgid "Play"
+msgstr "Reproducir"
+
+msgid "Remove from Playlist"
+msgstr "Quitar de la lista de reproducción"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+msgstr "IZQ/DER: Panel   ARRIBA/ABAJO: Mover   OK: Opciones   MENU: Menú   EXIT: Volver"
+
+msgid "Local Music"
+msgstr "Música local"
+
+msgid "What would you like to open?"
+msgstr "¿Qué te gustaría abrir?"
+
+msgid "Searching for stations, please wait..."
+msgstr "Buscando emisoras, espera..."
+
+msgid "Found {0} stations"
+msgstr "Se encontraron {0} emisoras"
+
+msgid "Add all files from directory"
+msgstr "Añadir todos los archivos de la carpeta"
+
+msgid "Add entire directory to playlist"
+msgstr "Añadir toda la carpeta a la lista de reproducción"
+
+msgid "Add this file"
+msgstr "Añadir este archivo"
+
+msgid "Add this file and remaining files in directory"
+msgstr "Añadir este archivo y los restantes de la carpeta"
+
+msgid "Add to Favorites"
+msgstr "Añadir a favoritos"
+
+msgid "Add to playlist"
+msgstr "Añadir a la lista de reproducción"
+
+msgid "Added %d tracks to playlist: %s"
+msgstr "Se añadieron %d pistas a la lista de reproducción: %s"
+
+msgid "Added to playlist: %s"
+msgstr "Añadido a la lista de reproducción: %s"
+
+msgid "Album"
+msgstr "Álbum"
+
+msgid "Albums"
+msgstr "Álbumes"
+
+msgid "Already subscribed"
+msgstr "Ya suscrito"
+
+msgid "Artist"
+msgstr "Artista"
+
+msgid "Artists"
+msgstr "Artistas"
+
+msgid "Available Podcasts"
+msgstr "Podcasts disponibles"
+
+msgid "Back"
+msgstr "Atrás"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the {0}"
+msgstr "Navega hasta la carpeta deseada y pulsa VERDE para establecerla como {0}"
+
+msgid "Channels"
+msgstr "Canales"
+
+msgid "Clear Internet Radio listening history?"
+msgstr "¿Borrar el historial de escucha de radio por Internet?"
+
+msgid "Composer"
+msgstr "Compositor"
+
+msgid "Create Favorite List"
+msgstr "Crear lista de favoritos"
+
+msgid "Create new playlist..."
+msgstr "Crear nueva lista de reproducción..."
+
+msgid "Directories"
+msgstr "Carpetas"
+
+msgid "Directory not available."
+msgstr "Carpeta no disponible."
+
+msgid "Episodes"
+msgstr "Episodios"
+
+msgid "Export"
+msgstr "Exportar"
+
+msgid "Files"
+msgstr "Archivos"
+
+msgid "Genre"
+msgstr "Género"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "History"
+msgstr "Historial"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "IZQ/DER: Panel   ARRIBA/ABAJO: Mover   CH+/CH-: Página   OK: Opciones   INFO: Buscar   MENU: Menú   EXIT: Volver"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "IZQ/DER: Panel   ARRIBA/ABAJO: Mover   OK: Reproducir   INFO: Buscar   MENU: Menú   EXIT: Volver"
+
+msgid "Loading library, please wait..."
+msgstr "Cargando biblioteca, espera..."
+
+msgid "Lyrics not available."
+msgstr "Letra no disponible."
+
+msgid "Main Menu"
+msgstr "Menú principal"
+
+msgid "MediaPlayer3 could not start:\n%s"
+msgstr "MediaPlayer3 no pudo iniciarse:\n%s"
+
+msgid "Metadata"
+msgstr "Metadatos"
+
+msgid "Move Down"
+msgstr "Mover hacia abajo"
+
+msgid "Move Up"
+msgstr "Mover hacia arriba"
+
+msgid "Move down"
+msgstr "Mover hacia abajo"
+
+msgid "Move up"
+msgstr "Mover hacia arriba"
+
+msgid "Music Library"
+msgstr "Biblioteca de música"
+
+msgid "Music Library directory"
+msgstr "Carpeta de la biblioteca de música"
+
+msgid "No help available."
+msgstr "No hay ayuda disponible."
+
+msgid "No information available."
+msgstr "No hay información disponible."
+
+msgid "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+msgstr "No hay biblioteca de música disponible.\n\nUsa Actualizar biblioteca en el menú\ndespués de añadir archivos de música."
+
+msgid "No playable files found."
+msgstr "No se encontraron archivos reproducibles."
+
+msgid "No playlist selected."
+msgstr "Ninguna lista de reproducción seleccionada."
+
+msgid "No podcasts found for \"%s\"."
+msgstr "No se encontraron podcasts para \"%s\"."
+
+msgid "Nothing was added."
+msgstr "No se añadió nada."
+
+msgid "Now"
+msgstr "Ahora"
+
+msgid "Now Playing"
+msgstr "Reproduciendo ahora"
+
+msgid "Now playing information not available."
+msgstr "Información de reproducción actual no disponible."
+
+msgid "Open directory"
+msgstr "Abrir carpeta"
+
+msgid "Open podcast"
+msgstr "Abrir podcast"
+
+msgid "Player"
+msgstr "Reproductor"
+
+msgid "Playlist"
+msgstr "Lista de reproducción"
+
+msgid "Playlist: %s"
+msgstr "Lista de reproducción: %s"
+
+msgid "Podcast"
+msgstr "Podcast"
+
+msgid "Radio EPG"
+msgstr "EPG de radio"
+
+msgid "Refresh"
+msgstr "Actualizar"
+
+msgid "Refresh failed -- keeping previous information."
+msgstr "Error al actualizar -- se mantiene la información anterior."
+
+msgid "Refreshing..."
+msgstr "Actualizando..."
+
+msgid "Remove"
+msgstr "Quitar"
+
+msgid "Rename"
+msgstr "Renombrar"
+
+msgid "Resume"
+msgstr "Reanudar"
+
+msgid "Sample rate"
+msgstr "Frecuencia de muestreo"
+
+msgid "Search podcasts"
+msgstr "Buscar podcasts"
+
+msgid "Search the music library"
+msgstr "Buscar en la biblioteca de música"
+
+msgid "Search: %s"
+msgstr "Buscar: %s"
+
+msgid "Search: {0} ({1} results)"
+msgstr "Buscar: {0} ({1} resultados)"
+
+msgid "Searching..."
+msgstr "Buscando..."
+
+msgid "Startup directory"
+msgstr "Carpeta de inicio"
+
+msgid "Station"
+msgstr "Emisora"
+
+msgid "Station Information"
+msgstr "Información de la emisora"
+
+msgid "Stop"
+msgstr "Detener"
+
+msgid "Subscribe"
+msgstr "Suscribirse"
+
+msgid "Subscribed Podcasts"
+msgstr "Podcasts suscritos"
+
+msgid "This episode has no playable audio."
+msgstr "Este episodio no tiene audio reproducible."
+
+msgid "Title"
+msgstr "Título"
+
+msgid "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+msgstr "ARRIBA/ABAJO: Desplazar   IZQ/DER: Página   HELP/EXIT: Cerrar"
+
+msgid "Unable to add to playlist."
+msgstr "No se pudo añadir a la lista de reproducción."
+
+msgid "Unable to play selected track"
+msgstr "No se pudo reproducir la pista seleccionada"
+
+msgid "Unable to subscribe."
+msgstr "No se pudo suscribir."
+
+msgid "Unknown Genre"
+msgstr "Género desconocido"
+
+msgid "Unknown Year"
+msgstr "Año desconocido"
+
+msgid "Unsubscribe"
+msgstr "Cancelar suscripción"
+
+msgid "Update Library"
+msgstr "Actualizar biblioteca"
+
+msgid "Year"
+msgstr "Año"
+
+msgid "album(s)"
+msgstr "álbum(es)"
+
+msgid "computed: size/duration"
+msgstr "calculado: tamaño/duración"
+
+msgid "from file extension"
+msgstr "por extensión de archivo"
+
+msgid "station info"
+msgstr "información de la emisora"
+
+msgid "track(s)"
+msgstr "pista(s)"
+
+msgid "Podcasts"
+msgstr "Podcasts"
+
+msgid "Lyrics"
+msgstr "Letra"
+
+msgid "Lyrics LRC"
+msgstr "Letra LRC"
+
+msgid "Lyrics Embedded"
+msgstr "Letra incrustada"
+
+msgid "Lyrics TXT"
+msgstr "Letra TXT"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "IZQ/DER: Columna   ARRIBA/ABAJO: Mover   OK: Acciones   PLAY: Reproducir   INFO: Seleccionar lista   HELP: Ayuda   MENU: Menú   EXIT: Volver"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "IZQ/DER: Columna   ARRIBA/ABAJO: Mover   OK: Acciones   INFO: Buscar   HELP: Ayuda   MENU: Menú   EXIT: Volver"
+
+msgid "Clear the local station database?"
+msgstr "¿Borrar la base de datos local de emisoras?"
+
+msgid "Downloading station database, please wait..."
+msgstr "Descargando base de datos de emisoras, espera..."
+
+msgid "No stations available yet. Download the station database now?"
+msgstr "Aún no hay emisoras disponibles. ¿Descargar la base de datos de emisoras ahora?"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Editar   IZQ/DER: Cambiar   AMARILLO: Borrar historial de radio   ROJO: Actualizar base de datos   AZUL: Borrar lista de emisoras   MENU: Menú   EXIT: Guardar y volver"
+
+msgid "Station database updated: %d station(s)."
+msgstr "Base de datos de emisoras actualizada: %d emisoras."
+
+msgid "Station list cleared."
+msgstr "Lista de emisoras borrada."
+
+msgid "Update failed -- keeping existing database (%d station(s))."
+msgstr "Error al actualizar -- se mantiene la base de datos existente (%d emisoras)."
+
+msgid "Update failed. No station data available."
+msgstr "Error al actualizar. No hay datos de emisoras disponibles."
+
+msgid "Updating station database, please wait..."
+msgstr "Actualizando base de datos de emisoras, espera..."
+
+msgid "Clear history"
+msgstr "Borrar historial"
+
+msgid "Clear station list"
+msgstr "Borrar lista de emisoras"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Editar   IZQ/DER: Cambiar   AMARILLO: Borrar historial de radio   MENU: Menú   EXIT: Guardar y volver"
+
+msgid "Remove from playlist"
+msgstr "Quitar de la lista de reproducción"
+
+msgid "Removed from playlist: %s"
+msgstr "Quitado de la lista de reproducción: %s"
+
+msgid "Station not found in playlist: %s"
+msgstr "Emisora no encontrada en la lista de reproducción: %s"
+
+msgid "Unable to remove from playlist."
+msgstr "No se pudo quitar de la lista de reproducción."
+
+msgid "Update stations"
+msgstr "Actualizar emisoras"
+
+msgid "Added to favorites: %s"
+msgstr "Añadido a favoritos: %s"
+
+msgid "No favorite lists available."
+msgstr "No hay listas de favoritos disponibles."
+
+msgid "Remove from Favorites"
+msgstr "Quitar de favoritos"
+
+msgid "Removed from favorites: %s"
+msgstr "Quitado de favoritos: %s"
+
+msgid "Station not found in favorites: %s"
+msgstr "Emisora no encontrada en favoritos: %s"
+
+msgid "Unable to add to favorites."
+msgstr "No se pudo añadir a favoritos."
+
+msgid "Save failed: %s"
+msgstr "Error al guardar: %s"
+
+msgid "measured"
+msgstr "medido"
+
+msgid "Warning: this station may not work."
+msgstr "Advertencia: es posible que esta emisora no funcione."
+
+msgid "Warning: this episode may not work."
+msgstr "Advertencia: es posible que este episodio no funcione."
+
+msgid " (NOT installed)"
+msgstr " (NO instalado)"
+
+msgid " (installed)"
+msgstr " (instalado)"
+
+msgid "Automatically play next track"
+msgstr "Reproducir la siguiente pista automáticamente"
+
+msgid "Custom background color"
+msgstr "Color de fondo personalizado"
+
+msgid "Hidden files"
+msgstr "Archivos ocultos"
+
+msgid "Log station codec info (Internet Radio)"
+msgstr "Registrar info de códec de la emisora (radio por Internet)"
+
+msgid "Logging level"
+msgstr "Nivel de registro"
+
+msgid "Lyrics offset step (seconds)"
+msgstr "Paso de desfase de la letra (segundos)"
+
+msgid "Podcast Index API key"
+msgstr "Clave de API de Podcast Index"
+
+msgid "Podcast Index API secret"
+msgstr "Secreto de API de Podcast Index"
+
+msgid "Radio default country"
+msgstr "País predeterminado de la radio"
+
+msgid "Radio default language"
+msgstr "Idioma predeterminado de la radio"
+
+msgid "Radio history size"
+msgstr "Tamaño del historial de radio"
+
+msgid "Radio navigation mode"
+msgstr "Modo de navegación de radio"
+
+msgid "Resume playback (future)"
+msgstr "Reanudar reproducción (futuro)"
+
+msgid "Resume radio station on start"
+msgstr "Reanudar emisora de radio al iniciar"
+
+msgid "Seek step (seconds)"
+msgstr "Paso de búsqueda (segundos)"
+
+msgid "Show elapsed time"
+msgstr "Mostrar tiempo transcurrido"
+
+msgid "Show in main menu (restart required)"
+msgstr "Mostrar en el menú principal (requiere reiniciar)"
+
+msgid "Show playback state"
+msgstr "Mostrar estado de reproducción"
+
+msgid "Show progress bar"
+msgstr "Mostrar barra de progreso"
+
+msgid "Show remaining time"
+msgstr "Mostrar tiempo restante"
+
+msgid "Skin"
+msgstr "Apariencia"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Use ExtEplayer3 for radio"
+msgstr "Usar ExtEplayer3 para la radio"
+
+msgid "Use ffprobe for codec info"
+msgstr "Usar ffprobe para info de códec"
+
+msgid "Yle EPG app_id"
+msgstr "app_id de EPG de Yle"
+
+msgid "Yle EPG app_key"
+msgstr "app_key de EPG de Yle"
+
+msgid "LEFT/RIGHT: Panel"
+msgstr "IZQ/DER: Panel"
+
+msgid "UP/DOWN: Move"
+msgstr "ARRIBA/ABAJO: Mover"
+
+msgid "OK: Play"
+msgstr "OK: Reproducir"
+
+msgid "INFO: Search"
+msgstr "INFO: Buscar"
+
+msgid "MENU: Menu"
+msgstr "MENU: Menú"
+
+msgid "EXIT: Back"
+msgstr "EXIT: Volver"
+
+msgid "CH+/CH-: Page"
+msgstr "CH+/CH-: Página"
+
+msgid "OK: Options"
+msgstr "OK: Opciones"
+
+msgid "LEFT/RIGHT: Column"
+msgstr "IZQ/DER: Columna"
+
+msgid "OK: Actions"
+msgstr "OK: Acciones"
+
+msgid "PLAY: Play"
+msgstr "PLAY: Reproducir"
+
+msgid "INFO: Select Playlist"
+msgstr "INFO: Seleccionar lista"
+
+msgid "HELP: Help"
+msgstr "HELP: Ayuda"
+
+msgid "No playlist selected"
+msgstr "Ninguna lista de reproducción seleccionada"
+
+msgid "Press EPG/INFO to search"
+msgstr "Pulsa EPG/INFO para buscar"
+
+msgid "%d station(s)"
+msgstr "%d emisoras"
+
+msgid "OK: Edit"
+msgstr "OK: Editar"
+
+msgid "LEFT/RIGHT: Change"
+msgstr "IZQ/DER: Cambiar"
+
+msgid "YELLOW: Clear Radio History"
+msgstr "AMARILLO: Borrar historial de radio"
+
+msgid "EXIT: Save & Back"
+msgstr "EXIT: Guardar y volver"
+
+msgid "Folder the file Browser opens in by default."
+msgstr "Carpeta que el explorador de archivos abre de forma predeterminada."
+
+msgid "Folder scanned for the Music Library."
+msgstr "Carpeta analizada para la biblioteca de música."
+
+msgid "Show files and folders starting with a dot."
+msgstr "Mostrar archivos y carpetas que empiezan con un punto."
+
+msgid "Add MediaPlayer3 to the main menu."
+msgstr "Añadir MediaPlayer3 al menú principal."
+
+msgid "Interface language."
+msgstr "Idioma de la interfaz."
+
+msgid "Light or dark background style for the redesigned screens."
+msgstr "Estilo de fondo claro u oscuro para las pantallas rediseñadas."
+
+msgid "Colour theme for screens not yet using the new skin."
+msgstr "Tema de color para pantallas que aún no usan la nueva apariencia."
+
+msgid "Background colour used when Theme is set to Custom."
+msgstr "Color de fondo usado cuando Tema está ajustado a Personalizado."
+
+msgid "Resume the last track on startup (not yet implemented)."
+msgstr "Reanudar la última pista al iniciar (aún no implementado)."
+
+msgid "Play the next track when one finishes."
+msgstr "Reproducir la siguiente pista cuando una termina."
+
+msgid "How far each seek key press moves playback."
+msgstr "Cuánto avanza la reproducción con cada pulsación de la tecla de búsqueda."
+
+msgid "How far each lyrics-offset key press shifts timing."
+msgstr "Cuánto cambia el tiempo con cada pulsación de la tecla de desfase de la letra."
+
+msgid "Detect the real codec/bitrate instead of guessing from the file extension."
+msgstr "Detectar el códec/tasa de bits real en lugar de adivinar por la extensión del archivo."
+
+msgid "Country filter Internet Radio starts with."
+msgstr "Filtro de país con el que inicia la radio por Internet."
+
+msgid "Language filter Internet Radio starts with."
+msgstr "Filtro de idioma con el que inicia la radio por Internet."
+
+msgid "Whether CH+/CH- browses favourites or history."
+msgstr "Si CH+/CH- navega por favoritos o por el historial."
+
+msgid "How many recently played stations to remember."
+msgstr "Cuántas emisoras reproducidas recientemente se recuerdan."
+
+msgid "Reopen the last playing station automatically."
+msgstr "Reabrir automáticamente la última emisora reproducida."
+
+msgid "Use the ExtEplayer3 backend for Internet Radio playback."
+msgstr "Usar el motor ExtEplayer3 para la reproducción de radio por Internet."
+
+msgid "API app_id for Yle radio programme data."
+msgstr "app_id de API para los datos de programación de radio de Yle."
+
+msgid "API app_key for Yle radio programme data."
+msgstr "app_key de API para los datos de programación de radio de Yle."
+
+msgid "API key for searching podcasts."
+msgstr "Clave de API para buscar podcasts."
+
+msgid "API secret for searching podcasts."
+msgstr "Secreto de API para buscar podcasts."
+
+msgid "Show the playback progress bar on the Player screen."
+msgstr "Mostrar la barra de progreso de reproducción en la pantalla del reproductor."
+
+msgid "Show elapsed time on the Player screen."
+msgstr "Mostrar el tiempo transcurrido en la pantalla del reproductor."
+
+msgid "Show remaining time on the Player screen."
+msgstr "Mostrar el tiempo restante en la pantalla del reproductor."
+
+msgid "Show Playing/Paused status on the Player screen."
+msgstr "Mostrar el estado Reproduciendo/Pausado en la pantalla del reproductor."
+
+msgid "Write detected station codec info to the log."
+msgstr "Escribir la info de códec de la emisora detectada en el registro."
+
+msgid "How much detail is written to the log file."
+msgstr "Cuánto detalle se escribe en el archivo de registro."
+
+msgid "OK: Select"
+msgstr "OK: Seleccionar"
+
+msgid "MENU/EXIT: Close"
+msgstr "MENU/EXIT: Cerrar"
+
+msgid "Radio search result limit (0 = unlimited)"
+msgstr "Límite de resultados de búsqueda de radio (0 = ilimitado)"
+
+msgid "Unlimited results for own language"
+msgstr "Resultados ilimitados para el idioma propio"
+
+msgid "Maximum stations shown per search. 0 shows every match, however many that is."
+msgstr "Número máximo de emisoras mostradas por búsqueda. 0 muestra todas las coincidencias, sean las que sean."
+
+msgid "Ignore the result limit when the Language filter matches your own app language."
+msgstr "Ignorar el límite de resultados cuando el filtro de idioma coincide con el idioma de tu propia app."
+
+msgid "Radio station limit (0 = unlimited)"
+msgstr "Límite de emisoras de radio (0 = ilimitado)"
+
+msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+msgstr "Número máximo de emisoras por búsqueda y por actualización de la base de datos. 0 significa sin límite -- tantas como RadioBrowser realmente tenga."
+
+msgid "Download lyrics"
+msgstr "Descargar letra"
+
+msgid "Download lyrics?"
+msgstr "¿Descargar letra?"
+
+msgid "Downloading lyrics, please wait..."
+msgstr "Descargando letra, espera..."
+
+msgid "Synced lyrics downloaded."
+msgstr "Letra sincronizada descargada."
+
+msgid "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+msgstr "Letra descargada (texto plano -- LRCLIB no tiene una versión sincronizada para esta pista)."
+
+msgid "LRCLIB has this track marked as instrumental -- no lyrics to download."
+msgstr "LRCLIB tiene esta pista marcada como instrumental -- no hay letra que descargar."
+
+msgid "No lyrics found on LRCLIB for this track."
+msgstr "No se encontró letra en LRCLIB para esta pista."
+
+msgid "This track already has lyrics -- nothing downloaded."
+msgstr "Esta pista ya tiene letra -- no se descargó nada."
+
+msgid "Missing artist/title tags -- can't search LRCLIB for this track."
+msgstr "Faltan las etiquetas de artista/título -- no se puede buscar en LRCLIB para esta pista."
+
+msgid "Lyrics download failed. Check your network connection."
+msgstr "Error al descargar la letra. Comprueba tu conexión de red."
+
+msgid "synced"
+msgstr "sincronizada"
+
+msgid "plain text"
+msgstr "texto plano"
+
+msgid "instrumental"
+msgstr "instrumental"
+
+msgid "not found"
+msgstr "no encontrada"
+
+msgid "already had lyrics"
+msgstr "ya tenía letra"
+
+msgid "missing tags"
+msgstr "etiquetas faltantes"
+
+msgid "failed"
+msgstr "fallida"
+
+msgid "Lyrics download finished: %s."
+msgstr "Descarga de letra finalizada: %s."
+
+msgid "No audio files found in this directory."
+msgstr "No se encontraron archivos de audio en esta carpeta."
+
+msgid "Also download lyrics for subdirectories?"
+msgstr "¿Descargar también la letra de las subcarpetas?"
+
+msgid "Show lyrics fullscreen"
+msgstr "Mostrar letra a pantalla completa"
+
+msgid "Show cover art fullscreen"
+msgstr "Mostrar carátula a pantalla completa"
+
+msgid "No lyrics available."
+msgstr "No hay letra disponible."
+
+msgid "No cover art available."
+msgstr "No hay carátula disponible."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / IZQ / DER: Cerrar -- ARRIBA / ABAJO: Ajustar tiempo"
+
+msgid "Download cover art"
+msgstr "Descargar carátula"
+
+msgid "Download cover art?"
+msgstr "¿Descargar carátula?"
+
+msgid "Also download cover art for subdirectories?"
+msgstr "¿Descargar también la carátula de las subcarpetas?"
+
+msgid "Downloading cover art, please wait..."
+msgstr "Descargando carátula, espera..."
+
+msgid "Cover art downloaded."
+msgstr "Carátula descargada."
+
+msgid "This album already has cover art -- nothing downloaded."
+msgstr "Este álbum ya tiene carátula -- no se descargó nada."
+
+msgid "No matching cover art found."
+msgstr "No se encontró ninguna carátula coincidente."
+
+msgid "Missing artist/album tags -- can't search for cover art."
+msgstr "Faltan las etiquetas de artista/álbum -- no se puede buscar carátula."
+
+msgid "Cover art download failed. Check your network connection."
+msgstr "Error al descargar la carátula. Comprueba tu conexión de red."
+
+msgid "saved"
+msgstr "guardada"
+
+msgid "already had cover art"
+msgstr "ya tenía carátula"
+
+msgid "Cover art download finished: %s."
+msgstr "Descarga de carátula finalizada: %s."
+
+msgid "MusicBrainz is temporarily busy. Try again in a moment."
+msgstr "MusicBrainz está temporalmente ocupado. Inténtalo de nuevo en un momento."
+
+msgid "temporarily busy, try again shortly"
+msgstr "ocupado temporalmente, inténtalo pronto de nuevo"
+
+msgid "LRCLIB is temporarily busy. Try again in a moment."
+msgstr "LRCLIB está temporalmente ocupado. Inténtalo de nuevo en un momento."
+
+msgid "Download all"
+msgstr "Descargar todo"
+
+msgid "Download synced lyrics only (LRC)"
+msgstr "Descargar solo letra sincronizada (LRC)"
+
+msgid "Download plain text lyrics only (TXT)"
+msgstr "Descargar solo letra en texto plano (TXT)"
+
+msgid "Return to start of playlist"
+msgstr "Volver al inicio de la lista de reproducción"
+
+msgid "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+msgstr "El explorador de archivos muestra el contenido de esta carpeta de forma predeterminada. Se selecciona mediante el explorador de archivos con OK."
+
+msgid "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+msgstr "La biblioteca de música se construye a partir de los archivos de audio de esta carpeta. Se selecciona mediante el explorador de archivos con OK."
+
+msgid "Whether the file Browser also shows hidden files (default: no)."
+msgstr "Si el explorador de archivos también muestra archivos ocultos (predeterminado: no)."
+
+msgid "Lets you launch the program directly from the main menu. (Default: no)"
+msgstr "Te permite iniciar el programa directamente desde el menú principal. (Predeterminado: no)"
+
+msgid "Interface language (default: System)."
+msgstr "Idioma de la interfaz (predeterminado: Sistema)."
+
+msgid "The program's appearance (default: Light)."
+msgstr "El aspecto del programa (predeterminado: Claro)."
+
+msgid "When the playlist ends, start playing it again from the beginning (default: no)."
+msgstr "Cuando la lista de reproducción termina, se vuelve a reproducir desde el principio (predeterminado: no)."
+
+msgid "Play the next track in the playlist once the previous one has finished (default: yes)."
+msgstr "Reproducir la siguiente pista de la lista una vez que la anterior ha terminado (predeterminado: sí)."
+
+msgid "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+msgstr "Durante la reproducción, la búsqueda salta esta cantidad de segundos al pulsar la tecla de búsqueda o de página (predeterminado: 30)."
+
+msgid "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+msgstr "Si quieres cambiar el tiempo de la letra en desplazamiento, las teclas ARRIBA/ABAJO desplazan el tiempo esta cantidad en cada pulsación."
+
+msgid "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+msgstr "Se usa para averiguar la información de tasa de bits de emisoras de radio, podcasts y música local, y para detectar problemas de compatibilidad en una transmisión."
+
+msgid "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "Esta región aparece primero en la lista de idiomas de la radio por Internet (predeterminado: ninguno). Se establece desde la pantalla de radio por Internet seleccionando una región y pulsando OK."
+
+msgid "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "Este idioma aparece primero en la lista de regiones de la radio por Internet (predeterminado: ninguno). Se establece desde la pantalla de radio por Internet seleccionando un idioma y pulsando OK."
+
+msgid "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0)."
+msgstr "La base de datos de RadioBrowser puede contener muchísimas emisoras. Esto puede limitar la búsqueda, manteniendo tu propia base de datos pequeña (predeterminado: 0)."
+
+msgid "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+msgstr "Incluso limitando la base de datos, aún puedes buscar todas las emisoras en tu idioma actual (predeterminado: sí)."
+
+msgid "At most this many stations are kept in the history list (default: 20)."
+msgstr "Como máximo se guardan estas emisoras en la lista de historial (predeterminado: 20)."
+
+msgid "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+msgstr "Si es sí, al iniciar el programa se va directamente a reproducir la emisora de radio anterior (predeterminado: no)."
+
+msgid "May help some radio stations play correctly (default: no)."
+msgstr "Puede ayudar a que algunas emisoras de radio se reproduzcan correctamente (predeterminado: no)."
+
+msgid "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+msgstr "Si quieres EPG de radio para las emisoras propias de Yle, pon aquí tu app_id, desde https://developer.yle.fi/"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+msgstr "Si quieres EPG de radio para las emisoras propias de Yle, pon aquí tu app_key, desde https://developer.yle.fi/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+msgstr "Si quieres buscar podcasts en el servicio Podcast Index, pon aquí tu clave, desde https://api.podcastindex.org/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+msgstr "Si quieres buscar podcasts en el servicio Podcast Index, pon aquí tu secreto, desde https://api.podcastindex.org/"
+
+msgid "(Default: yes)"
+msgstr "(Predeterminado: sí)"
+
+msgid "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+msgstr "Si quieres examinar el comportamiento del programa y los errores con más profundidad, elige Detallado."
+
+msgid "Set as startup directory"
+msgstr "Establecer como carpeta de inicio"
+
+msgid "Set as Music Library directory"
+msgstr "Establecer como carpeta de la biblioteca de música"
+
+msgid "{0} set to: {1}"
+msgstr "{0} establecido en: {1}"
+
+msgid "Set as Radio default language"
+msgstr "Establecer como idioma predeterminado de la radio"
+
+msgid "Set as Radio default country"
+msgstr "Establecer como país predeterminado de la radio"
+
+msgid "{0}: {1}?"
+msgstr "{0}: {1}?"
+
+msgid "Yes"
+msgstr "Sí"
+
+msgid "No"
+msgstr "No"
+
+msgid "Clear Radio default language"
+msgstr "Borrar idioma predeterminado de la radio"
+
+msgid "Clear Radio default country"
+msgstr "Borrar país predeterminado de la radio"

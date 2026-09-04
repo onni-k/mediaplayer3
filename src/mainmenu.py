@@ -255,16 +255,52 @@ class MainMenu(Screen):
                 position="0,0"
                 size="{width},{height}"
                 backgroundColor="{panel_background_color}"
-                title="MediaPlayer3 - Main Menu">
+                title="{_('Main Menu')}">
+            <!-- Round 97, per direct request: the screen's own
+                 title= attribute (not the "title" widget below) is
+                 what actually renders "MediaPlayer3 - Main Menu" on
+                 the left, redundant now that "MediaPlayer3" reads
+                 centered in its own new widget (round 96); narrowed
+                 to just the translated "Main Menu" string. -->
 
+            <!-- Round 95, per direct request: the "title" widget's
+                 own text ("MediaPlayer3") was flashing briefly on
+                 open, then disappearing behind this background once
+                 its own ePicLoad decode finished ("Mainmenussa
+                 otsikko välähtää näytössä, mutta jää siten
+                 taustakuvan taakse piiloon"). Being created first in
+                 Python (self["background"] = ...) only sets the
+                 INITIAL paint order; Enigma2's own async
+                 setPixmap() on an already-shown widget can still
+                 restack it visually above widgets added later,
+                 which is exactly what a background image whose own
+                 decode finishes after the screen's first paint can
+                 do. zPosition explicitly and permanently pins this
+                 widget behind everything else regardless of decode
+                 timing, the same technique already used for
+                 MainScreen's own cover-art-as-background widget
+                 (Build 0005, "zPosition -1, behind all text"). -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
+            <!-- Round 96, per direct request: split into "Main Menu"
+                 on the left (this widget, narrowed) and "MediaPlayer3"
+                 centered (a new widget below); previously one wide
+                 box just said "MediaPlayer3" on its own. -->
             <widget name="title"
-                    {rect(88, 80, 1500, 57)}
+                    {rect(88, 80, 500, 57)}
                     {font(34)}
+                    valign="center"
+                    foregroundColor="{palette['header_fg']}"
+                    transparent="1"/>
+
+            <widget name="app_branding"
+                    {rect(600, 80, 608, 57)}
+                    font="Bold;{max(10, int(36 * sx))}"
+                    halign="center"
                     valign="center"
                     foregroundColor="{palette['header_fg']}"
                     transparent="1"/>
@@ -332,7 +368,9 @@ class MainMenu(Screen):
 
         compatibility.connectPictureDataSignal(self._background_picload, self._onBackgroundImageDecoded)
 
-        self["title"] = Label("MediaPlayer3")
+        self["title"] = Label(_("Main Menu"))
+
+        self["app_branding"] = Label("MediaPlayer3")
 
         self["hint_text_ok"] = Label(_("OK: Select"))
         self["hint_text_exit"] = Label(_("MENU/EXIT: Close"))

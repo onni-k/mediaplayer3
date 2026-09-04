@@ -823,3 +823,237 @@ msgstr "Radioasemien raja (0 = rajoittamaton)"
 
 msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
 msgstr "Enimmäismäärä asemia hakua ja asematietokannan päivitystä kohti. 0 tarkoittaa ei rajaa -- niin monta kuin RadioBrowserilla oikeasti on."
+
+msgid "Download lyrics"
+msgstr "Lataa sanoitukset"
+
+msgid "Download lyrics?"
+msgstr "Ladataanko sanoitukset?"
+
+msgid "Downloading lyrics, please wait..."
+msgstr "Ladataan sanoituksia, odota hetki..."
+
+msgid "Synced lyrics downloaded."
+msgstr "Synkronoidut sanoitukset ladattu."
+
+msgid "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+msgstr "Sanoitukset ladattu (tekstimuodossa -- LRCLIB:llä ei ole synkronoitua versiota tästä kappaleesta)."
+
+msgid "LRCLIB has this track marked as instrumental -- no lyrics to download."
+msgstr "LRCLIB on merkinnyt tämän kappaleen instrumentaaliksi -- ei ladattavia sanoituksia."
+
+msgid "No lyrics found on LRCLIB for this track."
+msgstr "Tälle kappaleelle ei löytynyt sanoituksia LRCLIB:stä."
+
+msgid "This track already has lyrics -- nothing downloaded."
+msgstr "Tällä kappaleella on jo sanoitukset -- mitään ei ladattu."
+
+msgid "Missing artist/title tags -- can't search LRCLIB for this track."
+msgstr "Esittäjä- tai kappaletiedot puuttuvat -- LRCLIB-hakua ei voi tehdä tälle kappaleelle."
+
+msgid "Lyrics download failed. Check your network connection."
+msgstr "Sanoitusten lataus epäonnistui. Tarkista verkkoyhteys."
+
+msgid "synced"
+msgstr "synkronoitu"
+
+msgid "plain text"
+msgstr "tekstimuoto"
+
+msgid "instrumental"
+msgstr "instrumentaali"
+
+msgid "not found"
+msgstr "ei löytynyt"
+
+msgid "already had lyrics"
+msgstr "oli jo sanoitukset"
+
+msgid "missing tags"
+msgstr "tiedot puuttuvat"
+
+msgid "failed"
+msgstr "epäonnistui"
+
+msgid "Lyrics download finished: %s."
+msgstr "Sanoitusten lataus valmis: %s."
+
+msgid "No audio files found in this directory."
+msgstr "Hakemistosta ei löytynyt äänitiedostoja."
+
+msgid "Also download lyrics for subdirectories?"
+msgstr "Ladataanko sanoitukset myös alihakemistoille?"
+
+msgid "Show lyrics fullscreen"
+msgstr "Näytä sanoitukset koko ruudussa"
+
+msgid "Show cover art fullscreen"
+msgstr "Näytä kansikuva koko ruudussa"
+
+msgid "No lyrics available."
+msgstr "Sanoituksia ei ole saatavilla."
+
+msgid "No cover art available."
+msgstr "Kansikuvaa ei ole saatavilla."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Säädä ajoitusta"
+
+msgid "Download cover art"
+msgstr "Lataa kansikuva"
+
+msgid "Download cover art?"
+msgstr "Ladataanko kansikuva?"
+
+msgid "Also download cover art for subdirectories?"
+msgstr "Ladataanko kansikuva myös alihakemistoille?"
+
+msgid "Downloading cover art, please wait..."
+msgstr "Ladataan kansikuvaa, odota hetki..."
+
+msgid "Cover art downloaded."
+msgstr "Kansikuva ladattu."
+
+msgid "This album already has cover art -- nothing downloaded."
+msgstr "Tällä albumilla on jo kansikuva -- mitään ei ladattu."
+
+msgid "No matching cover art found."
+msgstr "Sopivaa kansikuvaa ei löytynyt."
+
+msgid "Missing artist/album tags -- can't search for cover art."
+msgstr "Esittäjä- tai albumitiedot puuttuvat -- kansikuvahakua ei voi tehdä."
+
+msgid "Cover art download failed. Check your network connection."
+msgstr "Kansikuvan lataus epäonnistui. Tarkista verkkoyhteys."
+
+msgid "saved"
+msgstr "ladattu"
+
+msgid "already had cover art"
+msgstr "oli jo kansikuva"
+
+msgid "Cover art download finished: %s."
+msgstr "Kansikuvan lataus valmis: %s."
+
+msgid "MusicBrainz is temporarily busy. Try again in a moment."
+msgstr "MusicBrainz on tilapäisesti ruuhkautunut. Yritä hetken päästä uudestaan."
+
+msgid "temporarily busy, try again shortly"
+msgstr "tilapäisesti ruuhkautunut, yritä pian uudestaan"
+
+msgid "LRCLIB is temporarily busy. Try again in a moment."
+msgstr "LRCLIB on tilapäisesti ruuhkautunut. Yritä hetken päästä uudestaan."
+
+msgid "Download all"
+msgstr "Lataa kaikki"
+
+msgid "Download synced lyrics only (LRC)"
+msgstr "Lataa vain synkronoidut (LRC)"
+
+msgid "Download plain text lyrics only (TXT)"
+msgstr "Lataa vain tekstimuotoiset (TXT)"
+
+msgid "Return to start of playlist"
+msgstr "Palaa alkuun"
+
+msgid "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+msgstr "Tiedostoselain näyttää oletuksena tämän hakemiston sisällön. Valitaan tiedostoselaimella OK-napilla."
+
+msgid "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+msgstr "Musiikkikirjasto luodaan tämän hakemiston alla olevista musiikkitiedostoista. Valitaan tiedostoselaimella OK-napilla."
+
+msgid "Whether the file Browser also shows hidden files (default: no)."
+msgstr "Näytetäänkö tiedostoselaimessa myös piilotiedostot (oletuksena: ei)."
+
+msgid "Lets you launch the program directly from the main menu. (Default: no)"
+msgstr "Saat käynnistettyä ohjelman suoraan päävalikosta. (Oletuksena ei)"
+
+msgid "Interface language (default: System)."
+msgstr "Käyttöliittymän kieli (Oletuksena järjestelmä)."
+
+msgid "The program's appearance (default: Light)."
+msgstr "Ohjelman ulkoasu (Oletuksena Light)."
+
+msgid "When the playlist ends, start playing it again from the beginning (default: no)."
+msgstr "Soittolistan loputtua jatka uudelleen soittolistan alusta (Oletuksena: Ei)."
+
+msgid "Play the next track in the playlist once the previous one has finished (default: yes)."
+msgstr "Soita soittolistan seuraava kappale, kun edellinen on loppunut. (Oletuksena: Kyllä)"
+
+msgid "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+msgstr "Soitettaessa kelaus hyppää tämän verran kun painaa kelaus- tai sivunuolinappia (Oletus: 30)"
+
+msgid "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+msgstr "Jos haluat muuttaa sanoitusten vierimisen ajoitusta, niin ylös/alas -napilla ajoitus muuttuu tämän verran kerralla."
+
+msgid "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+msgstr "Tällä selvitetään radiokanavien, podcastien ja paikallisen musiikin bittivirtatietoja ja havaitaan, jos streamissa on yhteensopivuusongelmia."
+
+msgid "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "Tämä alue näkyy internetradion kieliluettelossa 1. sijalla (Oletus: ei mikään.) Valinta tehdään Internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "Tämä kieli näkyy internetradion alueluettelossa 1. sijalla (Oletus: ei mitään) Valinta tehdään internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0)."
+msgstr "Radiobrowser tietokannassa voi olla paljon kanavia. Tällä voi rajoittaa hakua, jotta oma tietokanta pysyy pienenä. (Oletus= 0)"
+
+msgid "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+msgstr "Vaikka rajoitat tietokantaa, niin voit silti hakea kaikki käytössä olevan kielen kanavat. (Oletus= Kyllä)"
+
+msgid "At most this many stations are kept in the history list (default: 20)."
+msgstr "Historialistaan Tallennetaan enintään tämän verran kanavia. (Oletus= 20)"
+
+msgid "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+msgstr "Jos on kyllä, niin ohjelman käynnistys lähtee suoraan toistamaan edellistä radiokanavaa. (Oletus= ei)"
+
+msgid "May help some radio stations play correctly (default: no)."
+msgstr "Voi auttaa joidenkin radiokanavien toimivuuteen. (Oletus= ei)"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+msgstr "Jos haluat käyttää radio epg ylen kanavilla, niin laita tähän app_id osoitteesta https://developer.yle.fi/"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+msgstr "Jos haluat käyttää radio epg ylen kanavilla, niin laita tähän app_key osoitteesta https://developer.yle.fi/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+msgstr "Jos haluat hakea podcasteja podcastindex -palvelusta, niin laita tähän avain osoitteesta https://api.podcastindex.org/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+msgstr "Jos haluat hakea podcasteja podcastindex -palvelusta, niin laita tähän salaisuus osoitteesta https://api.podcastindex.org/"
+
+msgid "(Default: yes)"
+msgstr "(Oletus: Kyllä)"
+
+msgid "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+msgstr "Jos Haluat selvittää ohjelman toimintaa ja virheitä syvällisemmin, niin valitse verbose"
+
+msgid "Set as startup directory"
+msgstr "Aseta oletushakemistoksi"
+
+msgid "Set as Music Library directory"
+msgstr "Aseta musiikkikirjaston hakemistoksi"
+
+msgid "{0} set to: {1}"
+msgstr "{0} asetettu: {1}"
+
+msgid "Set as Radio default language"
+msgstr "Aseta radion oletuskieleksi"
+
+msgid "Set as Radio default country"
+msgstr "Aseta radion oletusalueeksi"
+
+msgid "{0}: {1}?"
+msgstr "{0}: {1}?"
+
+msgid "Yes"
+msgstr "Kyllä"
+
+msgid "No"
+msgstr "Ei"
+
+msgid "Clear Radio default language"
+msgstr "Tyhjennä radion oletuskieli"
+
+msgid "Clear Radio default country"
+msgstr "Tyhjennä radion oletusalue"

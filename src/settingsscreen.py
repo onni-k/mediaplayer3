@@ -198,6 +198,7 @@ from Components.Pixmap import Pixmap
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 
+from .browserscreen import BrowserScreen
 from .compatibility import compatibility
 from .help_manager import help_manager
 from .help_screen import HelpScreen
@@ -206,7 +207,8 @@ from .internetradio_manager import internetradio_manager
 from .localization import _, localization_manager
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import ensure_trailing_slash, SKIN_PATH
+from .radiobrowserscreen import RadioBrowserScreen
+from .paths import SKIN_PATH
 from .skin import skin_manager, to_opaque_skin_color
 
 # Device test round 59 -- background-image variant/tier system, a
@@ -320,9 +322,15 @@ class SettingsScreen(Screen, ConfigListScreen):
                 backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Settings">
 
+            <!-- Round 96: same zPosition fix as MainMenu/
+                 LyricsFullscreenScreen's own round 95/96 fix for a
+                 title flashing then hiding behind this background
+                 once its own async decode completes; explicit,
+                 permanent z-order pin, immune to decode timing. -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <widget name="header_title"
@@ -480,6 +488,19 @@ class SettingsScreen(Screen, ConfigListScreen):
 
         self._updateSettingInfo()
 
+        # Round 103, per direct request (info text reportedly still
+        # not visible on open, even after investigating the code
+        # itself last round and finding nothing wrong with it): the
+        # __init__-time call above runs before Enigma2 has actually
+        # attached this screen's own widgets to the screen ("config"
+        # widget's own getCurrent() isn't reliable yet at this point
+        # in the lifecycle) -- same class of timing issue MainScreen's
+        # own onShown.append(self._onShown) already exists to handle.
+        # Re-running it once the screen is actually shown covers the
+        # case where the __init__-time call silently got nothing
+        # useful back.
+        self.onShown.append(self._updateSettingInfo)
+
         self._initialized = True
 
         self._log("Ready")
@@ -523,17 +544,10 @@ class SettingsScreen(Screen, ConfigListScreen):
             # future one nobody has added a translation for yet.
             getConfigListEntry("Language", cfg.general.language),
             getConfigListEntry(_("Skin"), cfg.appearance.skin),
-            getConfigListEntry(_("Theme"), cfg.appearance.theme),
         ]
 
-        if cfg.appearance.theme.value == "custom":
-
-            entries.append(
-                getConfigListEntry(_("Custom background color"), cfg.appearance.custom_background_color)
-            )
-
         entries += [
-            getConfigListEntry(_("Resume playback (future)"), cfg.playback.resume_playback),
+            getConfigListEntry(_("Return to start of playlist"), cfg.playback.loop_playlist),
             getConfigListEntry(_("Automatically play next track"), cfg.playback.auto_play_next),
             getConfigListEntry(_("Seek step (seconds)"), cfg.playback.seek_step_seconds),
             getConfigListEntry(_("Lyrics offset step (seconds)"), cfg.playback.lyrics_offset_step_seconds),
@@ -542,7 +556,6 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry(_("Radio default language"), cfg.radio.default_language),
             getConfigListEntry(_("Radio station limit (0 = unlimited)"), cfg.radio.search_limit),
             getConfigListEntry(_("Unlimited results for own language"), cfg.radio.unlimited_for_own_language),
-            getConfigListEntry(_("Radio navigation mode"), cfg.radio.navigation_mode),
             getConfigListEntry(_("Radio history size"), cfg.radio.history_size),
             getConfigListEntry(_("Resume radio station on start"), cfg.radio.resume_on_start),
             getConfigListEntry(
@@ -554,10 +567,6 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry(_("Yle EPG app_key"), cfg.epg.yle_app_key),
             getConfigListEntry(_("Podcast Index API key"), cfg.podcast.podcastindex_api_key),
             getConfigListEntry(_("Podcast Index API secret"), cfg.podcast.podcastindex_api_secret),
-            getConfigListEntry(_("Show progress bar"), cfg.ui.show_progress_bar),
-            getConfigListEntry(_("Show elapsed time"), cfg.ui.show_elapsed_time),
-            getConfigListEntry(_("Show remaining time"), cfg.ui.show_remaining_time),
-            getConfigListEntry(_("Show playback state"), cfg.ui.show_playback_state),
             getConfigListEntry(_("Log station codec info (Internet Radio)"), cfg.logging.log_station_codecs),
             getConfigListEntry(_("Logging level"), cfg.logging.developer_level),
         ]
@@ -578,37 +587,76 @@ class SettingsScreen(Screen, ConfigListScreen):
     # "(installed)"/"(NOT installed)" suffix appended at build time,
     # so it's matched by prefix instead of exact equality below.
     _SETTING_DESCRIPTIONS = {
-        _("Startup directory"): _("Folder the file Browser opens in by default."),
-        _("Music Library directory"): _("Folder scanned for the Music Library."),
-        _("Hidden files"): _("Show files and folders starting with a dot."),
-        _("Show in main menu (restart required)"): _("Add MediaPlayer3 to the main menu."),
-        "Language": _("Interface language."),
-        _("Skin"): _("Light or dark background style for the redesigned screens."),
-        _("Theme"): _("Colour theme for screens not yet using the new skin."),
-        _("Custom background color"): _("Background colour used when Theme is set to Custom."),
-        _("Resume playback (future)"): _("Resume the last track on startup (not yet implemented)."),
-        _("Automatically play next track"): _("Play the next track when one finishes."),
-        _("Seek step (seconds)"): _("How far each seek key press moves playback."),
-        _("Lyrics offset step (seconds)"): _("How far each lyrics-offset key press shifts timing."),
-        _("Use ffprobe for codec info"): _("Detect the real codec/bitrate instead of guessing from the file extension."),
-        _("Radio default country"): _("Country filter Internet Radio starts with."),
-        _("Radio default language"): _("Language filter Internet Radio starts with."),
-        _("Radio station limit (0 = unlimited)"): _("Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."),
-        _("Unlimited results for own language"): _("Ignore the result limit when the Language filter matches your own app language."),
-        _("Radio navigation mode"): _("Whether CH+/CH- browses favourites or history."),
-        _("Radio history size"): _("How many recently played stations to remember."),
-        _("Resume radio station on start"): _("Reopen the last playing station automatically."),
-        _("Use ExtEplayer3 for radio"): _("Use the ExtEplayer3 backend for Internet Radio playback."),
-        _("Yle EPG app_id"): _("API app_id for Yle radio programme data."),
-        _("Yle EPG app_key"): _("API app_key for Yle radio programme data."),
-        _("Podcast Index API key"): _("API key for searching podcasts."),
-        _("Podcast Index API secret"): _("API secret for searching podcasts."),
-        _("Show progress bar"): _("Show the playback progress bar on the Player screen."),
-        _("Show elapsed time"): _("Show elapsed time on the Player screen."),
-        _("Show remaining time"): _("Show remaining time on the Player screen."),
-        _("Show playback state"): _("Show Playing/Paused status on the Player screen."),
-        _("Log station codec info (Internet Radio)"): _("Write detected station codec info to the log."),
-        _("Logging level"): _("How much detail is written to the log file."),
+        _("Startup directory"): _(
+            "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+        ),
+        _("Music Library directory"): _(
+            "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+        ),
+        _("Hidden files"): _("Whether the file Browser also shows hidden files (default: no)."),
+        _("Show in main menu (restart required)"): _(
+            "Lets you launch the program directly from the main menu. (Default: no)"
+        ),
+        "Language": _("Interface language (default: System)."),
+        _("Skin"): _("The program's appearance (default: Light)."),
+        _("Return to start of playlist"): _(
+            "When the playlist ends, start playing it again from the beginning (default: no)."
+        ),
+        _("Automatically play next track"): _(
+            "Play the next track in the playlist once the previous one has finished (default: yes)."
+        ),
+        _("Seek step (seconds)"): _(
+            "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+        ),
+        _("Lyrics offset step (seconds)"): _(
+            "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this "
+            "much each press."
+        ),
+        _("Use ffprobe for codec info"): _(
+            "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility "
+            "issues in a stream."
+        ),
+        _("Radio default country"): _(
+            "This region shows first in Internet Radio's own language list (default: none). Set from the Internet "
+            "Radio screen by selecting a region and pressing OK."
+        ),
+        _("Radio default language"): _(
+            "This language shows first in Internet Radio's own region list (default: none). Set from the Internet "
+            "Radio screen by selecting a language and pressing OK."
+        ),
+        _("Radio station limit (0 = unlimited)"): _(
+            "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own "
+            "database small (default: 0)."
+        ),
+        _("Unlimited results for own language"): _(
+            "Even while limiting the database, you can still search for all stations in your own current language "
+            "(default: yes)."
+        ),
+        _("Radio history size"): _("At most this many stations are kept in the history list (default: 20)."),
+        _("Resume radio station on start"): _(
+            "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+        ),
+        _("Use ExtEplayer3 for radio"): _(
+            "May help some radio stations play correctly (default: no)."
+        ),
+        _("Yle EPG app_id"): _(
+            "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+        ),
+        _("Yle EPG app_key"): _(
+            "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+        ),
+        _("Podcast Index API key"): _(
+            "If you want to search podcasts from the Podcast Index service, put your key here, from "
+            "https://api.podcastindex.org/"
+        ),
+        _("Podcast Index API secret"): _(
+            "If you want to search podcasts from the Podcast Index service, put your secret here, from "
+            "https://api.podcastindex.org/"
+        ),
+        _("Log station codec info (Internet Radio)"): _("(Default: yes)"),
+        _("Logging level"): _(
+            "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+        ),
     }
 
     def _updateSettingInfo(self) -> None:
@@ -722,6 +770,20 @@ class SettingsScreen(Screen, ConfigListScreen):
 
         logger.verbose("[SettingsScreen] LEFT pressed.")
 
+        # Round 100, per direct request (still seeing the virtual
+        # keyboard despite round 99's own number-key block): LEFT/
+        # RIGHT on a plain ConfigText both enter Enigma2's own default
+        # inline text-edit too, the same as a number key did before --
+        # just a different trigger for the exact same underlying
+        # problem round 99 already root-caused (these two fields are
+        # browse-only, never meant to be typed at all). Guarded here
+        # the same way keyNumberGlobal() already is.
+        if self._directoryPickerTarget() is not None:
+
+            logger.verbose("[SettingsScreen] Ignored LEFT on a browse-only directory field.")
+
+            return
+
         ConfigListScreen.keyLeft(self)
 
         self._afterChange()
@@ -731,6 +793,12 @@ class SettingsScreen(Screen, ConfigListScreen):
     def keyRight(self) -> None:
 
         logger.verbose("[SettingsScreen] RIGHT pressed.")
+
+        if self._directoryPickerTarget() is not None:
+
+            logger.verbose("[SettingsScreen] Ignored RIGHT on a browse-only directory field.")
+
+            return
 
         ConfigListScreen.keyRight(self)
 
@@ -758,6 +826,23 @@ class SettingsScreen(Screen, ConfigListScreen):
 
             return
 
+        # Round 104, per direct request: Radio's own default country/
+        # language rows now open Internet Radio itself instead of
+        # doing nothing useful here -- the actual setting only ever
+        # happens there anyway (round 100's own "Set as Radio default
+        # language/country" on the Language/Region panel), so Settings
+        # just navigates to where that's actually done, the same way
+        # it already navigates to a directory browser for the two
+        # directory fields above rather than trying to replicate that
+        # picker inline.
+        if self._isRadioDefaultTarget():
+
+            self._log("Opening Internet Radio to set the Radio default there.")
+
+            self.session.open(RadioBrowserScreen, None)
+
+            return
+
         current = self.getCurrentEntry()
 
         previous_value = self.getCurrentValue()
@@ -771,6 +856,34 @@ class SettingsScreen(Screen, ConfigListScreen):
             self._log(f"Previous value: {previous_value}")
 
         self._afterChange()
+
+    # ------------------------------------------------------------------
+
+    def keyNumberGlobal(self, number) -> None:
+        """
+        Round 98, per direct request -- a device log's own full
+        stack-trace dump at hang time proved a number key pressed
+        directly on the Startup/Music Library directory entry hung
+        the whole receiver: Enigma2's own ConfigListScreen routes
+        digit keys straight to the focused ConfigText's own inline
+        text-edit (bypassing keyOK() above entirely), which let an
+        arbitrary, invalid value get typed in; _openDirectoryPicker()
+        then hung inside LocationBox's own directory resolution when
+        given that corrupted value later. That call site is now
+        defensively validated too (falls back to a safe default
+        directory instead of ever hanging again), but the real fix is
+        here: these two fields are meant to be set only via the
+        directory browser ("Valitaan tiedostoselaimella OK-napilla"),
+        never typed, so digit keys are simply ignored on them.
+        """
+
+        if self._directoryPickerTarget() is not None:
+
+            logger.verbose("[SettingsScreen] Ignored a number key on a browse-only directory field.")
+
+            return
+
+        ConfigListScreen.keyNumberGlobal(self, number)
 
     # ------------------------------------------------------------------
 
@@ -800,6 +913,33 @@ class SettingsScreen(Screen, ConfigListScreen):
             logger.verbose(f"[SettingsScreen] Unable to check current entry: {error}")
 
             return None
+
+    # ------------------------------------------------------------------
+
+    def _isRadioDefaultTarget(self) -> bool:
+        """
+        Round 104 -- whether the currently selected entry is Radio
+        default country/language, mirroring _directoryPickerTarget()'s
+        own shape (same try/except-guarded getCurrent() lookup) but
+        returning a plain bool, since keyOK() only needs to know
+        whether to navigate away, not which of the two it is.
+        """
+
+        try:
+            current = self["config"].getCurrent()
+
+            if current is None or len(current) <= 1:
+                return False
+
+            element = current[1]
+
+            return element is cfg.radio.default_country or element is cfg.radio.default_language
+
+        except Exception as error:
+
+            logger.verbose(f"[SettingsScreen] Unable to check current entry: {error}")
+
+            return False
 
     # ------------------------------------------------------------------
 
@@ -870,46 +1010,43 @@ class SettingsScreen(Screen, ConfigListScreen):
     # ------------------------------------------------------------------
 
     def _openDirectoryPicker(self, target_config) -> None:
+        """
+        Round 99, per direct request: opens this project's own
+        BrowserScreen (as a plain directory picker -- playback_
+        controller=None, see that screen's own round-99 docstring)
+        instead of Enigma2's stock LocationBox, so the user picks the
+        directory with the exact same file browser used everywhere
+        else in the app, and confirms it via "Set as startup
+        directory"/"Set as Music Library directory" in that screen's
+        own directory OK menu -- which writes straight to config_
+        manager itself, so there's no path to hand back here; this
+        screen only needs to refresh its own list on return in case
+        the value changed (_directoryPickerClosed()).
 
-        try:
-            from Screens.LocationBox import LocationBox
-
-        except ImportError as error:
-
-            self._log(f"Directory browser unavailable: {error}")
-
-            return
-
-        self._directory_picker_target = target_config
-
-        current_directory = ensure_trailing_slash(target_config.value)
+        Round 98's own defensive validation (falling back to
+        default_media_directory() for a corrupted stored value) is
+        kept for LocationBox's sake in case a future round ever needs
+        it again, but BrowserScreen itself never receives that value
+        at all -- it opens at its own default starting directory,
+        independent of whatever the current (possibly still invalid,
+        pre-round-98) config value is.
+        """
 
         label = _("Startup directory") if target_config is cfg.general.startup_directory else _("Music Library directory")
 
-        self._log(f"Opening directory browser for {label}.")
+        self._log(f"Opening Browser as a directory picker for {label}.")
 
         self.session.openWithCallback(
-            self._directoryPicked,
-            LocationBox,
-            text=_("Browse to the desired directory, then press GREEN to set it as the {0}").format(label),
-            currDir=current_directory,
+            self._directoryPickerClosed,
+            BrowserScreen,
+            None,
         )
 
     # ------------------------------------------------------------------
 
-    def _directoryPicked(self, path=None) -> None:
+    def _directoryPickerClosed(self, *args) -> None:
 
-        if not path:
-
-            self._log("Directory browser closed without a selection.")
-
-            return
-
-        path = ensure_trailing_slash(path)
-
-        self._directory_picker_target.value = path
-
-        self._log(f"Startup directory changed via browser: {path}")
+        self._log("Directory picker (Browser) closed, refreshing settings list.")
 
         self._buildList()
 

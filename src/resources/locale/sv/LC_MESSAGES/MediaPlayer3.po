@@ -1,0 +1,1059 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Ready"
+msgstr "Redo"
+
+msgid "No media selected"
+msgstr "Inget media valt"
+
+msgid "Unknown Artist"
+msgstr "Okänd artist"
+
+msgid "Unknown Album"
+msgstr "Okänt album"
+
+msgid "Unknown"
+msgstr "Okänd"
+
+msgid "Playback failed"
+msgstr "Uppspelning misslyckades"
+
+msgid "Seek failed"
+msgstr "Sökning misslyckades"
+
+msgid "No next track"
+msgstr "Inget nästa spår"
+
+msgid "Already at first track"
+msgstr "Redan vid första spåret"
+
+msgid "Browser"
+msgstr "Filhanterare"
+
+msgid "Playback Information"
+msgstr "Uppspelningsinformation"
+
+msgid "Settings"
+msgstr "Inställningar"
+
+msgid "Developer Tools"
+msgstr "Utvecklarverktyg"
+
+msgid "About"
+msgstr "Om"
+
+msgid "Exit"
+msgstr "Avsluta"
+
+msgid "General"
+msgstr "Allmänt"
+
+msgid "Playback"
+msgstr "Uppspelning"
+
+msgid "Logging"
+msgstr "Loggning"
+
+msgid "Developer"
+msgstr "Utvecklare"
+
+msgid "User Interface"
+msgstr "Användargränssnitt"
+
+msgid "OK: Select   MENU/EXIT: Close"
+msgstr "OK: Välj   MENU/EXIT: Stäng"
+
+msgid "Select a file to play"
+msgstr "Välj en fil att spela upp"
+
+msgid "Track"
+msgstr "Spår"
+
+msgid "Pause failed"
+msgstr "Pausning misslyckades"
+
+msgid "Stop failed"
+msgstr "Stopp misslyckades"
+
+msgid "Resume failed"
+msgstr "Återupptagning misslyckades"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the startup directory"
+msgstr "Bläddra till önskad mapp och tryck sedan på GRÖN för att ange den som startmapp"
+
+msgid "Playlists"
+msgstr "Spellistor"
+
+msgid "Internet Radio"
+msgstr "Internetradio"
+
+msgid "Tracks"
+msgstr "Spår"
+
+msgid "Stations"
+msgstr "Stationer"
+
+msgid "Region"
+msgstr "Region"
+
+msgid "Delete"
+msgstr "Ta bort"
+
+msgid "Exported"
+msgstr "Exporterad"
+
+msgid "Create New"
+msgstr "Skapa ny"
+
+msgid "Playlist already exists"
+msgstr "Spellistan finns redan"
+
+msgid "Create playlist"
+msgstr "Skapa spellista"
+
+msgid "Empty Playlist"
+msgstr "Tom spellista"
+
+msgid "New playlist name"
+msgstr "Nytt spellistenamn"
+
+msgid "New favorite list name"
+msgstr "Nytt namn på favoritlista"
+
+msgid "Select playlist"
+msgstr "Välj spellista"
+
+msgid "Select favorite list"
+msgstr "Välj favoritlista"
+
+msgid "Search stations by name"
+msgstr "Sök stationer efter namn"
+
+msgid "Codec"
+msgstr "Kodek"
+
+msgid "Bitrate"
+msgstr "Bithastighet"
+
+msgid "Country"
+msgstr "Land"
+
+msgid "Language"
+msgstr "Språk"
+
+msgid "Tags"
+msgstr "Taggar"
+
+msgid "Homepage"
+msgstr "Webbplats"
+
+msgid "Any"
+msgstr "Alla"
+
+msgid "Path"
+msgstr "Sökväg"
+
+msgid "Type"
+msgstr "Typ"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Cancel"
+msgstr "Avbryt"
+
+msgid "Information"
+msgstr "Information"
+
+msgid "Play"
+msgstr "Spela"
+
+msgid "Remove from Playlist"
+msgstr "Ta bort från spellista"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+msgstr "VÄNSTER/HÖGER: Panel   UPP/NER: Flytta   OK: Alternativ   MENU: Meny   EXIT: Tillbaka"
+
+msgid "Local Music"
+msgstr "Lokal musik"
+
+msgid "What would you like to open?"
+msgstr "Vad vill du öppna?"
+
+msgid "Searching for stations, please wait..."
+msgstr "Söker efter stationer, vänta..."
+
+msgid "Found {0} stations"
+msgstr "Hittade {0} stationer"
+
+msgid "Add all files from directory"
+msgstr "Lägg till alla filer från mappen"
+
+msgid "Add entire directory to playlist"
+msgstr "Lägg till hela mappen i spellistan"
+
+msgid "Add this file"
+msgstr "Lägg till denna fil"
+
+msgid "Add this file and remaining files in directory"
+msgstr "Lägg till denna fil och återstående filer i mappen"
+
+msgid "Add to Favorites"
+msgstr "Lägg till i favoriter"
+
+msgid "Add to playlist"
+msgstr "Lägg till i spellista"
+
+msgid "Added %d tracks to playlist: %s"
+msgstr "Lade till %d spår i spellistan: %s"
+
+msgid "Added to playlist: %s"
+msgstr "Tillagd i spellistan: %s"
+
+msgid "Album"
+msgstr "Album"
+
+msgid "Albums"
+msgstr "Album"
+
+msgid "Already subscribed"
+msgstr "Redan prenumererad"
+
+msgid "Artist"
+msgstr "Artist"
+
+msgid "Artists"
+msgstr "Artister"
+
+msgid "Available Podcasts"
+msgstr "Tillgängliga poddar"
+
+msgid "Back"
+msgstr "Tillbaka"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the {0}"
+msgstr "Bläddra till önskad mapp och tryck sedan på GRÖN för att ange den som {0}"
+
+msgid "Channels"
+msgstr "Kanaler"
+
+msgid "Clear Internet Radio listening history?"
+msgstr "Rensa internetradions lyssningshistorik?"
+
+msgid "Composer"
+msgstr "Kompositör"
+
+msgid "Create Favorite List"
+msgstr "Skapa favoritlista"
+
+msgid "Create new playlist..."
+msgstr "Skapa ny spellista..."
+
+msgid "Directories"
+msgstr "Mappar"
+
+msgid "Directory not available."
+msgstr "Mappen är inte tillgänglig."
+
+msgid "Episodes"
+msgstr "Avsnitt"
+
+msgid "Export"
+msgstr "Exportera"
+
+msgid "Files"
+msgstr "Filer"
+
+msgid "Genre"
+msgstr "Genre"
+
+msgid "Help"
+msgstr "Hjälp"
+
+msgid "History"
+msgstr "Historik"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VÄNSTER/HÖGER: Panel   UPP/NER: Flytta   CH+/CH-: Sida   OK: Alternativ   INFO: Sök   MENU: Meny   EXIT: Tillbaka"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VÄNSTER/HÖGER: Panel   UPP/NER: Flytta   OK: Spela   INFO: Sök   MENU: Meny   EXIT: Tillbaka"
+
+msgid "Loading library, please wait..."
+msgstr "Läser in biblioteket, vänta..."
+
+msgid "Lyrics not available."
+msgstr "Sångtext ej tillgänglig."
+
+msgid "Main Menu"
+msgstr "Huvudmeny"
+
+msgid "MediaPlayer3 could not start:\n%s"
+msgstr "MediaPlayer3 kunde inte starta:\n%s"
+
+msgid "Metadata"
+msgstr "Metadata"
+
+msgid "Move Down"
+msgstr "Flytta ner"
+
+msgid "Move Up"
+msgstr "Flytta upp"
+
+msgid "Move down"
+msgstr "Flytta ner"
+
+msgid "Move up"
+msgstr "Flytta upp"
+
+msgid "Music Library"
+msgstr "Musikbibliotek"
+
+msgid "Music Library directory"
+msgstr "Musikbibliotekets mapp"
+
+msgid "No help available."
+msgstr "Ingen hjälp tillgänglig."
+
+msgid "No information available."
+msgstr "Ingen information tillgänglig."
+
+msgid "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+msgstr "Inget musikbibliotek tillgängligt.\n\nAnvänd Uppdatera bibliotek i menyn\nefter att ha lagt till musikfiler."
+
+msgid "No playable files found."
+msgstr "Inga spelbara filer hittades."
+
+msgid "No playlist selected."
+msgstr "Ingen spellista vald."
+
+msgid "No podcasts found for \"%s\"."
+msgstr "Inga poddar hittades för \"%s\"."
+
+msgid "Nothing was added."
+msgstr "Inget lades till."
+
+msgid "Now"
+msgstr "Nu"
+
+msgid "Now Playing"
+msgstr "Spelas nu"
+
+msgid "Now playing information not available."
+msgstr "Information om vad som spelas nu är inte tillgänglig."
+
+msgid "Open directory"
+msgstr "Öppna mapp"
+
+msgid "Open podcast"
+msgstr "Öppna podd"
+
+msgid "Player"
+msgstr "Spelare"
+
+msgid "Playlist"
+msgstr "Spellista"
+
+msgid "Playlist: %s"
+msgstr "Spellista: %s"
+
+msgid "Podcast"
+msgstr "Podd"
+
+msgid "Radio EPG"
+msgstr "Radio-EPG"
+
+msgid "Refresh"
+msgstr "Uppdatera"
+
+msgid "Refresh failed -- keeping previous information."
+msgstr "Uppdatering misslyckades -- behåller tidigare information."
+
+msgid "Refreshing..."
+msgstr "Uppdaterar..."
+
+msgid "Remove"
+msgstr "Ta bort"
+
+msgid "Rename"
+msgstr "Byt namn"
+
+msgid "Resume"
+msgstr "Återuppta"
+
+msgid "Sample rate"
+msgstr "Samplingsfrekvens"
+
+msgid "Search podcasts"
+msgstr "Sök poddar"
+
+msgid "Search the music library"
+msgstr "Sök i musikbiblioteket"
+
+msgid "Search: %s"
+msgstr "Sök: %s"
+
+msgid "Search: {0} ({1} results)"
+msgstr "Sök: {0} ({1} resultat)"
+
+msgid "Searching..."
+msgstr "Söker..."
+
+msgid "Startup directory"
+msgstr "Startmapp"
+
+msgid "Station"
+msgstr "Station"
+
+msgid "Station Information"
+msgstr "Stationsinformation"
+
+msgid "Stop"
+msgstr "Stopp"
+
+msgid "Subscribe"
+msgstr "Prenumerera"
+
+msgid "Subscribed Podcasts"
+msgstr "Prenumererade poddar"
+
+msgid "This episode has no playable audio."
+msgstr "Detta avsnitt har inget spelbart ljud."
+
+msgid "Title"
+msgstr "Titel"
+
+msgid "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+msgstr "UPP/NER: Rulla   VÄNSTER/HÖGER: Sida   HELP/EXIT: Stäng"
+
+msgid "Unable to add to playlist."
+msgstr "Det gick inte att lägga till i spellistan."
+
+msgid "Unable to play selected track"
+msgstr "Det gick inte att spela valt spår"
+
+msgid "Unable to subscribe."
+msgstr "Det gick inte att prenumerera."
+
+msgid "Unknown Genre"
+msgstr "Okänd genre"
+
+msgid "Unknown Year"
+msgstr "Okänt år"
+
+msgid "Unsubscribe"
+msgstr "Avsluta prenumeration"
+
+msgid "Update Library"
+msgstr "Uppdatera bibliotek"
+
+msgid "Year"
+msgstr "År"
+
+msgid "album(s)"
+msgstr "album"
+
+msgid "computed: size/duration"
+msgstr "beräknad: storlek/längd"
+
+msgid "from file extension"
+msgstr "från filändelse"
+
+msgid "station info"
+msgstr "stationsinfo"
+
+msgid "track(s)"
+msgstr "spår"
+
+msgid "Podcasts"
+msgstr "Poddar"
+
+msgid "Lyrics"
+msgstr "Sångtext"
+
+msgid "Lyrics LRC"
+msgstr "Sångtext LRC"
+
+msgid "Lyrics Embedded"
+msgstr "Sångtext inbäddad"
+
+msgid "Lyrics TXT"
+msgstr "Sångtext TXT"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VÄNSTER/HÖGER: Kolumn   UPP/NER: Flytta   OK: Åtgärder   PLAY: Spela   INFO: Välj spellista   HELP: Hjälp   MENU: Meny   EXIT: Tillbaka"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VÄNSTER/HÖGER: Kolumn   UPP/NER: Flytta   OK: Åtgärder   INFO: Sök   HELP: Hjälp   MENU: Meny   EXIT: Tillbaka"
+
+msgid "Clear the local station database?"
+msgstr "Rensa den lokala stationsdatabasen?"
+
+msgid "Downloading station database, please wait..."
+msgstr "Laddar ner stationsdatabas, vänta..."
+
+msgid "No stations available yet. Download the station database now?"
+msgstr "Inga stationer tillgängliga ännu. Ladda ner stationsdatabasen nu?"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Redigera   VÄNSTER/HÖGER: Ändra   GUL: Rensa radiohistorik   RÖD: Uppdatera stationsdatabas   BLÅ: Rensa stationslista   MENU: Meny   EXIT: Spara & tillbaka"
+
+msgid "Station database updated: %d station(s)."
+msgstr "Stationsdatabasen uppdaterad: %d stationer."
+
+msgid "Station list cleared."
+msgstr "Stationslistan rensad."
+
+msgid "Update failed -- keeping existing database (%d station(s))."
+msgstr "Uppdatering misslyckades -- behåller befintlig databas (%d stationer)."
+
+msgid "Update failed. No station data available."
+msgstr "Uppdatering misslyckades. Ingen stationsdata tillgänglig."
+
+msgid "Updating station database, please wait..."
+msgstr "Uppdaterar stationsdatabas, vänta..."
+
+msgid "Clear history"
+msgstr "Rensa historik"
+
+msgid "Clear station list"
+msgstr "Rensa stationslista"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Redigera   VÄNSTER/HÖGER: Ändra   GUL: Rensa radiohistorik   MENU: Meny   EXIT: Spara & tillbaka"
+
+msgid "Remove from playlist"
+msgstr "Ta bort från spellista"
+
+msgid "Removed from playlist: %s"
+msgstr "Borttagen från spellista: %s"
+
+msgid "Station not found in playlist: %s"
+msgstr "Stationen hittades inte i spellistan: %s"
+
+msgid "Unable to remove from playlist."
+msgstr "Det gick inte att ta bort från spellistan."
+
+msgid "Update stations"
+msgstr "Uppdatera stationer"
+
+msgid "Added to favorites: %s"
+msgstr "Tillagd i favoriter: %s"
+
+msgid "No favorite lists available."
+msgstr "Inga favoritlistor tillgängliga."
+
+msgid "Remove from Favorites"
+msgstr "Ta bort från favoriter"
+
+msgid "Removed from favorites: %s"
+msgstr "Borttagen från favoriter: %s"
+
+msgid "Station not found in favorites: %s"
+msgstr "Stationen hittades inte i favoriter: %s"
+
+msgid "Unable to add to favorites."
+msgstr "Det gick inte att lägga till i favoriter."
+
+msgid "Save failed: %s"
+msgstr "Det gick inte att spara: %s"
+
+msgid "measured"
+msgstr "uppmätt"
+
+msgid "Warning: this station may not work."
+msgstr "Varning: den här stationen kanske inte fungerar."
+
+msgid "Warning: this episode may not work."
+msgstr "Varning: det här avsnittet kanske inte fungerar."
+
+msgid " (NOT installed)"
+msgstr " (EJ installerad)"
+
+msgid " (installed)"
+msgstr " (installerad)"
+
+msgid "Automatically play next track"
+msgstr "Spela nästa spår automatiskt"
+
+msgid "Custom background color"
+msgstr "Anpassad bakgrundsfärg"
+
+msgid "Hidden files"
+msgstr "Dolda filer"
+
+msgid "Log station codec info (Internet Radio)"
+msgstr "Logga stationens kodekinformation (internetradio)"
+
+msgid "Logging level"
+msgstr "Loggnivå"
+
+msgid "Lyrics offset step (seconds)"
+msgstr "Sångtextens tidsförskjutningssteg (sekunder)"
+
+msgid "Podcast Index API key"
+msgstr "Podcast Index API-nyckel"
+
+msgid "Podcast Index API secret"
+msgstr "Podcast Index API-hemlighet"
+
+msgid "Radio default country"
+msgstr "Radions standardland"
+
+msgid "Radio default language"
+msgstr "Radions standardspråk"
+
+msgid "Radio history size"
+msgstr "Radiohistorikens storlek"
+
+msgid "Radio navigation mode"
+msgstr "Radions navigeringsläge"
+
+msgid "Resume playback (future)"
+msgstr "Återuppta uppspelning (kommande)"
+
+msgid "Resume radio station on start"
+msgstr "Återuppta radiostation vid start"
+
+msgid "Seek step (seconds)"
+msgstr "Sökningssteg (sekunder)"
+
+msgid "Show elapsed time"
+msgstr "Visa förfluten tid"
+
+msgid "Show in main menu (restart required)"
+msgstr "Visa i huvudmenyn (kräver omstart)"
+
+msgid "Show playback state"
+msgstr "Visa uppspelningsstatus"
+
+msgid "Show progress bar"
+msgstr "Visa förloppsindikator"
+
+msgid "Show remaining time"
+msgstr "Visa återstående tid"
+
+msgid "Skin"
+msgstr "Skin"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Use ExtEplayer3 for radio"
+msgstr "Använd ExtEplayer3 för radio"
+
+msgid "Use ffprobe for codec info"
+msgstr "Använd ffprobe för kodekinformation"
+
+msgid "Yle EPG app_id"
+msgstr "Yle-EPG app_id"
+
+msgid "Yle EPG app_key"
+msgstr "Yle-EPG app_key"
+
+msgid "LEFT/RIGHT: Panel"
+msgstr "VÄNSTER/HÖGER: Panel"
+
+msgid "UP/DOWN: Move"
+msgstr "UPP/NER: Flytta"
+
+msgid "OK: Play"
+msgstr "OK: Spela"
+
+msgid "INFO: Search"
+msgstr "INFO: Sök"
+
+msgid "MENU: Menu"
+msgstr "MENU: Meny"
+
+msgid "EXIT: Back"
+msgstr "EXIT: Tillbaka"
+
+msgid "CH+/CH-: Page"
+msgstr "CH+/CH-: Sida"
+
+msgid "OK: Options"
+msgstr "OK: Alternativ"
+
+msgid "LEFT/RIGHT: Column"
+msgstr "VÄNSTER/HÖGER: Kolumn"
+
+msgid "OK: Actions"
+msgstr "OK: Åtgärder"
+
+msgid "PLAY: Play"
+msgstr "PLAY: Spela"
+
+msgid "INFO: Select Playlist"
+msgstr "INFO: Välj spellista"
+
+msgid "HELP: Help"
+msgstr "HELP: Hjälp"
+
+msgid "No playlist selected"
+msgstr "Ingen spellista vald"
+
+msgid "Press EPG/INFO to search"
+msgstr "Tryck på EPG/INFO för att söka"
+
+msgid "%d station(s)"
+msgstr "%d stationer"
+
+msgid "OK: Edit"
+msgstr "OK: Redigera"
+
+msgid "LEFT/RIGHT: Change"
+msgstr "VÄNSTER/HÖGER: Ändra"
+
+msgid "YELLOW: Clear Radio History"
+msgstr "GUL: Rensa radiohistorik"
+
+msgid "EXIT: Save & Back"
+msgstr "EXIT: Spara & tillbaka"
+
+msgid "Folder the file Browser opens in by default."
+msgstr "Mappen som filhanteraren öppnar som standard."
+
+msgid "Folder scanned for the Music Library."
+msgstr "Mappen som skannas för musikbiblioteket."
+
+msgid "Show files and folders starting with a dot."
+msgstr "Visa filer och mappar som börjar med en punkt."
+
+msgid "Add MediaPlayer3 to the main menu."
+msgstr "Lägg till MediaPlayer3 i huvudmenyn."
+
+msgid "Interface language."
+msgstr "Gränssnittsspråk."
+
+msgid "Light or dark background style for the redesigned screens."
+msgstr "Ljus eller mörk bakgrundsstil för de omdesignade skärmarna."
+
+msgid "Colour theme for screens not yet using the new skin."
+msgstr "Färgtema för skärmar som ännu inte använder det nya utseendet."
+
+msgid "Background colour used when Theme is set to Custom."
+msgstr "Bakgrundsfärg som används när Tema är inställt på Anpassad."
+
+msgid "Resume the last track on startup (not yet implemented)."
+msgstr "Återuppta senaste spåret vid start (ännu inte implementerat)."
+
+msgid "Play the next track when one finishes."
+msgstr "Spela nästa spår när ett avslutas."
+
+msgid "How far each seek key press moves playback."
+msgstr "Hur långt varje tryck på sökningsknappen flyttar uppspelningen."
+
+msgid "How far each lyrics-offset key press shifts timing."
+msgstr "Hur mycket varje tryck på sångtextens tidsförskjutningsknapp ändrar tidsinställningen."
+
+msgid "Detect the real codec/bitrate instead of guessing from the file extension."
+msgstr "Identifiera den verkliga kodeken/bithastigheten istället för att gissa utifrån filändelsen."
+
+msgid "Country filter Internet Radio starts with."
+msgstr "Landsfilter som internetradio startar med."
+
+msgid "Language filter Internet Radio starts with."
+msgstr "Språkfilter som internetradio startar med."
+
+msgid "Whether CH+/CH- browses favourites or history."
+msgstr "Om CH+/CH- bläddrar i favoriter eller historik."
+
+msgid "How many recently played stations to remember."
+msgstr "Hur många nyligen spelade stationer som ska sparas."
+
+msgid "Reopen the last playing station automatically."
+msgstr "Öppna automatiskt den senast spelade stationen igen."
+
+msgid "Use the ExtEplayer3 backend for Internet Radio playback."
+msgstr "Använd ExtEplayer3-motorn för internetradio-uppspelning."
+
+msgid "API app_id for Yle radio programme data."
+msgstr "API app_id för Yles radioprogramdata."
+
+msgid "API app_key for Yle radio programme data."
+msgstr "API app_key för Yles radioprogramdata."
+
+msgid "API key for searching podcasts."
+msgstr "API-nyckel för att söka poddar."
+
+msgid "API secret for searching podcasts."
+msgstr "API-hemlighet för att söka poddar."
+
+msgid "Show the playback progress bar on the Player screen."
+msgstr "Visa uppspelningens förloppsindikator på spelarskärmen."
+
+msgid "Show elapsed time on the Player screen."
+msgstr "Visa förfluten tid på spelarskärmen."
+
+msgid "Show remaining time on the Player screen."
+msgstr "Visa återstående tid på spelarskärmen."
+
+msgid "Show Playing/Paused status on the Player screen."
+msgstr "Visa status Spelar/Pausad på spelarskärmen."
+
+msgid "Write detected station codec info to the log."
+msgstr "Skriv identifierad stationskodekinformation till loggen."
+
+msgid "How much detail is written to the log file."
+msgstr "Hur mycket detalj som skrivs till loggfilen."
+
+msgid "OK: Select"
+msgstr "OK: Välj"
+
+msgid "MENU/EXIT: Close"
+msgstr "MENU/EXIT: Stäng"
+
+msgid "Radio search result limit (0 = unlimited)"
+msgstr "Gräns för radions sökresultat (0 = obegränsat)"
+
+msgid "Unlimited results for own language"
+msgstr "Obegränsade resultat för eget språk"
+
+msgid "Maximum stations shown per search. 0 shows every match, however many that is."
+msgstr "Max antal stationer som visas per sökning. 0 visar alla träffar, oavsett antal."
+
+msgid "Ignore the result limit when the Language filter matches your own app language."
+msgstr "Ignorera resultatgränsen när språkfiltret matchar appens eget språk."
+
+msgid "Radio station limit (0 = unlimited)"
+msgstr "Gräns för radiostationer (0 = obegränsat)"
+
+msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+msgstr "Max antal stationer per sökning och per uppdatering av stationsdatabasen. 0 innebär ingen gräns -- lika många som RadioBrowser faktiskt har."
+
+msgid "Download lyrics"
+msgstr "Ladda ner sångtext"
+
+msgid "Download lyrics?"
+msgstr "Ladda ner sångtext?"
+
+msgid "Downloading lyrics, please wait..."
+msgstr "Laddar ner sångtext, vänta..."
+
+msgid "Synced lyrics downloaded."
+msgstr "Synkroniserad sångtext nedladdad."
+
+msgid "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+msgstr "Sångtext nedladdad (vanlig text -- LRCLIB har ingen synkroniserad version för det här spåret)."
+
+msgid "LRCLIB has this track marked as instrumental -- no lyrics to download."
+msgstr "LRCLIB har markerat det här spåret som instrumentalt -- ingen sångtext att ladda ner."
+
+msgid "No lyrics found on LRCLIB for this track."
+msgstr "Ingen sångtext hittades på LRCLIB för det här spåret."
+
+msgid "This track already has lyrics -- nothing downloaded."
+msgstr "Det här spåret har redan sångtext -- inget nedladdat."
+
+msgid "Missing artist/title tags -- can't search LRCLIB for this track."
+msgstr "Artist-/titeltaggar saknas -- det går inte att söka på LRCLIB för det här spåret."
+
+msgid "Lyrics download failed. Check your network connection."
+msgstr "Nedladdning av sångtext misslyckades. Kontrollera din nätverksanslutning."
+
+msgid "synced"
+msgstr "synkroniserad"
+
+msgid "plain text"
+msgstr "vanlig text"
+
+msgid "instrumental"
+msgstr "instrumental"
+
+msgid "not found"
+msgstr "hittades inte"
+
+msgid "already had lyrics"
+msgstr "hade redan sångtext"
+
+msgid "missing tags"
+msgstr "saknade taggar"
+
+msgid "failed"
+msgstr "misslyckades"
+
+msgid "Lyrics download finished: %s."
+msgstr "Nedladdning av sångtext klar: %s."
+
+msgid "No audio files found in this directory."
+msgstr "Inga ljudfiler hittades i den här mappen."
+
+msgid "Also download lyrics for subdirectories?"
+msgstr "Ladda även ner sångtext för undermappar?"
+
+msgid "Show lyrics fullscreen"
+msgstr "Visa sångtext i helskärm"
+
+msgid "Show cover art fullscreen"
+msgstr "Visa omslagsbild i helskärm"
+
+msgid "No lyrics available."
+msgstr "Ingen sångtext tillgänglig."
+
+msgid "No cover art available."
+msgstr "Ingen omslagsbild tillgänglig."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / VÄNSTER / HÖGER: Stäng -- UPP / NER: Justera tidsinställning"
+
+msgid "Download cover art"
+msgstr "Ladda ner omslagsbild"
+
+msgid "Download cover art?"
+msgstr "Ladda ner omslagsbild?"
+
+msgid "Also download cover art for subdirectories?"
+msgstr "Ladda även ner omslagsbild för undermappar?"
+
+msgid "Downloading cover art, please wait..."
+msgstr "Laddar ner omslagsbild, vänta..."
+
+msgid "Cover art downloaded."
+msgstr "Omslagsbild nedladdad."
+
+msgid "This album already has cover art -- nothing downloaded."
+msgstr "Det här albumet har redan en omslagsbild -- inget nedladdat."
+
+msgid "No matching cover art found."
+msgstr "Ingen matchande omslagsbild hittades."
+
+msgid "Missing artist/album tags -- can't search for cover art."
+msgstr "Artist-/albumtaggar saknas -- det går inte att söka efter omslagsbild."
+
+msgid "Cover art download failed. Check your network connection."
+msgstr "Nedladdning av omslagsbild misslyckades. Kontrollera din nätverksanslutning."
+
+msgid "saved"
+msgstr "sparad"
+
+msgid "already had cover art"
+msgstr "hade redan omslagsbild"
+
+msgid "Cover art download finished: %s."
+msgstr "Nedladdning av omslagsbild klar: %s."
+
+msgid "MusicBrainz is temporarily busy. Try again in a moment."
+msgstr "MusicBrainz är tillfälligt upptaget. Försök igen om en liten stund."
+
+msgid "temporarily busy, try again shortly"
+msgstr "tillfälligt upptaget, försök igen snart"
+
+msgid "LRCLIB is temporarily busy. Try again in a moment."
+msgstr "LRCLIB är tillfälligt upptaget. Försök igen om en liten stund."
+
+msgid "Download all"
+msgstr "Ladda ner allt"
+
+msgid "Download synced lyrics only (LRC)"
+msgstr "Ladda endast ner synkroniserad sångtext (LRC)"
+
+msgid "Download plain text lyrics only (TXT)"
+msgstr "Ladda endast ner sångtext som vanlig text (TXT)"
+
+msgid "Return to start of playlist"
+msgstr "Återgå till spellistans början"
+
+msgid "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+msgstr "Filhanteraren visar den här mappens innehåll som standard. Väljs via filhanteraren med OK."
+
+msgid "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+msgstr "Musikbiblioteket byggs från ljudfilerna i den här mappen. Väljs via filhanteraren med OK."
+
+msgid "Whether the file Browser also shows hidden files (default: no)."
+msgstr "Om filhanteraren även visar dolda filer (standard: nej)."
+
+msgid "Lets you launch the program directly from the main menu. (Default: no)"
+msgstr "Låter dig starta programmet direkt från huvudmenyn. (Standard: nej)"
+
+msgid "Interface language (default: System)."
+msgstr "Gränssnittsspråk (standard: System)."
+
+msgid "The program's appearance (default: Light)."
+msgstr "Programmets utseende (standard: Ljust)."
+
+msgid "When the playlist ends, start playing it again from the beginning (default: no)."
+msgstr "När spellistan tar slut, spelas den upp igen från början (standard: nej)."
+
+msgid "Play the next track in the playlist once the previous one has finished (default: yes)."
+msgstr "Spela nästa spår i spellistan när det föregående har avslutats (standard: ja)."
+
+msgid "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+msgstr "Under uppspelning hoppar sökningen så här många sekunder när du trycker på sökningsknappen eller sidpilstangenten (standard: 30)."
+
+msgid "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+msgstr "Om du vill ändra tidsinställningen för den rullande sångtexten flyttar UPP/NER-tangenterna tidsinställningen med detta värde per tryck."
+
+msgid "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+msgstr "Används för att ta reda på bithastighetsinformation för radiostationer, poddar och lokal musik, samt för att upptäcka kompatibilitetsproblem i en ström."
+
+msgid "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "Den här regionen visas först i internetradions egen språklista (standard: ingen). Ställs in från internetradio-skärmen genom att välja en region och trycka på OK."
+
+msgid "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "Det här språket visas först i internetradions egen regionslista (standard: inget). Ställs in från internetradio-skärmen genom att välja ett språk och trycka på OK."
+
+msgid "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0)."
+msgstr "RadioBrowser-databasen kan innehålla väldigt många stationer. Detta kan begränsa sökningen och hålla din egen databas liten (standard: 0)."
+
+msgid "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+msgstr "Även när databasen är begränsad kan du fortfarande söka efter alla stationer på ditt aktuella språk (standard: ja)."
+
+msgid "At most this many stations are kept in the history list (default: 20)."
+msgstr "Högst så här många stationer sparas i historiklistan (standard: 20)."
+
+msgid "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+msgstr "Om ja, går programmet vid start direkt till att spela den föregående radiostationen (standard: nej)."
+
+msgid "May help some radio stations play correctly (default: no)."
+msgstr "Kan hjälpa vissa radiostationer att spelas upp korrekt (standard: nej)."
+
+msgid "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+msgstr "Om du vill ha radio-EPG för Yles egna stationer, ange din app_id här, från https://developer.yle.fi/"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+msgstr "Om du vill ha radio-EPG för Yles egna stationer, ange din app_key här, från https://developer.yle.fi/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+msgstr "Om du vill söka poddar från tjänsten Podcast Index, ange din nyckel här, från https://api.podcastindex.org/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+msgstr "Om du vill söka poddar från tjänsten Podcast Index, ange din hemlighet här, från https://api.podcastindex.org/"
+
+msgid "(Default: yes)"
+msgstr "(Standard: ja)"
+
+msgid "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+msgstr "Om du vill undersöka programmets eget beteende och fel mer djupgående, välj Utförlig."
+
+msgid "Set as startup directory"
+msgstr "Ange som startmapp"
+
+msgid "Set as Music Library directory"
+msgstr "Ange som musikbibliotekets mapp"
+
+msgid "{0} set to: {1}"
+msgstr "{0} inställd på: {1}"
+
+msgid "Set as Radio default language"
+msgstr "Ange som radions standardspråk"
+
+msgid "Set as Radio default country"
+msgstr "Ange som radions standardland"
+
+msgid "{0}: {1}?"
+msgstr "{0}: {1}?"
+
+msgid "Yes"
+msgstr "Ja"
+
+msgid "No"
+msgstr "Nej"
+
+msgid "Clear Radio default language"
+msgstr "Rensa radions standardspråk"
+
+msgid "Clear Radio default country"
+msgstr "Rensa radions standardland"

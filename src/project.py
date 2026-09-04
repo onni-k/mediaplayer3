@@ -62,6 +62,23 @@
 #     on Vu+ Duo2) and PodcastScreen layout fixes (round 73: header
 #     title wrapping, footer hint-icon text overlap). BUILD stays
 #     "0010" for the same reason noted above.
+#
+# 2026-09-04  Build 0010 (device test round 106)
+#   - Version bumped to 1.0.0 -- per direct request, closing out
+#     1.0.0-beta3's own public testing period (rounds 83-106: LRCLIB
+#     lyrics/MusicBrainz cover art downloads, the lyrics display
+#     overhaul, the project-wide title-hiding-behind-background fix,
+#     a real Settings freeze and a multi-round virtual-keyboard/hint-
+#     bar fix, Radio's own default language/country settable from
+#     Internet Radio, a real "unlimited for own language" fix,
+#     Swedish/German/Spanish translations -- see CHANGELOG.md's own
+#     "1.0.0 released" entry for the full summary, and
+#     Claude_notes_build0010.txt for the round-by-round record).
+#     BUILD stays "0010" for the same reason noted above. Versioning
+#     convention changes from here on: the Patch component is now
+#     zero-padded to three digits and bumped by one for every package
+#     built and delivered from now on (public release or not) -- the
+#     next one after 1.0.0 is 1.0.001, per direct request.
 # ------------------------------------------------------------------------------
 
 """
@@ -87,7 +104,7 @@ APPLICATION_ID = "org.enigma2.mediaplayer3"
 # Version information
 # ------------------------------------------------------------------------------
 
-VERSION = "1.0.0-beta3"
+VERSION = "1.0.0"
 BUILD = "0010"
 
 # ------------------------------------------------------------------------------

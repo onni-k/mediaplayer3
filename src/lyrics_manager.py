@@ -339,25 +339,94 @@ class LyricsManager:
 
     def _windowAround(self, all_lines: List[str], center_index: int, window_size: int) -> str:
 
+        lines, _current_index = self._windowAroundPadded(all_lines, center_index, window_size)
+
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+
+    def _windowAroundPadded(
+        self, all_lines: List[str], center_index: int, window_size: int
+    ) -> Tuple[List[str], int]:
+        """
+        Round 93, per direct request: pads with empty lines instead
+        of shifting the window near the start/end of the lyrics, so
+        the "current" line always lands at the exact same index
+        within the returned window (window_size // 2) no matter where
+        in the song it is -- "niin isompi fontti on aina samassa
+        kohdassa" (so the bigger font is always in the same spot).
+        The old behaviour shifted the window near the very start/end
+        of a song so it stayed full of real lines, which meant the
+        current line's position within the window -- and so its pixel
+        row once rendered -- moved around exactly when a fixed
+        position matters most (the emphasized/bigger current line
+        should never jump). Blank padding lines render as nothing,
+        so this is a no-op visually anywhere but very close to the
+        start/end of the lyrics.
+        """
+
         half = window_size // 2
 
         start = center_index - half
 
-        end = start + window_size
+        result = []
 
-        if start < 0:
+        for offset in range(window_size):
 
-            end -= start
+            index = start + offset
 
-            start = 0
+            if 0 <= index < len(all_lines):
 
-        if end > len(all_lines):
+                result.append(all_lines[index])
 
-            start = max(0, start - (end - len(all_lines)))
+            else:
 
-            end = len(all_lines)
+                result.append("")
 
-        return "\n".join(all_lines[start:end])
+        return result, half
+
+    # ------------------------------------------------------------------
+
+    def getScrollWindowData(
+        self,
+        lyrics: Dict[str, Any],
+        position_seconds: float,
+        duration_seconds: Optional[float],
+        window_size: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Structured version of getScrollWindow() (round 93, per direct
+        request): returns {"lines": [...], "current_index": <int,
+        index of the current line within "lines">, "synchronized":
+        bool} instead of a single joined string, so a caller can style
+        each line individually (bigger font for the line right before/
+        after "current", bigger-and-bold for "current" itself) --
+        getScrollWindow() itself now just joins this same data with
+        "\\n" and is kept for existing callers that only need plain
+        text. See _windowAroundPadded()'s own docstring for why the
+        current line's index is always exactly window_size // 2 --
+        callers don't need to special-case the start/end of a song.
+        "synchronized" reflects whether `lyrics` came from real .lrc/
+        embedded-synced timestamps (round 93, per direct request:
+        "fonttia ei suurenneta kun ajoitus ei ole tiedossa" -- callers
+        use this to decide whether to apply the font-size tiers at
+        all, since an unsynchronized/.txt window's "current" line is
+        only a proportional guess, not a real timed position).
+        """
+
+        all_lines = self._allLyricLines(lyrics)
+
+        synchronized = bool(lyrics.get("lines"))
+
+        if not all_lines:
+
+            return {"lines": [], "current_index": 0, "synchronized": synchronized}
+
+        center_index = self._currentLineIndex(lyrics, all_lines, position_seconds, duration_seconds)
+
+        lines, current_index = self._windowAroundPadded(all_lines, center_index, window_size)
+
+        return {"lines": lines, "current_index": current_index, "synchronized": synchronized}
 
     # ------------------------------------------------------------------
     # Embedded lyrics

@@ -138,14 +138,16 @@ from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
-from .config import config_manager
+from .config import cfg, config_manager
 from .constants import PLAYLIST_FILE_EXTENSIONS, SUPPORTED_AUDIO_EXTENSIONS
 from .help_manager import help_manager
 from .help_screen import HelpScreen
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import SKIN_PATH
+from .paths import ensure_trailing_slash, SKIN_PATH
+from .coverart_manager import coverart_manager
+from .lrclib_manager import lrclib_manager
 from .playlist_manager import playlist_manager
 from .skin import to_opaque_skin_color
 
@@ -285,9 +287,15 @@ class BrowserScreen(Screen):
                 backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Browser">
 
+            <!-- Round 96: same zPosition fix as MainMenu/
+                 LyricsFullscreenScreen's own round 95/96 fix for a
+                 title flashing then hiding behind this background
+                 once its own async decode completes; explicit,
+                 permanent z-order pin, immune to decode timing. -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <widget name="status"
@@ -436,11 +444,22 @@ class BrowserScreen(Screen):
     # Initialization
     # ------------------------------------------------------------------
 
-    def __init__(self, session, playback_controller):
+    def __init__(self, session, playback_controller=None):
         """
         `playback_controller` is MainScreen's shared PlaybackController
         instance -- BrowserScreen never creates its own
         (BROWSERSCREEN_SPEC.md section 8).
+
+        Round 99, per direct request: now Optional -- SettingsScreen
+        opens this screen as a plain directory picker (Startup/Music
+        Library directory, "Aseta oletushakemistoksi"/"Aseta
+        musiikkikirjaston hakemistoksi"), where nothing is actually
+        playing and there's nothing to pass. Play/"Add to playlist"
+        are left out of both the directory and file OK menus whenever
+        self._playback is None (see _directoryMenu()/_fileMenu()'s own
+        choice-building) rather than guarded at each individual call
+        site, so this is the only place that needs to know a picker
+        might have no playback controller at all.
         """
 
         width, height = compatibility.getDesktopSize(self.DESIGN_WIDTH, self.DESIGN_HEIGHT)
@@ -1155,23 +1174,39 @@ class BrowserScreen(Screen):
             # otherwise "Open directory" leads (current/previous
             # behaviour) since there's nothing to play here directly
             # anyway.
-            if self._files_in_preview:
+            #
+            # Round 99, per direct request: "Set as X directory"
+            # always offered (writes straight to config, needs no
+            # playback controller); "Play"/"Add entire directory to
+            # playlist" only offered when self._playback is actually
+            # available -- None when this screen is opened as a plain
+            # directory picker from SettingsScreen (round 99), where
+            # attempting to play anything would have nothing to play
+            # through.
+            playback_choices = (
+                [(_("Play"), "play"), (_("Open directory"), "open"), (_("Add entire directory to playlist"), "add")]
+                if self._playback is not None
+                else [(_("Open directory"), "open")]
+            )
 
-                choices = [
+            if self._files_in_preview and self._playback is not None:
+
+                playback_choices = [
                     (_("Play"), "play"),
                     (_("Open directory"), "open"),
                     (_("Add entire directory to playlist"), "add"),
-                    (_("Cancel"), "cancel"),
                 ]
 
-            else:
-
-                choices = [
-                    (_("Open directory"), "open"),
-                    (_("Play"), "play"),
-                    (_("Add entire directory to playlist"), "add"),
+            choices = (
+                playback_choices
+                + [
+                    (_("Download lyrics"), "download_lyrics"),
+                    (_("Download cover art"), "download_coverart"),
+                    (_("Set as startup directory"), "set_startup_directory"),
+                    (_("Set as Music Library directory"), "set_library_directory"),
                     (_("Cancel"), "cancel"),
                 ]
+            )
 
         self.session.openWithCallback(
             lambda choice: self._directoryMenuChosen(choice, target),
@@ -1198,6 +1233,49 @@ class BrowserScreen(Screen):
         elif choice[1] == "add":
 
             self._requireCurrentPlaylist(lambda name: self._addDirectoryToPlaylist(name, target))
+
+        elif choice[1] == "download_lyrics":
+
+            self._offerLyricsDownload(target)
+
+        elif choice[1] == "download_coverart":
+
+            self._offerCoverArtDownload(target)
+
+        elif choice[1] == "set_startup_directory":
+
+            self._setConfigDirectory(cfg.general.startup_directory, _("Startup directory"), target)
+
+        elif choice[1] == "set_library_directory":
+
+            self._setConfigDirectory(cfg.library.scan_directory, _("Music Library directory"), target)
+
+    # ------------------------------------------------------------------
+
+    def _setConfigDirectory(self, target_config, label: str, directory: str) -> None:
+        """
+        Round 99, per direct request: lets "Set as startup directory"/
+        "Set as Music Library directory" write straight to config from
+        wherever the user already is in the Browser, instead of only
+        being settable from SettingsScreen. Writes directly to the
+        same config_manager both SettingsScreen's own directory picker
+        (round 98) and this screen's own normal operation already
+        share -- no callback needed, since both screens read the same
+        live ConfigText object.
+        """
+
+        target_config.value = ensure_trailing_slash(directory)
+
+        target_config.save()
+
+        self._log(f"{label} set to: {target_config.value}")
+
+        self.session.open(
+            MessageBox,
+            _("{0} set to: {1}").format(label, target_config.value),
+            MessageBox.TYPE_INFO,
+            timeout=3,
+        )
 
     # ------------------------------------------------------------------
 
@@ -1269,11 +1347,23 @@ class BrowserScreen(Screen):
 
         filepath = self._files_in_preview[index]
 
-        choices = [
-            (_("Play"), "play"),
-            (_("Add this file"), "add_one"),
-            (_("Add this file and remaining files in directory"), "add_remaining"),
-            (_("Add all files from directory"), "add_all"),
+        # Round 99: Play/"Add..." need a real PlaybackController/
+        # playlist target to do anything useful with -- left out when
+        # this screen is a plain directory picker (self._playback is
+        # None), same reasoning as _directoryMenu()'s own choices.
+        choices = (
+            [(_("Play"), "play")] if self._playback is not None else []
+        ) + (
+            [
+                (_("Add this file"), "add_one"),
+                (_("Add this file and remaining files in directory"), "add_remaining"),
+                (_("Add all files from directory"), "add_all"),
+            ]
+            if self._playback is not None
+            else []
+        ) + [
+            (_("Download lyrics"), "download_lyrics"),
+            (_("Download cover art"), "download_coverart"),
             (_("Cancel"), "cancel"),
         ]
 
@@ -1316,6 +1406,252 @@ class BrowserScreen(Screen):
             self._requireCurrentPlaylist(
                 lambda name: self._afterAdd(name, playlist_manager.addFilesInDirectory(name, directory))
             )
+
+        elif choice[1] == "download_lyrics":
+
+            self._offerLyricsDownload(filepath)
+
+        elif choice[1] == "download_coverart":
+
+            self._offerCoverArtDownload(filepath)
+
+    # ------------------------------------------------------------------
+
+    def _offerLyricsDownload(self, target: str) -> None:
+        """
+        First step of the LRCLIB lyrics-download feature (round 83).
+        Round 92, per direct request: replaced the original plain
+        yes/no confirmation with a choice of which kind of lyrics to
+        download -- deliberately its own small method rather than
+        folded into a bigger dialog, so a later round can add further
+        questions as additional steps in this same chain without
+        having to restructure a combined one-shot dialog (this is
+        exactly that later round). `target` is either a directory or
+        a single file path.
+        """
+
+        choices = [
+            (_("Download all"), "all"),
+            (_("Download synced lyrics only (LRC)"), "synced_only"),
+            (_("Download plain text lyrics only (TXT)"), "plain_only"),
+            (_("Cancel"), "cancel"),
+        ]
+
+        self.session.openWithCallback(
+            lambda choice: self._lyricsDownloadModeChosen(choice, target),
+            ChoiceBox,
+            title=_("Download lyrics?"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _lyricsDownloadModeChosen(self, choice, target: str) -> None:
+
+        if choice is None or choice[1] == "cancel":
+            return
+
+        mode = choice[1]
+
+        # Round 85, per direct request: if the target is a directory
+        # that itself contains subdirectories, ask a second, separate
+        # question before starting -- kept as its own step in the
+        # same chain round 83 set up for exactly this kind of
+        # follow-up question, not folded into the first one.
+        if os.path.isdir(target) and lrclib_manager.hasSubdirectories(target):
+
+            self.session.openWithCallback(
+                lambda recursive: self._startLyricsDownload(target, recursive, mode),
+                MessageBox,
+                _("Also download lyrics for subdirectories?"),
+                MessageBox.TYPE_YESNO,
+            )
+
+        else:
+
+            self._startLyricsDownload(target, False, mode)
+
+    # ------------------------------------------------------------------
+
+    def _startLyricsDownload(self, target: str, recursive: bool, mode: str) -> None:
+
+        # Same deferred please-wait pattern as RadioBrowserScreen's own
+        # _updateStationDatabase() -- a real, potentially slow network
+        # operation (worse here for a whole directory, one request per
+        # track), so paint the status message before the blocking call
+        # actually runs.
+        self["status"].setText(_("Downloading lyrics, please wait..."))
+
+        self._lyrics_download_timer = eTimer()
+
+        self._lyrics_download_timer.callback.append(lambda: self._performLyricsDownload(target, recursive, mode))
+
+        self._lyrics_download_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _performLyricsDownload(self, target: str, recursive: bool, mode: str) -> None:
+
+        if os.path.isdir(target):
+
+            counts = lrclib_manager.downloadForDirectory(target, recursive=recursive, mode=mode)
+
+            message = self._describeLyricsDownloadTally(counts)
+
+        else:
+
+            result = lrclib_manager.downloadForFile(target, mode=mode)
+
+            message = self._describeLyricsDownloadResult(result)
+
+        self["status"].setText(self._current_root)
+
+        logger.info(f"[BrowserScreen] Lyrics download finished for '{target}': {message}")
+
+        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
+
+    # ------------------------------------------------------------------
+
+    def _describeLyricsDownloadResult(self, result: str) -> str:
+
+        return {
+            "saved_synced": _("Synced lyrics downloaded."),
+            "saved_plain": _("Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."),
+            "instrumental": _("LRCLIB has this track marked as instrumental -- no lyrics to download."),
+            "not_found": _("No lyrics found on LRCLIB for this track."),
+            "already_has_lyrics": _("This track already has lyrics -- nothing downloaded."),
+            "missing_tags": _("Missing artist/title tags -- can't search LRCLIB for this track."),
+            "rate_limited": _("LRCLIB is temporarily busy. Try again in a moment."),
+            "error": _("Lyrics download failed. Check your network connection."),
+        }.get(result, _("Lyrics download failed. Check your network connection."))
+
+    # ------------------------------------------------------------------
+
+    def _describeLyricsDownloadTally(self, counts: dict) -> str:
+
+        if not counts:
+            return _("No audio files found in this directory.")
+
+        labels = {
+            "saved_synced": _("synced"),
+            "saved_plain": _("plain text"),
+            "instrumental": _("instrumental"),
+            "not_found": _("not found"),
+            "already_has_lyrics": _("already had lyrics"),
+            "missing_tags": _("missing tags"),
+            "rate_limited": _("temporarily busy, try again shortly"),
+            "error": _("failed"),
+        }
+
+        parts = [f"{count} {labels.get(result, result)}" for result, count in counts.items() if count > 0]
+
+        return _("Lyrics download finished: %s.") % ", ".join(parts)
+
+    # ------------------------------------------------------------------
+
+    def _offerCoverArtDownload(self, target: str) -> None:
+        """
+        Cover art's own version of _offerLyricsDownload()/
+        _lyricsDownloadConfirmed() (round 88, mirrors rounds 83 and 85
+        exactly, per direct request: "kuvien lataus samalla tavalla
+        kuin sanoituksiin").
+        """
+
+        self.session.openWithCallback(
+            lambda confirmed: self._coverArtDownloadConfirmed(confirmed, target),
+            MessageBox,
+            _("Download cover art?"),
+            MessageBox.TYPE_YESNO,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _coverArtDownloadConfirmed(self, confirmed, target: str) -> None:
+
+        if not confirmed:
+            return
+
+        if os.path.isdir(target) and coverart_manager.hasSubdirectories(target):
+
+            self.session.openWithCallback(
+                lambda recursive: self._startCoverArtDownload(target, recursive),
+                MessageBox,
+                _("Also download cover art for subdirectories?"),
+                MessageBox.TYPE_YESNO,
+            )
+
+        else:
+
+            self._startCoverArtDownload(target, False)
+
+    # ------------------------------------------------------------------
+
+    def _startCoverArtDownload(self, target: str, recursive: bool) -> None:
+
+        # Same deferred please-wait pattern as _startLyricsDownload()/
+        # RadioBrowserScreen's own _updateStationDatabase().
+        self["status"].setText(_("Downloading cover art, please wait..."))
+
+        self._coverart_download_timer = eTimer()
+
+        self._coverart_download_timer.callback.append(lambda: self._performCoverArtDownload(target, recursive))
+
+        self._coverart_download_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _performCoverArtDownload(self, target: str, recursive: bool) -> None:
+
+        if os.path.isdir(target):
+
+            counts = coverart_manager.downloadForDirectory(target, recursive=recursive)
+
+            message = self._describeCoverArtDownloadTally(counts)
+
+        else:
+
+            result = coverart_manager.downloadForFile(target)
+
+            message = self._describeCoverArtDownloadResult(result)
+
+        self["status"].setText(self._current_root)
+
+        logger.info(f"[BrowserScreen] Cover art download finished for '{target}': {message}")
+
+        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
+
+    # ------------------------------------------------------------------
+
+    def _describeCoverArtDownloadResult(self, result: str) -> str:
+
+        return {
+            "saved": _("Cover art downloaded."),
+            "already_has_cover": _("This album already has cover art -- nothing downloaded."),
+            "not_found": _("No matching cover art found."),
+            "missing_tags": _("Missing artist/album tags -- can't search for cover art."),
+            "rate_limited": _("MusicBrainz is temporarily busy. Try again in a moment."),
+            "error": _("Cover art download failed. Check your network connection."),
+        }.get(result, _("Cover art download failed. Check your network connection."))
+
+    # ------------------------------------------------------------------
+
+    def _describeCoverArtDownloadTally(self, counts: dict) -> str:
+
+        if not counts:
+            return _("No audio files found in this directory.")
+
+        labels = {
+            "saved": _("saved"),
+            "already_has_cover": _("already had cover art"),
+            "not_found": _("not found"),
+            "missing_tags": _("missing tags"),
+            "rate_limited": _("temporarily busy, try again shortly"),
+            "error": _("failed"),
+        }
+
+        parts = [f"{count} {labels.get(result, result)}" for result, count in counts.items() if count > 0]
+
+        return _("Cover art download finished: %s.") % ", ".join(parts)
 
     # ------------------------------------------------------------------
 

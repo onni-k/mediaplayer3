@@ -31,6 +31,13 @@ Build
 
 0004
 
+Starting from 1.0.0 (2026-09-04), the Patch component is zero-padded
+to three digits and incremented by one for every package built and
+delivered, public release or not -- 1.0.0 is followed by 1.0.001,
+then 1.0.002, and so on. The internal Build number above is unrelated
+and keeps its own, much coarser numbering (one per development cycle,
+not one per delivered package).
+
 ---
 
 # Change Categories
@@ -1436,7 +1443,130 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 
 ---
 
-## BUILD 0010 -- SKIN REDESIGN & LANGUAGE DETECTION (rounds 20-66)
+## 1.0.0-beta3 released to public testing (2026-09-01)
+
+Round 82's documentation pass marked the end of this stretch --
+1.0.0-beta3 went into public testing on this date. Everything from
+round 83 onward belongs to whatever version comes after it, tracked
+in a new section below once there's enough to summarize.
+
+## 1.0.0 released (2026-09-04)
+
+Everything from round 83 through round 106, closing out the work the
+beta3 marker above left open. Grouped by theme rather than strict
+round order; see Claude_notes_build0010.txt for the full, round-by-
+round record.
+
+**Lyrics and cover art downloads (rounds 83-89, 101).** New: download
+lyrics for a track or a whole directory (recursive, with a choice of
+all/synced-only/plain-text-only) from LRCLIB, and cover art for an
+album from MusicBrainz + the Cover Art Archive -- both reachable from
+Browser's own action menu, and both gained an automatic retry (with a
+distinct "temporarily busy" result) after a device log showed the
+respective service occasionally rate-limiting a large batch download
+with HTTP 503. A separate, unrelated real crash (MemoryError parsing
+a very large local station database on a memory-constrained receiver)
+was found and fixed the same way -- caught, logged distinctly, and
+degraded gracefully instead of crashing the whole screen.
+
+**Lyrics display overhaul (rounds 87, 93-97).** The Information
+panel's own Lyrics page (and a new fullscreen view opened from it)
+now show synced lyrics with the current line pinned at a fixed
+screen position and rendered in a visibly larger, bold font, with the
+immediately preceding/following lines a size in between -- achieved
+by padding the scroll window with blank lines near the start/end of a
+song instead of shifting it, so the current line's position never
+moves. Unsynced (plain-text) lyrics use the same centred window
+without the font-size emphasis, since the "current" position there is
+only a proportional guess. The fullscreen view lives-updates in step
+with the windowed panel, has its own dedicated background image (an
+initial attempt reused MainMenu's own background, which turned out to
+have its own baked-in icons that didn't fit this screen and were
+replaced with a purpose-built one), and UP/DOWN there now adjusts the
+lyrics timing offset instead of closing the screen, matching the
+windowed panel's own existing behaviour.
+
+**A real, project-wide title-hiding bug (rounds 95-96).** A screen's
+own title text could flash on open and then disappear behind its
+background image once that image's own asynchronous decode finished
+-- a race between Enigma2's own late pixmap update and normal widget
+paint order. Found on MainMenu first, then proactively checked (and
+fixed) on every other background-image screen rather than waiting for
+each to be reported separately: MainScreen, the file Browser, Music
+Library, Podcasts, Internet Radio, Playlists, Settings and the lyrics
+fullscreen view all had the identical gap. MainScreen and MainMenu
+also gained persistent "MediaPlayer3" branding text and (MainScreen
+only) a live clock, both coloured to follow the Player panel's own
+active/inactive state like every other header text there already does.
+
+**Settings: a real device freeze, and a virtual-keyboard bug that
+took several rounds to actually root-cause (rounds 98-106).** A
+device log's own full stack trace showed the Startup/Music Library
+directory fields hanging the whole receiver inside a directory
+browser's own path-resolution call when given a corrupted value --
+fixed by validating the stored path before ever opening a browser
+against it. The underlying cause (these fields being freely typable
+ConfigText, letting a stray key corrupt the path in the first place)
+took three more attempts to actually close: guarding OK and number
+keys, then LEFT/RIGHT too (neither, it turned out, addressed
+Enigma2's own persistent numeric-entry hint bar, which the user
+correctly identified as tied to the field's own declared type rather
+than to any specific key), until the field's underlying type was
+changed to a disguised single-choice selector instead of free text --
+which then surfaced a second, subtler bug (the new type's own choice-
+validation logic could never actually accept a genuinely new value,
+only the one it already had), found and fixed by tracing the logic
+through rather than assuming a lack of a crash meant it worked. The
+same technique now also backs Radio's own default language/country,
+settable directly from Internet Radio's own Language/Region panels
+(selecting "Any" clears it instead of setting it, letting a search be
+restricted by only one of the two), and promoted to the top of their
+own list the same way the app's own UI language already was.
+Elsewhere in Settings: Yes/No labels now follow the app's own
+language setting instead of the receiver's; Theme and five other
+settings were removed as redundant or unused; and the long-unused
+"Resume playback (future)" setting was replaced with a real "return
+to start of playlist" feature.
+
+**A real search-limit bug (round 104).** "Unlimited results for own
+language" was found to only ever affect Internet Radio's own live,
+interactive search -- never the actual local station database
+everything else reads from, which still capped at the configured
+limit ordered by global popularity, missing plenty of real stations
+in the user's own language once that cap was smaller than
+RadioBrowser's own worldwide count. Fixed with a second, exhaustive
+download pass specifically for the user's configured default
+language/region (or the app's own UI language if neither is set),
+merged into the main pass.
+
+**New languages (round 102).** Swedish, German and Spanish, alongside
+the existing Finnish and English -- all 348 user-facing strings
+translated, with every %s/%d/{0}/{1} placeholder checked to match
+exactly between each string and its own translation across all three.
+
+**Also in this stretch:** MainScreen's own OK menu unified across the
+Player and Information panels into a single menu (Back, Stop/Resume,
+Show lyrics/cover art fullscreen, Cancel) instead of two different
+ones depending on which was active; the file Browser gained "Set as
+startup directory"/"Set as Music Library directory" on any directory,
+and can now also be opened as a plain directory picker with no
+playback controller at all (used by Settings' own directory fields).
+
+### Known Issues
+
+- On OpenPLi specifically, lyrics/cover-art fullscreen text (and any
+  other "Bold" font family usage) may not render correctly -- OpenPLi's
+  own font registration doesn't include a family literally named
+  "Bold", unlike the other three images this project has been tested
+  on (OpenATV, OpenBH, OpenViX). Confirmed by comparing font-
+  registration log lines across all four images directly. A proper
+  fix means bundling and registering a font of MediaPlayer3's own
+  rather than relying on the receiver's own image to provide one --
+  deferred to a future release rather than attempted as a quick fix.
+
+---
+
+
 
 Closing note (a second, much larger round of device testing since the
 note above -- 47 further rounds, across OpenViX, OpenATV, OpenPLI, and
@@ -1499,6 +1629,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0009 | 0.9.0-dev | MainScreen 2.0 & Radio EPG: three-panel navigation, Finland (Yle/Bauer) radio EPG, ExtEplayer3 option |
 | 0010 | 1.0.0-beta2 | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys; full background-image Light/Dark skin redesign across all eight screens; automatic system-language detection; main menu integration |
 | 0010 | 1.0.0-beta3 | Finland Radio EPG caching (fixed a real stuttering/lag bug), configurable radio station limits with real pagination, GStreamer position fixes (premature track end, frozen elapsed/remaining display), PodcastScreen layout fixes, CH+/CH- page-jump fixed and rolled out across five screens, HelpScreen display fix and help-document review |
+| 0010 | 1.0.0 | LRCLIB lyrics + MusicBrainz cover art downloads with automatic retry; lyrics display overhaul (fixed-position current line, font-size tiers, live fullscreen view); a project-wide title-hiding-behind-background bug found and fixed on all eight screens; MediaPlayer3 branding + clock; a real Settings freeze fixed, plus a multi-round virtual-keyboard/hint-bar fix; Radio's own default language/country settable from Internet Radio itself; a real "unlimited for own language" bug fixed; Swedish/German/Spanish translations; unified MainScreen OK menu; known issue: Bold-font text may not render on OpenPLi |
 
 ---
 

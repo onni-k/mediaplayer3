@@ -422,13 +422,16 @@ from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from Components.AVSwitch import AVSwitch
-from enigma import ePicLoad, eTimer, getDesktop
+from enigma import ePicLoad, eTimer, getDesktop, gFont
 
 from .browserscreen import BrowserScreen
 from .compatibility import compatibility
 from . import finland_radio_epg_registry
 from .help_manager import help_manager
+from .coverart_fullscreen_screen import CoverArtFullscreenScreen
 from .information_panel import InformationPanel
+from .lyrics_fullscreen_screen import LyricsFullscreenScreen
+from .lyrics_manager import lyrics_manager
 from .epg_manager import epg_manager
 from .help_screen import HelpScreen
 from .config import config_manager
@@ -452,7 +455,7 @@ from .skin import (
 )
 from .statusbar import StatusBar
 from .systeminfo import systeminfo
-from .version import get_version_string
+from .version import get_short_version, get_version_string
 
 DEFAULT_ARTWORK_PATH = os.path.join(RESOURCE_PATH, "icons", "default_artwork.png")
 
@@ -548,6 +551,40 @@ class MainScreen(Screen):
     DESIGN_WIDTH = 1808
     DESIGN_HEIGHT = 1024
 
+    # Round 93, per direct request: fixed per-row heights/font sizes/
+    # boldness for the Lyrics page's own multi-widget display, one
+    # entry per visible line -- replaces the single "info_content"
+    # Label for Lyrics specifically (every other Information sub-page
+    # keeps using info_content unchanged). The "current" line always
+    # lands on the middle row (LYRICS_CURRENT_ROW_INDEX below) because
+    # LyricsManager.getScrollWindowData()'s own window is now padded
+    # rather than shifted near the start/end of a song (see that
+    # method's own docstring) -- so a FIXED row can be permanently
+    # styled bigger/bold at skin-build time instead of needing to
+    # move which widget is "the big one" every refresh. Sized to fit
+    # comfortably within info_content's own box height (428 design
+    # units): 10 normal rows (28) + 2 bigger prev/next rows (34) + 1
+    # biggest/bold current row (44) = 392, leaving headroom (learned
+    # from HelpScreen's own round-81 lesson: leave real margin rather
+    # than filling the box exactly).
+    LYRICS_WINDOW_ROWS = (
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+        (34, 24, False),
+        (44, 30, True),
+        (34, 24, False),
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+        (28, 20, False),
+    )
+
+    LYRICS_CURRENT_ROW_INDEX = 6
+
     def _buildSkin(self, width: int, height: int) -> str:
         """
         Build MainScreen's skin for an exact `width` x `height`
@@ -620,11 +657,54 @@ class MainScreen(Screen):
         progress_track_color = to_opaque_skin_color(skin_manager.getColor("accent", "#4C4449"))
         font_family = skin_manager.getFont("Regular")
 
+        # Round 93, per direct request -- stashed so
+        # _showLyricsWindow() can compute a runtime gFont() matching
+        # exactly what got baked into the skin here, for the one case
+        # that needs to change a lyrics_line_N widget's font *after*
+        # skin-build time: forcing every row back to the normal tier
+        # for unsynchronized (.txt/embedded) lyrics, where "fonttia ei
+        # suurenneta kun ajoitus ei ole tiedossa" (the font isn't
+        # enlarged when the timing isn't known) -- the skin itself can
+        # only bake ONE fixed tier per row, so switching tiers between
+        # a synchronized and an unsynchronized track needs a real
+        # runtime font change, not just a text change.
+        self._lyrics_font_family = font_family
+
+        self._lyrics_font_scale = sx
+
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
         def font(size):
             return f'font="{font_family};{max(10, int(size * sx))}"'
+
+        # Round 93, per direct request -- one Label widget per row of
+        # MainScreen.LYRICS_WINDOW_ROWS, stacked top-to-bottom over
+        # the exact same box info_content occupies below. Font family
+        # for the bold row matches info_title's own existing "Bold;"
+        # literal (not the theme's regular font_family) -- same
+        # convention already used elsewhere in this skin.
+        lyrics_window_widgets = []
+
+        lyrics_row_y = 560
+
+        for row_index, (row_height, row_font_size, row_bold) in enumerate(MainScreen.LYRICS_WINDOW_ROWS):
+
+            row_font_family = "Bold" if row_bold else font_family
+
+            lyrics_window_widgets.append(
+                f'<widget name="lyrics_line_{row_index}"\n'
+                f'        {rect(931, lyrics_row_y, 841, row_height)}\n'
+                f'        font="{row_font_family};{max(10, int(row_font_size * sx))}"\n'
+                f'        halign="left"\n'
+                f'        valign="center"\n'
+                f'        foregroundColor="{panel_text_color}"\n'
+                f'        backgroundColor="{panel_background_color}"/>'
+            )
+
+            lyrics_row_y += row_height
+
+        lyrics_window_xml = "\n\n            ".join(lyrics_window_widgets)
 
         return f"""
         <screen name="MediaPlayer3MainScreen"
@@ -654,9 +734,15 @@ class MainScreen(Screen):
                  ePicLoad, this design space is only for the OTHER
                  widgets below. -->
 
+            <!-- Round 96: same zPosition fix as MainMenu's own round
+                 95 fix for a title flashing then hiding behind this
+                 background once its own async decode completes;
+                 explicit, permanent z-order pin, immune to decode
+                 timing. -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <!-- Top card: Player header + cover art + Artist/Album/
@@ -691,6 +777,59 @@ class MainScreen(Screen):
                     {rect(88, 18, 894, 64)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <!-- Round 95, per direct request ("Ylimpänä voisi lukea
+                 MediaPlayer3 sekä mainscreenissä ja mainmenussa"):
+                 app branding + a clock, sharing the Player panel's
+                 own top row (the header bar already spans the full
+                 screen width in the background image with nothing to
+                 its right; see mainscreen_player_active.png). -->
+
+            <!-- Round 96, per direct request: centered, bigger, with
+                 the version number appended ("Mainscreen-ikkunassa
+                 MediaPlayer3 voisi lukea keskellä vähän isommalla
+                 fontilla ja versionumero perässä"); clock right-
+                 aligned to match "remaining"'s own right edge (1772)
+                 and font size (32) so the two line up ("Kelloa voisi
+                 siirtää vähän vasemmalle, että on samassa linjassa ja
+                 saman kokoisella fontilla kuin jäljellä oleva aika");
+                 both now have normal/active pairs, coloured the same
+                 way player_title's own pair already is (header_active_
+                 fg while the Player panel is active, header_inactive_
+                 fg otherwise); "Tekstien väri voisi seurata otsikon
+                 aktiivisuutta, kuten nyt Soitin-teksti". -->
+
+            <widget name="app_branding_normal"
+                    {rect(604, 18, 600, 64)}
+                    font="Bold;{max(10, int(36 * sx))}"
+                    halign="center"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="app_branding_active"
+                    {rect(604, 18, 600, 64)}
+                    font="Bold;{max(10, int(36 * sx))}"
+                    halign="center"
+                    valign="center"
+                    foregroundColor="{palette['header_active_fg']}"
+                    transparent="1"/>
+
+            <widget name="clock_normal"
+                    {rect(1602, 18, 170, 64)}
+                    font="Bold;{max(10, int(32 * sx))}"
+                    halign="right"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
+            <widget name="clock_active"
+                    {rect(1602, 18, 170, 64)}
+                    font="Bold;{max(10, int(32 * sx))}"
+                    halign="right"
                     valign="center"
                     foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
@@ -808,6 +947,8 @@ class MainScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColor="{panel_background_color}"/>
 
+            {lyrics_window_xml}
+
         </screen>
     """
 
@@ -878,6 +1019,11 @@ class MainScreen(Screen):
         # file (not directory) since Build 0006 embedded artwork can
         # differ track to track within the same directory.
         self._cover_file = _COVER_ART_NOT_YET_CHECKED
+
+        # Round 87 -- the last artwork path _updateCoverArt() actually
+        # resolved (embedded/folder/default), cached here so
+        # _showCoverArtFullscreen() doesn't need to re-resolve it.
+        self._cover_art_path = None
 
         # Internet Radio station navigation state (Build 0007 --
         # BUILD_0007_PLAN.md "MainScreen Navigation"). Populated by
@@ -1055,6 +1201,28 @@ class MainScreen(Screen):
         self["player_title_active"] = Label(_("Player"))
         self["player_title_active"].hide()
 
+        # Round 95/96, per direct request -- app branding (static
+        # text + version, set once) and a clock (updated every tick
+        # in _onRefreshTimer() like everything else on this screen);
+        # normal/active pairs toggled by _updatePanelHighlighting()
+        # alongside player_title's own pair, since both sit in the
+        # Player panel's own header row.
+        app_branding_text = f"MediaPlayer3 {get_short_version()}"
+
+        self["app_branding_normal"] = Label(app_branding_text)
+
+        self["app_branding_active"] = Label(app_branding_text)
+
+        self["app_branding_active"].hide()
+
+        clock_text = time.strftime("%H:%M")
+
+        self["clock_normal"] = Label(clock_text)
+
+        self["clock_active"] = Label(clock_text)
+
+        self["clock_active"].hide()
+
         self["meta"] = Label("")
         self["media"] = Label(_("No media selected"))
         self["status"] = Label(_("Ready"))
@@ -1070,6 +1238,16 @@ class MainScreen(Screen):
         self["info_title_active"].hide()
 
         self["info_content"] = Label("")
+
+        # Round 93, per direct request -- one Label per
+        # MainScreen.LYRICS_WINDOW_ROWS row, hidden until
+        # _updateInformationPanel() decides the current page is
+        # Lyrics and shows them instead of info_content.
+        for row_index in range(len(MainScreen.LYRICS_WINDOW_ROWS)):
+
+            self[f"lyrics_line_{row_index}"] = Label("")
+
+            self[f"lyrics_line_{row_index}"].hide()
         self["elapsed"] = Label("--:--")
         self["progressbar"] = ProgressBar()
         self["remaining"] = Label("--:--")
@@ -1185,6 +1363,12 @@ class MainScreen(Screen):
         """
 
         self._playback.tick()
+
+        clock_text = time.strftime("%H:%M")
+
+        self["clock_normal"].setText(clock_text)
+
+        self["clock_active"].setText(clock_text)
 
         self._updateDisplay()
 
@@ -1550,6 +1734,15 @@ class MainScreen(Screen):
         with InformationPanel's dynamically-built page list, which
         also covers Internet Radio (Radio EPG/Now Playing/Station)
         that the old fixed cycle never did.
+
+        Round 93, per direct request -- Lyrics specifically now
+        renders through the lyrics_line_N multi-widget stack instead
+        of the plain info_content Label, whenever a live-windowed
+        lyrics page is active (see InformationPanel.
+        getCurrentLyricsWindowData()'s own docstring for exactly when
+        that is). Every other page (Metadata/Codec/Radio EPG/static
+        lyrics text/...) is unaffected -- info_content keeps rendering
+        them exactly as before.
         """
 
         station = self._radio_list[self._radio_index] if (
@@ -1558,7 +1751,74 @@ class MainScreen(Screen):
 
         self._information_panel.refresh(self._playback, filename, elapsed, duration, station=station)
 
-        self["info_content"].setText(self._information_panel.getCurrentContent())
+        lyrics_window = self._information_panel.getCurrentLyricsWindowData(len(self.LYRICS_WINDOW_ROWS))
+
+        if lyrics_window is not None:
+
+            self["info_content"].hide()
+
+            self._showLyricsWindow(lyrics_window)
+
+        else:
+
+            self._hideLyricsWindow()
+
+            self["info_content"].show()
+
+            self["info_content"].setText(self._information_panel.getCurrentContent())
+
+    # ------------------------------------------------------------------
+
+    def _showLyricsWindow(self, lyrics_window: dict) -> None:
+        """
+        Populates and shows the lyrics_line_N widgets from a
+        structured window (LyricsManager.getScrollWindowData()'s own
+        return shape). The "current" line always lands on the same
+        row (LYRICS_CURRENT_ROW_INDEX) by construction (see
+        getScrollWindowData()'s own padding behaviour), so which row
+        is bigger/bold is fixed at skin-build time -- except for one
+        case a static skin can't express: unsynchronized (.txt/
+        embedded) lyrics must NOT get the enlarged tiers at all
+        ("fonttia ei suurenneta kun ajoitus ei ole tiedossa", per
+        direct request), even though they use this exact same
+        centered window. Handled with a real runtime font change
+        (gFont(), not just setText()) -- every row forced to the
+        normal tier's own size/family when unsynchronized, restored
+        to its own baked-in tier otherwise, using
+        self._lyrics_font_family/self._lyrics_font_scale stashed by
+        _buildSkin() so the runtime font matches exactly what the
+        skin itself would have baked in.
+        """
+
+        lines = lyrics_window["lines"]
+
+        synchronized = lyrics_window["synchronized"]
+
+        _normal_height, normal_size, normal_bold = self.LYRICS_WINDOW_ROWS[0]
+
+        for row_index, (_row_height, row_font_size, row_bold) in enumerate(self.LYRICS_WINDOW_ROWS):
+
+            widget = self[f"lyrics_line_{row_index}"]
+
+            widget.setText(lines[row_index] if row_index < len(lines) else "")
+
+            effective_size, effective_bold = (row_font_size, row_bold) if synchronized else (normal_size, normal_bold)
+
+            if widget.instance is not None:
+
+                family = "Bold" if effective_bold else self._lyrics_font_family
+
+                widget.instance.setFont(gFont(family, max(10, int(effective_size * self._lyrics_font_scale))))
+
+            widget.show()
+
+    # ------------------------------------------------------------------
+
+    def _hideLyricsWindow(self) -> None:
+
+        for row_index in range(len(self.LYRICS_WINDOW_ROWS)):
+
+            self[f"lyrics_line_{row_index}"].hide()
 
     # ------------------------------------------------------------------
 
@@ -1690,6 +1950,8 @@ class MainScreen(Screen):
             ("player", "player_title_normal", "player_title_active"),
             ("playlist", "playlist_title_normal", "playlist_title_active"),
             ("information", "info_title_normal", "info_title_active"),
+            ("player", "app_branding_normal", "app_branding_active"),
+            ("player", "clock_normal", "clock_active"),
         ):
 
             is_active = panel_name == self._active_panel
@@ -2004,9 +2266,13 @@ class MainScreen(Screen):
 
                 logger.verbose("[MainScreen] Artwork source: default artwork (no media)\n")
 
+                self._cover_art_path = DEFAULT_ARTWORK_PATH
+
                 self._decodeCoverArt(DEFAULT_ARTWORK_PATH)
 
             else:
+
+                self._cover_art_path = None
 
                 self["cover"].hide()
 
@@ -2043,11 +2309,15 @@ class MainScreen(Screen):
 
             self._log("Artwork unavailable: no embedded, folder or default artwork found.")
 
+            self._cover_art_path = None
+
             self["cover"].hide()
 
             return
 
         logger.verbose(f"[MainScreen] Artwork source: {source}\n\nPath: {artwork_path}\n")
+
+        self._cover_art_path = artwork_path
 
         self._decodeCoverArt(artwork_path)
 
@@ -2414,14 +2684,20 @@ class MainScreen(Screen):
         """
         Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu" --
         dispatches by active panel: Playlist Panel plays the selected
-        entry, Information Panel does nothing ("OK: No action"),
-        Player Panel with no media loaded yet still opens the startup
-        chooser (unchanged, and reused directly by PVR -- see
+        entry, Player Panel with no media loaded yet still opens the
+        startup chooser (unchanged, and reused directly by PVR -- see
         pvrPressed()). Player Panel WITH media loaded now opens a
         small action menu (Back / Stop-Resume / Cancel) instead of
         Build 0009's direct pause/resume/replay toggle -- the
         dedicated PAUSE key already covers pausing on its own
         (pausePressed(), bound separately), so OK no longer needs to.
+
+        Round 99, per direct request: Player Panel WITH media loaded
+        and Information Panel now open the exact same unified menu
+        (Back, Stop/Resume, Show lyrics fullscreen, Show cover art
+        fullscreen, Cancel) -- see _openUnifiedActionMenu()'s own
+        docstring, which replaces round 87's separate Information-only
+        menu and this build's own separate Player-only menu.
         """
 
         logger.verbose("[MainScreen] OK pressed.")
@@ -2434,6 +2710,8 @@ class MainScreen(Screen):
 
         if self._active_panel == "information":
 
+            self._openUnifiedActionMenu()
+
             return
 
         if not self._playback.hasMedia():
@@ -2442,50 +2720,60 @@ class MainScreen(Screen):
 
             return
 
-        self._openPlayerActionMenu()
+        self._openUnifiedActionMenu()
 
     # ------------------------------------------------------------------
 
-    def _openPlayerActionMenu(self) -> None:
+    def _openUnifiedActionMenu(self) -> None:
         """
-        Build 0010, BUILD_0010_PLAN.md "MainScreen OK Menu": "OK in
-        Player mode shall open a small action menu. The first item
-        shall always be: Back ... The remaining menu items shall be:
-        Stop/Resume, Cancel."
+        Round 99, per direct request: OK now opens the SAME menu from
+        both the Player panel (with media loaded) and the Information
+        panel -- Back, Stop/Resume, Show lyrics fullscreen, Show cover
+        art fullscreen, Cancel -- rather than two different menus
+        depending on which panel happened to be active. Replaces the
+        previous _openPlayerActionMenu()/_openInformationMenu() pair
+        (round 87's own Information-only menu, and Build 0010's own
+        Player-only menu) with this one shared method, called from
+        both of okPressed()'s own branches.
 
-        Device test round 9: three further items, radio-only (added
-        directly per user request, not literally in the plan's own
-        wording -- same class of "screen cannot do X yet without this"
-        addition as Round 6's BrowserScreen "Open directory"/"Play",
-        flagged here the same way rather than silently): Clear
-        history, Add to Favorites, Remove from Favorites (renamed from
-        "...playlist" in device test round 11 -- see
-        _addCurrentStationToFavorites()'s own docstring for why).
-        Placed after Back, before the always-present Stop/Resume/
-        Cancel so Back stays the first item exactly as the plan
-        requires.
+        Back/Stop-Resume (and the radio-only Clear history/Favorites
+        items, round 9, unchanged) are only offered when self._playback.
+        hasMedia() -- meaningless otherwise, and reachable this way
+        when the Information panel is active before anything has ever
+        played. Show lyrics/Show cover art fullscreen are always
+        offered regardless -- both already show a plain "not
+        available" message on their own when there's nothing to show
+        (round 87), so offering them is never actually unsafe.
         """
 
-        resume_state = self._playback.isPaused() or self._playback.isStopped()
+        choices = []
 
-        stop_resume_label = _("Resume") if resume_state else _("Stop")
+        if self._playback.hasMedia():
 
-        choices = [(_("Back"), "back")]
+            choices.append((_("Back"), "back"))
 
-        if self._playback.isPlayingStream() and self._last_radio_station:
+            if self._playback.isPlayingStream() and self._last_radio_station:
 
-            choices.append((_("Clear history"), "clear_radio_history"))
+                choices.append((_("Clear history"), "clear_radio_history"))
 
-            choices.append((_("Add to Favorites"), "add_to_favorites"))
+                choices.append((_("Add to Favorites"), "add_to_favorites"))
 
-            choices.append((_("Remove from Favorites"), "remove_from_favorites"))
+                choices.append((_("Remove from Favorites"), "remove_from_favorites"))
 
-        choices.append((stop_resume_label, "stop_resume"))
+            resume_state = self._playback.isPaused() or self._playback.isStopped()
+
+            stop_resume_label = _("Resume") if resume_state else _("Stop")
+
+            choices.append((stop_resume_label, "stop_resume"))
+
+        choices.append((_("Show lyrics fullscreen"), "lyrics"))
+
+        choices.append((_("Show cover art fullscreen"), "cover"))
 
         choices.append((_("Cancel"), "cancel"))
 
         self.session.openWithCallback(
-            self._playerActionMenuChosen,
+            self._unifiedActionMenuChosen,
             ChoiceBox,
             title=_("Player"),
             list=choices,
@@ -2493,7 +2781,42 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def _playerActionMenuChosen(self, choice) -> None:
+    def _showLyricsFullscreen(self) -> None:
+
+        filename = self._playback.getCurrentFile()
+
+        text = None
+
+        if filename:
+
+            lyrics = lyrics_manager.getLyrics(filename)
+
+            if lyrics.get("source") != "none":
+
+                text = lyrics.get("text")
+
+        self.session.open(
+            LyricsFullscreenScreen,
+            _("Lyrics"),
+            text or _("No lyrics available."),
+            self._information_panel,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _showCoverArtFullscreen(self) -> None:
+
+        if self._cover_art_path:
+
+            self.session.open(CoverArtFullscreenScreen, self._cover_art_path)
+
+        else:
+
+            self.session.open(MessageBox, _("No cover art available."), MessageBox.TYPE_INFO, timeout=3)
+
+    # ------------------------------------------------------------------
+
+    def _unifiedActionMenuChosen(self, choice) -> None:
 
         if choice is None or choice[1] == "cancel":
             return
@@ -2532,6 +2855,14 @@ class MainScreen(Screen):
             else:
 
                 self.stopPressed()
+
+        elif choice[1] == "lyrics":
+
+            self._showLyricsFullscreen()
+
+        elif choice[1] == "cover":
+
+            self._showCoverArtFullscreen()
 
     # ------------------------------------------------------------------
 

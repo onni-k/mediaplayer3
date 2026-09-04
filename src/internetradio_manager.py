@@ -149,6 +149,23 @@ DEFAULT_FAVORITE_LIST = "General"
 
 DEFAULT_HISTORY_SIZE = 50
 
+# Round 104, per direct request (moved here from radiobrowserscreen.py's
+# own class attribute of the same name, so both that screen's own
+# _promoteAppLanguage() and this module's own supplemental-download
+# pass, below, share one definition instead of two that could drift
+# apart) -- RadioBrowser's own language names aren't ISO codes, so
+# this maps the app's own language codes to them. Add an entry
+# whenever a new UI language is added (round 102 added sv/de/es but
+# never updated this mapping, since it didn't exist here yet at the
+# time).
+APP_LANGUAGE_TO_RADIOBROWSER_NAME = {
+    "fi": "finnish",
+    "en": "english",
+    "sv": "swedish",
+    "de": "german",
+    "es": "spanish",
+}
+
 
 class InternetRadioManager:
     """
@@ -220,6 +237,22 @@ class InternetRadioManager:
     # ------------------------------------------------------------------
 
     def _loadJSON(self, path: str, default: Any) -> Any:
+        """
+        Round 101, per direct request (a real device crash): a
+        MemoryError from json.load() -- confirmed directly from a
+        device log's own full traceback, for the station database
+        specifically, likely grown very large under an unlimited
+        (radio.search_limit = 0, round 68) station-count setting on a
+        memory-constrained receiver -- used to propagate all the way
+        up and crash the whole screen. Caught here the same way an
+        unreadable/corrupt file already was (OSError/ValueError),
+        logged distinctly so a future device log makes this
+        specific cause obvious at a glance, and treated as "no usable
+        data" (the existing default) rather than a hard failure --
+        _loadStationDatabase()'s own caller already handles an empty/
+        missing database gracefully (offers a fresh download), so no
+        change was needed there.
+        """
 
         try:
             with open(path, encoding="utf-8") as handle:
@@ -229,6 +262,15 @@ class InternetRadioManager:
         except (OSError, ValueError) as error:
 
             logger.verbose(f"[Radio] Unable to read {path}: {error}")
+
+            return default
+
+        except MemoryError:
+
+            logger.verbose(
+                f"[Radio] Out of memory while reading {path} -- the file is likely too large for this "
+                f"device to load. Consider lowering the Radio station limit setting."
+            )
 
             return default
 
@@ -827,6 +869,46 @@ class InternetRadioManager:
 
         self._log(f"Station database update: fetched {len(results)} station(s) across {offset // self.DATABASE_DOWNLOAD_PAGE_SIZE + 1} page(s).")
 
+        # Round 104, per direct request (a real report: limit=20000 +
+        # "Unlimited results for own language" still missed real
+        # Finnish stations) -- that setting, until now, only affected
+        # RadioBrowserScreen's own interactive search
+        # (radiobrowserscreen.py's own onSelectionChanged, checked via
+        # config_manager.get("radio.unlimited_for_own_language", ...)
+        # there), never the actual downloaded database this method
+        # builds. The main pass above orders by global clickcount,
+        # which can and does miss plenty of real, lower-popularity
+        # stations in the user's own language/region entirely once
+        # target_limit is smaller than RadioBrowser's own worldwide
+        # count. A second, supplemental pass -- exhaustive, no cap --
+        # for the user's own configured default language/region (or,
+        # if neither is set, the app's own UI language) fixes this
+        # directly rather than trying to bias the main pass's own
+        # ordering.
+        if isinstance(results, list) and bool(config_manager.get("radio.unlimited_for_own_language", False)):
+
+            supplemental = self._fetchSupplementalOwnLanguageStations()
+
+            existing_uuids = {
+                station.get("stationuuid") for station in results if isinstance(station, dict)
+            }
+
+            added = 0
+
+            for station in supplemental:
+
+                station_uuid = station.get("stationuuid") if isinstance(station, dict) else None
+
+                if station_uuid and station_uuid not in existing_uuids:
+
+                    results.append(station)
+
+                    existing_uuids.add(station_uuid)
+
+                    added += 1
+
+            self._log(f"Station database update: added {added} supplemental own-language/region station(s).")
+
         if not isinstance(results, list) or not results:
 
             self._log("Station database update failed (empty or invalid response); keeping existing database.")
@@ -882,6 +964,107 @@ class InternetRadioManager:
         self._log(f"Station database updated: {len(valid)} station(s).")
 
         return True
+
+    # ------------------------------------------------------------------
+
+    def _fetchSupplementalOwnLanguageStations(self) -> List[Dict[str, Any]]:
+        """
+        Round 104, per direct request: "kaikki radion oletuskielen ja
+        oletusalueen kanavat, ja jos niitä ei ole valittu, niin kaikki
+        käyttöliittymän kielen kanavat" -- fetches every station
+        (exhaustively, no cap) for radio.default_language and/or
+        radio.default_country if either is set; if NEITHER is set,
+        falls back to the app's own UI language (general.language),
+        matching RadioBrowserScreen's own _promoteAppLanguage() lookup
+        table exactly (APP_LANGUAGE_TO_RADIOBROWSER_NAME, this
+        module's own). Returns a flat, possibly-overlapping-with-each-
+        other (but not yet deduplicated against the main pass) list --
+        updateStationDatabase() itself handles deduplication by
+        stationuuid.
+        """
+
+        from .config import config_manager, resolveLanguageCode
+
+        default_language = config_manager.get("radio.default_language", "")
+
+        default_country = config_manager.get("radio.default_country", "")
+
+        filters: List[Dict[str, str]] = []
+
+        if default_language:
+
+            filters.append({"language": default_language})
+
+        if default_country:
+
+            filters.append({"country": default_country})
+
+        if not filters:
+
+            app_language_name = APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(
+                resolveLanguageCode(config_manager.get("general.language", "fi"))
+            )
+
+            if app_language_name:
+
+                filters.append({"language": app_language_name})
+
+        supplemental: List[Dict[str, Any]] = []
+
+        for filter_params in filters:
+
+            supplemental.extend(self._fetchAllStationsForFilter(filter_params))
+
+        return supplemental
+
+    # ------------------------------------------------------------------
+
+    def _fetchAllStationsForFilter(self, filter_params: Dict[str, str]) -> List[Dict[str, Any]]:
+        """
+        Exhaustively paginates json/stations/search for exactly the
+        given filter (a single {"language": ...} or {"country": ...}
+        dict, round 104's own _fetchSupplementalOwnLanguageStations())
+        -- no target limit, keeps requesting pages until RadioBrowser
+        itself signals the end of the catalogue (a page shorter than
+        asked for), same end-of-catalogue detection already used by
+        updateStationDatabase()'s own main pass. DATABASE_DOWNLOAD_LIMIT
+        is still an absolute safety ceiling (a single language/country
+        should never actually reach it, but never loop forever
+        regardless).
+        """
+
+        results: List[Dict[str, Any]] = []
+
+        offset = 0
+
+        while len(results) < self.DATABASE_DOWNLOAD_LIMIT:
+
+            page_size = min(self.DATABASE_DOWNLOAD_PAGE_SIZE, self.DATABASE_DOWNLOAD_LIMIT - len(results))
+
+            params = {
+                "hidebroken": "true",
+                "order": "clickcount",
+                "reverse": "true",
+                "limit": page_size,
+                "offset": offset,
+                **filter_params,
+            }
+
+            page = self._apiGet("json/stations/search", params)
+
+            if not isinstance(page, list) or not page:
+                break
+
+            results.extend(page)
+
+            offset += len(page)
+
+            if len(page) < page_size:
+                break
+
+        self._log(f"Supplemental fetch for {filter_params}: {len(results)} station(s).")
+
+        return results
 
     # ------------------------------------------------------------------
 

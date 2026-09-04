@@ -156,7 +156,7 @@ from .config import config_manager, resolveLanguageCode
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .help_manager import help_manager
 from .help_screen import HelpScreen
-from .internetradio_manager import internetradio_manager
+from .internetradio_manager import APP_LANGUAGE_TO_RADIOBROWSER_NAME, internetradio_manager
 from .paths import SKIN_PATH
 from .skin import to_opaque_skin_color
 from .localization import _
@@ -315,9 +315,15 @@ class RadioBrowserScreen(Screen):
                 backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Internet Radio">
 
+            <!-- Round 96: same zPosition fix as MainMenu/
+                 LyricsFullscreenScreen's own round 95/96 fix for a
+                 title flashing then hiding behind this background
+                 once its own async decode completes; explicit,
+                 permanent z-order pin, immune to decode timing. -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <widget name="status"
@@ -738,6 +744,10 @@ class RadioBrowserScreen(Screen):
 
         self._promoteAppLanguage()
 
+        self._promoteConfiguredDefault(self._languages, self._default_language)
+
+        self._promoteConfiguredDefault(self._countries, self._default_country)
+
         self["region"].setList([_("Any")] + [entry.get("name", "?") for entry in self._countries])
 
         self["language"].setList([_("Any")] + [entry.get("name", "?") for entry in self._languages])
@@ -763,11 +773,11 @@ class RadioBrowserScreen(Screen):
     # RadioBrowser identifies languages by full English name ("finnish",
     # "english", ...), not by MediaPlayer3's own "fi"/"en" language
     # codes -- this maps the ones LocalizationManager currently ships.
-    # Add an entry here whenever a new UI language is added.
-    _APP_LANGUAGE_TO_RADIOBROWSER_NAME = {
-        "fi": "finnish",
-        "en": "english",
-    }
+    # Round 104 -- moved to internetradio_manager.py's own module-level
+    # APP_LANGUAGE_TO_RADIOBROWSER_NAME (shared with that module's own
+    # supplemental-download pass); kept as an alias here so this
+    # class's own two existing call sites below didn't need touching.
+    _APP_LANGUAGE_TO_RADIOBROWSER_NAME = APP_LANGUAGE_TO_RADIOBROWSER_NAME
 
     def _promoteAppLanguage(self) -> None:
         """
@@ -801,6 +811,37 @@ class RadioBrowserScreen(Screen):
         self._languages.remove(match)
 
         self._languages.insert(0, match)
+
+    # ------------------------------------------------------------------
+
+    def _promoteConfiguredDefault(self, entries, default_value) -> None:
+        """
+        Round 100, per direct request: generic version of
+        _promoteAppLanguage()'s own "move to position 2, right after
+        Any" logic, for whatever the user has explicitly set as their
+        own Radio default language/country via OK on a language/
+        region entry (see okPressed()/_setAsRadioDefault()) -- not
+        tied to one specific language-name mapping table the way
+        _promoteAppLanguage() is, since radio.default_language/
+        radio.default_country already store the RadioBrowser-native
+        name directly (the exact same "name" field these entries
+        already carry), needing no translation lookup at all. Called
+        after _promoteAppLanguage() in _reloadFilters() so an
+        explicit user choice here wins the position-2 spot over the
+        automatic app-language promotion if the two ever differ.
+        """
+
+        if not default_value:
+            return
+
+        match = next((entry for entry in entries if entry.get("name", "") == default_value), None)
+
+        if match is None:
+            return
+
+        entries.remove(match)
+
+        entries.insert(0, match)
 
     # ------------------------------------------------------------------
 
@@ -1358,6 +1399,12 @@ class RadioBrowserScreen(Screen):
 
         logger.verbose("[RadioBrowser] OK pressed.")
 
+        if self._focus in ("language", "region"):
+
+            self._offerSetAsRadioDefault()
+
+            return
+
         if self._focus != "stations":
             return
 
@@ -1384,6 +1431,92 @@ class RadioBrowserScreen(Screen):
             title=station.get("name", "?"),
             list=choices,
         )
+
+    # ------------------------------------------------------------------
+
+    def _offerSetAsRadioDefault(self) -> None:
+        """
+        Round 100, per direct request: OK on a Language/Region entry
+        (previously did nothing outside the Stations column) offers
+        setting the currently selected entry as Radio's own default
+        language/country -- the exact same config_manager keys
+        Settings' own "Radio default language"/"Radio default country"
+        already expose (SETTINGSSCREEN_SPEC.md), just reachable
+        directly from here too.
+
+        Round 106, per direct request: "Any" (index 0) now offers
+        CLEARING that default (setting it back to "") instead of being
+        excluded entirely -- lets the user restrict a search by only
+        one of language/region, leaving the other unset, without a
+        detour through Settings to blank it out by hand.
+        """
+
+        widget_name = self._focus
+
+        index = self[widget_name].getSelectedIndex()
+
+        if index < 0:
+            return
+
+        if index == 0:
+
+            label = _("Clear Radio default language") if widget_name == "language" else _("Clear Radio default country")
+
+            self.session.openWithCallback(
+                lambda confirmed: self._setAsRadioDefaultConfirmed(confirmed, widget_name, ""),
+                MessageBox,
+                _("{0}?").format(label),
+                MessageBox.TYPE_YESNO,
+            )
+
+            return
+
+        entries = self._languages if widget_name == "language" else self._countries
+
+        entry_index = index - 1
+
+        if not (0 <= entry_index < len(entries)):
+            return
+
+        entry_name = entries[entry_index].get("name", "")
+
+        if not entry_name:
+            return
+
+        label = _("Set as Radio default language") if widget_name == "language" else _("Set as Radio default country")
+
+        self.session.openWithCallback(
+            lambda confirmed: self._setAsRadioDefaultConfirmed(confirmed, widget_name, entry_name),
+            MessageBox,
+            _("{0}: {1}?").format(label, entry_name),
+            MessageBox.TYPE_YESNO,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _setAsRadioDefaultConfirmed(self, confirmed, widget_name, entry_name) -> None:
+
+        if not confirmed:
+            return
+
+        if widget_name == "language":
+
+            config_manager.set("radio.default_language", entry_name)
+
+            self._default_language = entry_name
+
+        else:
+
+            config_manager.set("radio.default_country", entry_name)
+
+            self._default_country = entry_name
+
+        self._log(f"Radio default {widget_name} set to: {entry_name}")
+
+        # Re-promotes the just-configured default to position 2 (right
+        # after "Any") and re-selects it, the same as _promoteAppLanguage()
+        # already does for the app's own UI language.
+        self._reloadFilters()
 
     # ------------------------------------------------------------------
 

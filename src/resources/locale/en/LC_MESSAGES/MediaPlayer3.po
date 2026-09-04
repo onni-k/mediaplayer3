@@ -823,3 +823,237 @@ msgstr "Radio station limit (0 = unlimited)"
 
 msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
 msgstr "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+
+msgid "Download lyrics"
+msgstr "Download lyrics"
+
+msgid "Download lyrics?"
+msgstr "Download lyrics?"
+
+msgid "Downloading lyrics, please wait..."
+msgstr "Downloading lyrics, please wait..."
+
+msgid "Synced lyrics downloaded."
+msgstr "Synced lyrics downloaded."
+
+msgid "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+msgstr "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+
+msgid "LRCLIB has this track marked as instrumental -- no lyrics to download."
+msgstr "LRCLIB has this track marked as instrumental -- no lyrics to download."
+
+msgid "No lyrics found on LRCLIB for this track."
+msgstr "No lyrics found on LRCLIB for this track."
+
+msgid "This track already has lyrics -- nothing downloaded."
+msgstr "This track already has lyrics -- nothing downloaded."
+
+msgid "Missing artist/title tags -- can't search LRCLIB for this track."
+msgstr "Missing artist/title tags -- can't search LRCLIB for this track."
+
+msgid "Lyrics download failed. Check your network connection."
+msgstr "Lyrics download failed. Check your network connection."
+
+msgid "synced"
+msgstr "synced"
+
+msgid "plain text"
+msgstr "plain text"
+
+msgid "instrumental"
+msgstr "instrumental"
+
+msgid "not found"
+msgstr "not found"
+
+msgid "already had lyrics"
+msgstr "already had lyrics"
+
+msgid "missing tags"
+msgstr "missing tags"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "Lyrics download finished: %s."
+msgstr "Lyrics download finished: %s."
+
+msgid "No audio files found in this directory."
+msgstr "No audio files found in this directory."
+
+msgid "Also download lyrics for subdirectories?"
+msgstr "Also download lyrics for subdirectories?"
+
+msgid "Show lyrics fullscreen"
+msgstr "Show lyrics fullscreen"
+
+msgid "Show cover art fullscreen"
+msgstr "Show cover art fullscreen"
+
+msgid "No lyrics available."
+msgstr "No lyrics available."
+
+msgid "No cover art available."
+msgstr "No cover art available."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+
+msgid "Download cover art"
+msgstr "Download cover art"
+
+msgid "Download cover art?"
+msgstr "Download cover art?"
+
+msgid "Also download cover art for subdirectories?"
+msgstr "Also download cover art for subdirectories?"
+
+msgid "Downloading cover art, please wait..."
+msgstr "Downloading cover art, please wait..."
+
+msgid "Cover art downloaded."
+msgstr "Cover art downloaded."
+
+msgid "This album already has cover art -- nothing downloaded."
+msgstr "This album already has cover art -- nothing downloaded."
+
+msgid "No matching cover art found."
+msgstr "No matching cover art found."
+
+msgid "Missing artist/album tags -- can't search for cover art."
+msgstr "Missing artist/album tags -- can't search for cover art."
+
+msgid "Cover art download failed. Check your network connection."
+msgstr "Cover art download failed. Check your network connection."
+
+msgid "saved"
+msgstr "saved"
+
+msgid "already had cover art"
+msgstr "already had cover art"
+
+msgid "Cover art download finished: %s."
+msgstr "Cover art download finished: %s."
+
+msgid "MusicBrainz is temporarily busy. Try again in a moment."
+msgstr "MusicBrainz is temporarily busy. Try again in a moment."
+
+msgid "temporarily busy, try again shortly"
+msgstr "temporarily busy, try again shortly"
+
+msgid "LRCLIB is temporarily busy. Try again in a moment."
+msgstr "LRCLIB is temporarily busy. Try again in a moment."
+
+msgid "Download all"
+msgstr "Download all"
+
+msgid "Download synced lyrics only (LRC)"
+msgstr "Download synced lyrics only (LRC)"
+
+msgid "Download plain text lyrics only (TXT)"
+msgstr "Download plain text lyrics only (TXT)"
+
+msgid "Return to start of playlist"
+msgstr "Return to start of playlist"
+
+msgid "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+msgstr "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+
+msgid "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+msgstr "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+
+msgid "Whether the file Browser also shows hidden files (default: no)."
+msgstr "Whether the file Browser also shows hidden files (default: no)."
+
+msgid "Lets you launch the program directly from the main menu. (Default: no)"
+msgstr "Lets you launch the program directly from the main menu. (Default: no)"
+
+msgid "Interface language (default: System)."
+msgstr "Interface language (default: System)."
+
+msgid "The program's appearance (default: Light)."
+msgstr "The program's appearance (default: Light)."
+
+msgid "When the playlist ends, start playing it again from the beginning (default: no)."
+msgstr "When the playlist ends, start playing it again from the beginning (default: no)."
+
+msgid "Play the next track in the playlist once the previous one has finished (default: yes)."
+msgstr "Play the next track in the playlist once the previous one has finished (default: yes)."
+
+msgid "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+msgstr "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+
+msgid "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+msgstr "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+
+msgid "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+msgstr "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+
+msgid "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+
+msgid "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+
+msgid "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0)."
+msgstr "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0)."
+
+msgid "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+msgstr "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+
+msgid "At most this many stations are kept in the history list (default: 20)."
+msgstr "At most this many stations are kept in the history list (default: 20)."
+
+msgid "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+msgstr "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+
+msgid "May help some radio stations play correctly (default: no)."
+msgstr "May help some radio stations play correctly (default: no)."
+
+msgid "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+msgstr "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+msgstr "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+msgstr "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+msgstr "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+
+msgid "(Default: yes)"
+msgstr "(Default: yes)"
+
+msgid "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+msgstr "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+
+msgid "Set as startup directory"
+msgstr "Set as startup directory"
+
+msgid "Set as Music Library directory"
+msgstr "Set as Music Library directory"
+
+msgid "{0} set to: {1}"
+msgstr "{0} set to: {1}"
+
+msgid "Set as Radio default language"
+msgstr "Set as Radio default language"
+
+msgid "Set as Radio default country"
+msgstr "Set as Radio default country"
+
+msgid "{0}: {1}?"
+msgstr "{0}: {1}?"
+
+msgid "Yes"
+msgstr "Yes"
+
+msgid "No"
+msgstr "No"
+
+msgid "Clear Radio default language"
+msgstr "Clear Radio default language"
+
+msgid "Clear Radio default country"
+msgstr "Clear Radio default country"

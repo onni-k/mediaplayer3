@@ -12,10 +12,16 @@ Directories | Files | Playlist.
 - Moving within Directories updates the Files column with a preview
   of the highlighted directory's contents.
 - OK: open the action menu for the current selection.
-  - Directories: Play, Open directory (descend, or ".." to go up), or
-    Add entire directory to playlist.
+  - Directories: Play, Open directory (descend, or ".." to go up),
+    Add entire directory to playlist, Download lyrics, Download
+    cover art, Set as startup directory, or Set as Music Library
+    directory. Play/Open directory/Add entire directory to playlist
+    are left out when this screen was opened as a plain directory
+    picker (from Settings) rather than for normal browsing.
   - Files: Play, Add this file, Add this file and remaining files in
-    directory, or Add all files from directory.
+    directory, Add all files from directory, Download lyrics, or
+    Download cover art. Play/Add* are left out the same way as above
+    when opened as a directory picker.
   - Playlist: Play (from the selected track onward), Remove, Move up,
     or Move down.
 - PLAY: start playback directly -- the previewed directory

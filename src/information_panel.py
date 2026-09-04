@@ -131,6 +131,22 @@ class InformationPanel:
         # lyrics page itself changes (new track).
         self._lyrics_offset_seconds = 0.0
 
+        # Round 93, per direct request -- the raw lyrics dict and the
+        # adjusted elapsed/duration used to build the current Lyrics
+        # page (whichever page that is), so getCurrentLyricsWindowData()
+        # can recompute a structured, per-line-styleable window on
+        # demand at whatever window_size MainScreen's own multi-widget
+        # display needs, independent of self._visible_lines above
+        # (which stays the plain single-Label window size every other
+        # page still uses). None whenever the current page isn't
+        # Lyrics, or live position isn't available.
+        self._current_lyrics_raw: Optional[Dict[str, Any]] = None
+
+        self._current_lyrics_elapsed: Optional[float] = None
+
+        self._current_lyrics_duration: Optional[float] = None
+
+
         # Build 0009, device test round 4 -- (filename, stationuuid)
         # of whatever was active on the last refresh() call, used to
         # detect a genuine track/station change vs. just another
@@ -366,6 +382,17 @@ class InformationPanel:
 
             adjusted_elapsed = max(0.0, estimated_elapsed + self._lyrics_offset_seconds)
 
+            # Round 93, per direct request -- stashed so
+            # getCurrentLyricsWindowData() can recompute a structured,
+            # per-line-styleable window on demand at MainScreen's own
+            # window_size, without duplicating this offset/elapsed
+            # calculation there.
+            self._current_lyrics_raw = lyrics
+
+            self._current_lyrics_elapsed = adjusted_elapsed
+
+            self._current_lyrics_duration = duration
+
             text = lyrics_manager.getScrollWindow(
                 lyrics, adjusted_elapsed, duration, window_size=self._visible_lines
             )
@@ -376,9 +403,48 @@ class InformationPanel:
 
                 self._synchronized_lyrics_title = None
 
+            self._current_lyrics_raw = None
+
+            self._current_lyrics_elapsed = None
+
             text = lyrics.get("text", "")
 
         return title, text
+
+    # ------------------------------------------------------------------
+
+    def getCurrentLyricsWindowData(self, window_size: int) -> Optional[Dict[str, Any]]:
+        """
+        Round 93, per direct request: structured, per-line-styleable
+        lyrics window (lyrics_manager.py's own getScrollWindowData())
+        for the CURRENT page specifically, at `window_size` -- kept
+        independent of self._visible_lines (the window size the plain
+        single-Label getCurrentContent() still uses for every other
+        page) so MainScreen can render Lyrics with its own fixed
+        per-row font tiers (bigger current line, slightly bigger
+        prev/next) at whatever size that display needs. Returns None
+        when the current page isn't Lyrics, or live position isn't
+        available (matches scroll()'s own title-matching check for
+        "is the current page the live-windowed lyrics page").
+        """
+
+        if not self._pages:
+            return None
+
+        title, _content = self._pages[self._current_index]
+
+        if title != self._synchronized_lyrics_title:
+            return None
+
+        if self._current_lyrics_raw is None or self._current_lyrics_elapsed is None:
+            return None
+
+        return lyrics_manager.getScrollWindowData(
+            self._current_lyrics_raw,
+            self._current_lyrics_elapsed,
+            self._current_lyrics_duration,
+            window_size=window_size,
+        )
 
     # ------------------------------------------------------------------
 

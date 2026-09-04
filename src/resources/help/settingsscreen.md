@@ -7,15 +7,14 @@ preferences.
 
 - UP / DOWN: move between settings.
 - LEFT / RIGHT: change the selected setting's value.
-- OK: open the selected setting's editor (for text/list entries).
+- OK: open the selected setting's editor (for text/list entries). For
+  Startup directory and Music Library directory, this opens the file
+  Browser itself -- pick a folder there, then choose "Set as startup
+  directory"/"Set as Music Library directory" from its own action
+  menu to confirm it.
 - YELLOW: clear Internet Radio history.
 - INFO: show the current setting's name and value.
 - MENU: open the Main Menu.
 - HELP: show this help.
 - EXIT: save and return to the previous screen.
 
-## Notes
-
-Theme changes apply the next time a screen is opened. If a screen is
-already open when you change the theme, close and reopen it to see
-the new colors.

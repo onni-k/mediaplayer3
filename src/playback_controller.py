@@ -1398,6 +1398,18 @@ class PlaybackController:
 
             return
 
+        # Round 98, per direct request: replaces the never-implemented
+        # "Resume playback (future)" setting -- when Auto Next is on
+        # but there's no next track (the playlist just finished), loop
+        # back to the first track instead of stopping, if enabled.
+        if auto_next and bool(config_manager.get("playback.loop_playlist", False)) and len(self._queue) > 0:
+
+            self._log("Auto Next: looping back to the start of the playlist.")
+
+            self._playIndex(0)
+
+            return
+
         logger.verbose(
             "[Playback] End-of-file reason: "
             + ("Auto Next disabled" if not auto_next else "no next track in queue")

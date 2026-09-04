@@ -304,9 +304,15 @@ class PlaylistScreen(Screen):
                 backgroundColor="{panel_background_color}"
                 title="MediaPlayer3 - Playlists">
 
+            <!-- Round 96: same zPosition fix as MainMenu/
+                 LyricsFullscreenScreen's own round 95/96 fix for a
+                 title flashing then hiding behind this background
+                 once its own async decode completes; explicit,
+                 permanent z-order pin, immune to decode timing. -->
             <widget name="background"
                     position="0,0"
                     size="{width},{height}"
+                    zPosition="-1"
                     alphatest="blend"/>
 
             <widget name="status"
