@@ -25,6 +25,8 @@ The package intentionally performs no initialisation on import.
 All runtime initialisation is handled by plugin.py.
 """
 
+__version__ = "0.1.0"
+
 __all__ = []
 
 #end_of_file
