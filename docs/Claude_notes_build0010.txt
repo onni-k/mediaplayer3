@@ -12474,3 +12474,81 @@ itself.
 
 Both .zip and .ipk built and delivered together. This is 1.1.000,
 the public release.
+
+---
+
+## Round 158 (2026-09-13) -- GitHub Actions autotag workflow added
+
+Per direct request (a message from the programmer considering
+MediaPlayer3 for the OpenViX repo, referencing a specific commit --
+DimitarCC/e2-emby-client@c346ecd -- as the exact pattern to follow):
+added a workflow that creates a git tag automatically whenever
+src/__init__.py's own version string changes on push to main.
+
+### __init__.py made the single source of truth for the version
+
+The referenced workflow reads the version via a plain shell grep --
+`grep -oP '(?<=__version__ = ")[^"]+' src/__init__.py` -- which can
+only ever find a literal, hardcoded string in that exact file; it has
+no way to resolve a Python import or evaluate any expression. Given
+project.py's own VERSION constant was already the project's own
+existing source of truth, referenced by several other modules
+(coverart_manager.py, internetradio_manager.py, lrclib_manager.py,
+skin.py, version.py), duplicating the literal string in __init__.py
+as well would have created two places to update on every release,
+with a real risk of the two drifting out of sync (a plausible failure
+mode given how many rapid version bumps this project has already
+been through). Reversed the relationship instead: __init__.py now
+defines `__version__ = "1.1.000"` as the actual literal string the
+workflow's own regex needs, and project.py's own VERSION imports it
+(`from . import __version__ as VERSION`) rather than defining its own
+copy -- confirmed with a standalone package-import simulation (a real
+package directory in /tmp, not just a syntax check) that this
+resolves correctly with no circular import, and that VERSION and
+__init__.py's own __version__ match exactly.
+
+### A real mistake caught before shipping
+
+The comment explaining this change originally included the literal
+example text `__version__ = "X.Y.Z"` -- which the exact same grep
+pattern the workflow uses would ALSO match, alongside the real
+`__version__ = "1.1.000"` line, producing two results instead of one
+and silently breaking the workflow's own version detection the
+moment it ran (a malformed, multi-line "version" string, most likely
+failing the tag-creation step outright). Caught by literally running
+the same grep command the workflow itself uses against the real file
+before finalizing, not just visually reviewing the diff -- rephrased
+the comment to avoid the pattern entirely, then re-ran the same grep
+to confirm exactly one match remained.
+
+### Workflow file
+
+.github/workflows/autotag.yml added, matching the referenced commit's
+own autotag.yml precisely (checkout with full history, read the
+version, skip if the corresponding v-prefixed tag already exists,
+otherwise create and push it) -- the other four workflow files in
+that same commit (buildbot.yml, compile.yml, pylint.yml, ruff.yml)
+were not part of this request and were not added. Triggers on push to
+"main" specifically, matching the referenced example and GitHub's own
+current default branch name -- worth the user's own attention if the
+actual repository ends up using a different default branch name.
+
+### Testing
+
+Confirmed __init__.py's and project.py's own syntax with ast.parse();
+the whole src/ directory's own final syntax sweep also clean.
+Confirmed the exact grep pattern the workflow uses returns exactly
+one match against the real, final __init__.py. Validated autotag.yml
+itself parses as well-formed YAML (noting, without treating it as a
+problem, that a generic YAML 1.1 parser reads the bare "on:" key as
+the boolean true rather than the trigger keyword -- a well-known,
+harmless quirk GitHub's own workflow parser handles correctly
+regardless, and the same structure the referenced original commit
+itself uses unmodified).
+
+### Delivery
+
+Both .zip and .ipk built and delivered together. This is 1.1.000
+with the autotag workflow added -- no functional/runtime change to
+the plugin itself, so the version number is not bumped again for
+this round.

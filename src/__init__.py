@@ -25,6 +25,16 @@ The package intentionally performs no initialisation on import.
 All runtime initialisation is handled by plugin.py.
 """
 
-__all__ = []
+# Round 158, per direct request (a GitHub Actions autotag workflow --
+# .github/workflows/autotag.yml -- needs a plain, literal version
+# string it can find by regex, since it runs as a shell grep, not
+# Python, and can't resolve an import): this is now the single source
+# of truth for the project's own version number. project.py's own
+# VERSION constant imports this value rather than defining its own
+# copy, so there is only one place to update when releasing a new
+# version, not two that could drift out of sync.
+__version__ = "1.1.000"
+
+__all__ = ["__version__"]
 
 #end_of_file

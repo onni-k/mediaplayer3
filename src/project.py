@@ -1025,7 +1025,12 @@ APPLICATION_ID = "org.enigma2.mediaplayer3"
 # Version information
 # ------------------------------------------------------------------------------
 
-VERSION = "1.1.000"
+# Round 158: sourced from __init__.py's own __version__ (the single
+# source of truth a GitHub Actions autotag workflow reads directly by
+# regex) rather than duplicating the literal string here -- see that
+# file's own round 158 comment for the full reasoning.
+from . import __version__ as VERSION
+
 BUILD = "0010"
 
 # ------------------------------------------------------------------------------
