@@ -53,8 +53,9 @@ CoverArtFullscreenScreen -- shows the cover art at full screen size.
 
 from __future__ import annotations
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.Pixmap import Pixmap
+from Screens.HelpMenu import HelpableScreen
 from Screens.Screen import Screen
 from enigma import ePicLoad, eTimer
 from Components.AVSwitch import AVSwitch
@@ -65,7 +66,7 @@ from .logger import logger
 from .skin import to_opaque_skin_color
 
 
-class CoverArtFullscreenScreen(Screen):
+class CoverArtFullscreenScreen(Screen, HelpableScreen):
     """
     Full-screen cover art viewer.
     """
@@ -108,6 +109,8 @@ class CoverArtFullscreenScreen(Screen):
 
         Screen.__init__(self, session)
 
+        HelpableScreen.__init__(self)
+
         self.session = session
 
         self._artwork_path = artwork_path
@@ -149,11 +152,26 @@ class CoverArtFullscreenScreen(Screen):
             "right": self.closePressed,
         }
 
-        self["actions"] = ActionMap(
-            ["OkCancelActions", "DirectionActions"],
-            actions,
-            -1,
-        )
+        contexts = ["OkCancelActions", "DirectionActions"]
+
+        help_text_by_handler = {
+            self.closePressed: _("close the fullscreen cover art view"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[CoverArtFullscreenScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._decodeArtwork()
 

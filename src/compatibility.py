@@ -256,7 +256,8 @@ class Compatibility:
     # necessarily the one this plugin already registered.
     INFO_KEY_ACTIONS = ("showEventInfo", "info", "showEventInfoPlugin", "InfoPressed", "EPGPressed")
 
-    # HELP remote key -- new in Build 0008 (HelpScreen/HelpManager).
+    # HELP remote key -- new in Build 0008 (GuideScreen/GuideManager,
+    # renamed from HelpScreen/HelpManager in round 139).
     #
     # Device test round 2: an OpenATV log's full static ActionMap
     # context dump CONFIRMED the real action names -- "HelpActions"

@@ -101,10 +101,11 @@ from __future__ import annotations
 
 import os
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.Pixmap import Pixmap
+from Screens.HelpMenu import HelpableScreen
 from Screens.Screen import Screen
 from enigma import ePicLoad, eTimer, gFont
 
@@ -112,10 +113,10 @@ from .compatibility import compatibility
 from .config import config_manager
 from .localization import _
 from .logger import logger
-from .paths import SKIN_PATH
 from .skin import (
     PANEL_BACKGROUND_COLOR,
     PANEL_TEXT_COLOR,
+    resolve_skin_asset_path,
     skin_manager,
     to_opaque_skin_color,
 )
@@ -134,7 +135,7 @@ from .skin import (
 # entry in the change history above for the generation approach), in
 # the same rounded-card visual style but with no icons and boundaries
 # that actually line up with title/lyrics rows/hint here.
-LYRICS_FULLSCREEN_SKIN_VARIANTS = ("light", "dark")
+LYRICS_FULLSCREEN_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 LYRICS_FULLSCREEN_DEFAULT_SKIN_VARIANT = "light"
 
@@ -154,7 +155,7 @@ def _resolveLyricsFullscreenResolutionTier(screen_width: int) -> str:
     return "hd" if screen_width >= 1000 else "sd"
 
 
-class LyricsFullscreenScreen(Screen):
+class LyricsFullscreenScreen(Screen, HelpableScreen):
     """
     Full-screen lyrics viewer -- live-updating, matching MainScreen's
     own windowed Information panel display, scaled up.
@@ -172,7 +173,8 @@ class LyricsFullscreenScreen(Screen):
     # biggest/bold current row (90) = 780, comfortably inside the
     # ~900-unit content area below (leaves headroom, same reasoning as
     # MainScreen's own row sizing -- see that file's own round 93
-    # comment for the HelpScreen round-81 lesson this follows).
+    # comment for the GuideScreen round-81 lesson this follows,
+    # renamed from HelpScreen in round 139).
     LYRICS_WINDOW_ROWS = (
         (55, 34, False),
         (55, 34, False),
@@ -222,8 +224,30 @@ class LyricsFullscreenScreen(Screen):
         # values MainScreen's own MAINSCREEN_SKIN_PALETTES["dark"]
         # already uses, so every window agrees on what "dark theme"
         # actually looks like.
-        if self._skin_variant == "dark":
+        # Round 112, per direct request (a real device crash elsewhere
+        # -- KeyError 'test_skin' in dict-based palettes -- surfaced
+        # this file's own direct string comparison as a second,
+        # non-crashing but still wrong instance of the same gap:
+        # "test_skin" wouldn't match == "dark" here, silently falling
+        # through to the light-coloured branch instead). Matched
+        # against a tuple instead so test_skin gets the same colours
+        # Dark does, same as every dict-based palette elsewhere now
+        # does via a "test_skin": palette["dark"] alias.
+        #
+        # Round 149, per direct request ("test_skinin muiden
+        # ikkunoiden väriteema mainscreenin mukaiseksi"): test_skin
+        # split out from the dark branch here -- amber/brass, matching
+        # MainScreen's own test_skin palette and every other screen's
+        # own round 149 update, rather than continuing to share dark's
+        # plain white-on-slate values as round 112's own crash-fix
+        # left it.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
 
+            panel_background_color = to_opaque_skin_color("#1C1610")
+
+            panel_text_color = "#E8A24C"
+
+        elif self._skin_variant == "dark":
             panel_background_color = to_opaque_skin_color("#1C202B")
 
             panel_text_color = "#F0F0F0"
@@ -234,6 +258,23 @@ class LyricsFullscreenScreen(Screen):
 
             panel_text_color = PANEL_TEXT_COLOR
 
+        # Round 150, per direct request/device photo: the lyrics row/
+        # hint/content widgets below used to fill their own background
+        # with a flat panel_background_color -- fine for Light/Dark,
+        # whose own background image body colour already matches that
+        # fill exactly, but on test_skin the rows' own small gaps
+        # (each lyrics_line_N widget doesn't tile edge-to-edge with
+        # zero space between rows) let the real image show through as
+        # thin horizontal seams, since the image and the fill colour
+        # had drifted apart the moment round 149 changed only the
+        # fill to brown without also updating the underlying PNG.
+        # test_skin now leaves these widgets genuinely transparent
+        # instead, so the (now correctly brown, see the regenerated
+        # background images) real image shows through cleanly with no
+        # fill colour of its own to ever mismatch again. Light/Dark
+        # keep their own existing opaque fill, unchanged.
+        panel_background_attr = "transparent=\"1\"" if self._skin_variant in ("test_skin", "vintage_radio") else f'backgroundColor="{panel_background_color}"'
+
         # Round 97, per direct request: the title should read in the
         # same blue tones the windowed Information panel's own title
         # already uses (MainScreen's info_title_active, "header_active_
@@ -241,7 +282,25 @@ class LyricsFullscreenScreen(Screen):
         # widget here uses -- same light/dark values, duplicated here
         # rather than imported since this screen doesn't otherwise
         # depend on MainScreen's own palette dict.
-        title_foreground_color = "#036DFA" if self._skin_variant == "light" else "#FFFFFF"
+        # Round 112: inverted on purpose -- only "light" gets its own
+        # value, everything else (dark, test_skin, and any future
+        # variant) gets this dark-blue one, so this line didn't need
+        # updating for test_skin the way the one above did.
+        #
+        # Round 149: test_skin split out here too, matching MainScreen's
+        # own header_active_fg ("#FFC978") instead of the shared dark-
+        # blue "#FFFFFF" round 112 had left every non-light variant on.
+        if self._skin_variant == "light":
+
+            title_foreground_color = "#036DFA"
+
+        elif self._skin_variant in ("test_skin", "vintage_radio"):
+
+            title_foreground_color = "#FFC978"
+
+        else:
+
+            title_foreground_color = "#FFFFFF"
 
         font_family = skin_manager.getFont("Regular")
 
@@ -269,7 +328,7 @@ class LyricsFullscreenScreen(Screen):
                 f'        font="{row_font_family};{max(10, int(row_font_size * sx))}"\n'
                 f'        halign="center"\n'
                 f'        valign="center"\n'
-                f'        backgroundColor="{panel_background_color}"\n'
+                f'        {panel_background_attr}\n'
                 f'        foregroundColor="{panel_text_color}"/>'
             )
 
@@ -309,7 +368,7 @@ class LyricsFullscreenScreen(Screen):
                     {font(28)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
             {lyrics_window_xml}
@@ -319,7 +378,7 @@ class LyricsFullscreenScreen(Screen):
                     {font(18)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
         </screen>
@@ -336,6 +395,8 @@ class LyricsFullscreenScreen(Screen):
         self.skin = self._buildSkin(width, height)
 
         Screen.__init__(self, session)
+
+        HelpableScreen.__init__(self)
 
         self.session = session
 
@@ -401,11 +462,28 @@ class LyricsFullscreenScreen(Screen):
             "down": self.scrollDown,
         }
 
-        self["actions"] = ActionMap(
-            ["OkCancelActions", "DirectionActions"],
-            actions,
-            -1,
-        )
+        contexts = ["OkCancelActions", "DirectionActions"]
+
+        help_text_by_handler = {
+            self.closePressed: _("close the fullscreen lyrics view"),
+            self.scrollUp: _("scroll up"),
+            self.scrollDown: _("scroll down"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[LyricsFullscreenScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._refresh_timer.callback.append(self._refresh)
 
@@ -443,8 +521,7 @@ class LyricsFullscreenScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveLyricsFullscreenResolutionTier(self._screen_width),
             "lyrics_fullscreen_background.png",

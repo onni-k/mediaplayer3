@@ -46,25 +46,29 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
+from Components.Sources.StaticText import StaticText
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
+from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
 from .config import config_manager
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .library_manager import library_manager
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import RESOURCE_PATH, SKIN_PATH
-from .skin import to_opaque_skin_color
+from .playlist_manager import playlist_manager
+from .paths import RESOURCE_PATH
+from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 # Device test round 32 -- icon set provided directly by the user
 # (skin_test5.png), cropped to individual 40x40 PNGs (white
@@ -86,7 +90,7 @@ from .skin import to_opaque_skin_color
 # larger HD source for no benefit. Filenames within each folder still
 # match self._focus's own three values exactly
 # (musiclibrary_{focus}_active.png).
-SKIN_VARIANTS = ("light", "dark")
+SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 DEFAULT_SKIN_VARIANT = "light"
 
@@ -144,6 +148,46 @@ SKIN_PALETTES = {
     },
 }
 
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant, but
+# never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark, and stays in sync with any future
+# change to Dark's own palette automatically, since this is a
+# reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning -- same amber/brass values
+# copied from MainScreen's own test_skin palette, same key set as
+# this screen's own existing Light/Dark palettes.
+SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
 
 def _resolveSkinVariant() -> str:
 
@@ -175,7 +219,7 @@ PANELS = ("artists", "albums", "tracks")
 PAGE_STEP = 15
 
 
-class MusicLibraryScreen(Screen):
+class MusicLibraryScreen(Screen, HelpableScreen):
     """
     Metadata-based music browsing, search and playback queue
     generation (Build 0008).
@@ -252,6 +296,16 @@ class MusicLibraryScreen(Screen):
 
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
+
+        # Round 152, per direct request: see browserscreen.py's own
+        # round 151 comment for the full reasoning -- the user
+        # initially asked to leave this screen out of that round since
+        # the mismatch wasn't visible here yet, then asked for it
+        # after all once confirmed this screen has the identical
+        # hardcoded scrollbarBackgroundColor. No "info"-style widget
+        # exists in this screen at all (confirmed by grep), so only
+        # the scrollbar half of round 151's own fix applies here.
+        scrollbar_bg = "#3A2E1A" if self._skin_variant in ("test_skin", "vintage_radio") else "#E0E0E0"
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
@@ -386,7 +440,7 @@ class MusicLibraryScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="albums"
@@ -395,7 +449,7 @@ class MusicLibraryScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="tracks"
@@ -404,7 +458,7 @@ class MusicLibraryScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info_title"
@@ -485,11 +539,19 @@ class MusicLibraryScreen(Screen):
 
         Screen.__init__(self, session)
 
+        HelpableScreen.__init__(self)
+
         self.session = session
 
         self._playback = playback_controller
 
         self._focus = "artists"
+
+        # Round 133, per direct request (GREEN/RED add/remove the
+        # selected artist's/album's/track's own tracks to a playlist):
+        # this screen's own equivalent of BrowserScreen's/MainScreen's
+        # own self._current_playlist_name.
+        self._current_playlist_name = None
 
         self._artists = []
         self._albums = []
@@ -560,9 +622,19 @@ class MusicLibraryScreen(Screen):
         self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Panel"))
         self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
         self["hint_text_ok"] = Label(_("OK: Play"))
-        self["hint_text_info"] = Label(_("INFO: Search"))
+        self["hint_text_info"] = Label(_("YELLOW: Search"))
         self["hint_text_menu"] = Label(_("MENU: Menu"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
+
+        # Round 134, per direct programmer feedback (see
+        # playlistscreen.py's own round 134 comment for the full
+        # reasoning): the correct StaticText()/key_red component and
+        # naming for round 133's own GREEN/RED playlist add/remove
+        # additions. No skin <widget source="key_green".../> entry
+        # yet, same well-scoped-follow-up reasoning as the other
+        # screens this round.
+        self["key_green"] = StaticText(_("Add to Playlist"))
+        self["key_red"] = StaticText(_("Remove from Playlist"))
 
         self["status"] = Label(_("Music Library"))
 
@@ -593,6 +665,20 @@ class MusicLibraryScreen(Screen):
             "up": self.moveUp,
             "down": self.moveDown,
             "menu": self.menuPressed,
+            # Round 132, per direct request: EPG/INFO used to open
+            # search directly; moved to YELLOW so EPG/INFO can
+            # consistently open this screen's own help content
+            # instead, matching every other screen.
+            "yellow": self.searchByName,
+            # Round 133, per direct request: GREEN adds the selected
+            # artist's/album's/track's own tracks to a playlist, RED
+            # removes them.
+            "green": self.greenPressed,
+            "red": self.redPressed,
+            # Round 146, per direct request (colour-button audit):
+            # BLUE is a direct shortcut to the MENU screen's own
+            # existing "Update Library" choice.
+            "blue": self.bluePressed,
         }
 
         for action_name in compatibility.getChannelUpKeyActionNames():
@@ -602,26 +688,66 @@ class MusicLibraryScreen(Screen):
             actions[action_name] = self.pageDown
 
         for action_name in compatibility.getInfoKeyActionNames():
-            actions[action_name] = self.searchByName
+            actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "DirectionActions",
-                "MediaPlayerActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarActions",
-                "InfobarBouquetActions",
-                "InfobarEPGActions",
-                "HelpActions",
-            ],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "DirectionActions",
+            "MediaPlayerActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarActions",
+            "InfobarBouquetActions",
+            "InfobarEPGActions",
+            "HelpActions",
+        ]
+
+        help_text_by_handler = {
+            self.okPressed: _("open the actions menu"),
+            self.exitPressed: _("go back"),
+            self.focusPrevious: _("move to the previous column"),
+            self.focusNext: _("move to the next column"),
+            self.moveUp: _("move up"),
+            self.moveDown: _("move down"),
+            self.menuPressed: _("open the menu"),
+            self.pageUp: _("page up"),
+            self.pageDown: _("page down"),
+            self.searchByName: _("search by name"),
+            self.infoPressed: _("show information about this screen"),
+            self.greenPressed: _("add to playlist"),
+            self.redPressed: _("remove from playlist"),
+            self.bluePressed: _("update library"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[MusicLibraryScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         # Build 0007, device test round 8 -- a blocking scan/search
         # called synchronously here could let the screen finish
@@ -932,8 +1058,7 @@ class MusicLibraryScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveResolutionTier(self._screen_width),
             f"musiclibrary_{focus_state}_active.png",
@@ -1212,17 +1337,233 @@ class MusicLibraryScreen(Screen):
     # Help (Build 0008)
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def _tracksForCurrentFocus(self):
         """
-        Build 0008 -- opens HelpScreen with MusicLibraryScreen's own
-        context-sensitive help document.
+        Round 133: resolves what GREEN/RED should act on for whichever
+        column is currently focused -- a single track's own path
+        (Tracks column) or every track under the selected artist/
+        album (Albums/Artists columns, via library_manager.getTracks()).
+        Returns a list of file paths (empty if nothing meaningful is
+        selected), so both greenPressed()/redPressed() can share one
+        resolution step regardless of column.
         """
 
-        logger.verbose("[MusicLibrary] HELP pressed.")
+        if self._focus == "tracks":
 
-        title, content = help_manager.getHelp("musiclibraryscreen")
+            track = self._selectedTrack()
 
-        self.session.open(HelpScreen, title, content)
+            return [track["path"]] if track else []
+
+        if self._focus == "albums":
+
+            album = self._selectedAlbum()
+
+            artist = self._selectedArtist()
+
+            if album is None:
+
+                return []
+
+            return [t["path"] for t in library_manager.getTracks(artist=artist, album=album)]
+
+        artist = self._selectedArtist()
+
+        if artist is None:
+
+            return []
+
+        return [t["path"] for t in library_manager.getTracks(artist=artist)]
+
+    # ------------------------------------------------------------------
+
+    def greenPressed(self) -> None:
+        """
+        Round 133, per direct request ("musiikkikirjasto(esittäjä,
+        albumi ja kappale)... vihreä lisää soittolistaan"): adds every
+        track resolved by _tracksForCurrentFocus() to the current/
+        target playlist, prompting for one first if none is set yet.
+        """
+
+        paths = self._tracksForCurrentFocus()
+
+        if not paths:
+
+            return
+
+        self._requireCurrentPlaylist(lambda name: self._afterPlaylistAdd(name, paths))
+
+    # ------------------------------------------------------------------
+
+    def _afterPlaylistAdd(self, playlist_name: str, paths) -> None:
+
+        added = sum(1 for path in paths if playlist_manager.addTrack(playlist_name, path))
+
+        if added <= 0:
+
+            box_type = MessageBox.TYPE_ERROR if playlist_manager.getLastSaveError() else MessageBox.TYPE_INFO
+
+            message = (
+                _("Save failed: %s") % playlist_manager.getLastSaveError()
+                if playlist_manager.getLastSaveError()
+                else _("Could not add to playlist.")
+            )
+
+            self.session.open(MessageBox, message, box_type, timeout=3)
+
+        elif added == 1:
+
+            self.session.open(
+                MessageBox,
+                _("Added to playlist: %s") % playlist_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            self.session.open(
+                MessageBox,
+                _("Added %d tracks to playlist: %s") % (added, playlist_name),
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+    # ------------------------------------------------------------------
+
+    def redPressed(self) -> None:
+        """
+        Round 133, per direct request: removes every track resolved by
+        _tracksForCurrentFocus() from the current/target playlist --
+        the inverse of greenPressed() above, targeting the exact same
+        playlist concept.
+        """
+
+        paths = self._tracksForCurrentFocus()
+
+        if not paths:
+
+            return
+
+        self._requireCurrentPlaylist(lambda name: self._afterPlaylistRemove(name, paths))
+
+    # ------------------------------------------------------------------
+
+    def bluePressed(self) -> None:
+        """
+        Round 146, per direct request (colour-button audit): direct
+        shortcut to the MENU screen's own existing "Update Library"
+        choice (_menuChoiceMade()) -- previously reachable only via
+        MENU -> Update Library, two steps for a common action.
+        """
+
+        self["status"].setText(_("Loading library, please wait..."))
+
+        self._initial_load_timer = eTimer()
+
+        self._initial_load_timer.callback.append(self._performRescan)
+
+        self._initial_load_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _afterPlaylistRemove(self, playlist_name: str, paths) -> None:
+
+        removed = sum(1 for path in paths if playlist_manager.removeTrackByPath(playlist_name, path))
+
+        if removed <= 0:
+
+            message = _("Not found in playlist: %s") % playlist_name
+
+        elif removed == 1:
+
+            message = _("Removed from playlist: %s") % playlist_name
+
+        else:
+
+            message = _("Removed %d tracks from playlist: %s") % (removed, playlist_name)
+
+        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=3)
+
+    # ------------------------------------------------------------------
+
+    def _requireCurrentPlaylist(self, callback) -> None:
+        """
+        Round 133: this screen's own equivalent of MainScreen's own
+        _requireCurrentPlaylist() (round 133) -- see that method's own
+        docstring for the full reasoning; identical here.
+        """
+
+        if self._current_playlist_name:
+
+            callback(self._current_playlist_name)
+
+            return
+
+        names = playlist_manager.getPlaylistNames()
+
+        choices = [(name, name) for name in names]
+
+        choices.append((_("Create new playlist..."), "__new__"))
+        choices.append((_("Cancel"), "__cancel__"))
+
+        self.session.openWithCallback(
+            lambda choice: self._playlistPickerChosen(choice, callback),
+            ChoiceBox,
+            title=_("Select playlist"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _playlistPickerChosen(self, choice, callback) -> None:
+
+        if choice is None or choice[1] == "__cancel__":
+
+            return
+
+        if choice[1] == "__new__":
+
+            self.session.openWithCallback(
+                lambda text: self._newPlaylistNameEntered(text, callback),
+                VirtualKeyBoard,
+                title=_("New playlist name"),
+                text="",
+            )
+
+            return
+
+        self._current_playlist_name = choice[1]
+
+        callback(choice[1])
+
+    # ------------------------------------------------------------------
+
+    def _newPlaylistNameEntered(self, text, callback) -> None:
+
+        if not text:
+
+            return
+
+        playlist_manager.createPlaylist(text)
+
+        self._current_playlist_name = text
+
+        callback(text)
+
+    # ------------------------------------------------------------------
+
+    def infoPressed(self) -> None:
+        """
+        Round 139 -- renamed from helpPressed(); opens GuideScreen
+        with MusicLibraryScreen's own context-sensitive information
+        document.
+        """
+
+        logger.verbose("[MusicLibrary] INFO pressed.")
+
+        title, content = guide_manager.getGuide("musiclibraryscreen")
+
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
     # Exit

@@ -28,17 +28,24 @@ Directories | Files | Playlist.
   (Directories), the previewed directory starting at the selected
   file (Files), or the current playlist starting at the selected
   track (Playlist).
-- INFO: choose which playlist the Playlist column and "Add" actions
-  target (or create a new one).
+- GREEN: add the focused directory or file to the current/target
+  playlist directly (Directories/Files columns), or choose which
+  playlist this screen's own Playlist column displays (Playlist
+  column) -- without opening the OK menu first.
+- RED: remove the focused directory's own tracks, or the focused
+  file's own single entry, from the current/target playlist
+  (Directories/Files columns).
+- YELLOW / BLUE: move the selected Playlist column track up/down.
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: return to Main Screen.
 
 ## Notes
 
 Adding files or a directory requires a target playlist -- if none has
-been chosen yet, the playlist picker (INFO) opens automatically the
-first time you add something.
+been chosen yet, the playlist picker (GREEN, from the Playlist
+column) opens automatically the first time you add something.
 
 Directories/Files "Play" creates (or replaces) a playlist named after
 the folder or file and starts playing it -- unlike the PLAY hardware

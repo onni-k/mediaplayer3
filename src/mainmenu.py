@@ -9,8 +9,7 @@
 #     MainMenu
 #
 #     Single, reusable navigation menu shared by every primary Screen
-#     (MainScreen, BrowserScreen, SettingsScreen, PlaybackInfoScreen,
-#     DeveloperScreen).
+#     (MainScreen, BrowserScreen, SettingsScreen).
 #
 #     MainMenu is responsible only for navigation. It never performs
 #     playback or platform specific operations, and it never
@@ -116,28 +115,28 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
+from Screens.HelpMenu import HelpableScreen
 from Screens.Screen import Screen
 
 from .compatibility import compatibility
 from .config import config_manager
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .localization import _
 from .logger import logger
-from .paths import SKIN_PATH
-from .skin import skin_manager, to_opaque_skin_color
+from .skin import resolve_skin_asset_path, skin_manager, to_opaque_skin_color
 
 # Device test round 64 -- background-image variant/tier system, a
 # copy of SettingsScreen's own simpler single-image pattern (round
 # 59): MainMenu has no multi-panel focus either, so no per-state
 # swapping is needed here, matching Settings rather than the more
 # complex 6-screen pattern.
-MAINMENU_SKIN_VARIANTS = ("light", "dark")
+MAINMENU_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 MAINMENU_DEFAULT_SKIN_VARIANT = "light"
 
@@ -158,6 +157,39 @@ MAINMENU_SKIN_PALETTES = {
         "selected_row_bg": "#2B2F39",
         "selected_row_fg": "#C7AC4E",
     },
+}
+
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning.
+MAINMENU_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "panel_text_color": "#E8A24C",
+    "header_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+MAINMENU_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "panel_text_color": "#E8A24C",
+    "header_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
 }
 
 
@@ -189,15 +221,12 @@ MENU_ENTRIES = [
     ("Music Library", "music_library"),
     ("Internet Radio", "radio"),
     ("Podcasts", "podcast"),
-    ("Playback Information", "playback_info"),
     ("Settings", "settings"),
-    ("Developer Tools", "developer"),
-    ("About", "about"),
     ("Exit", "exit"),
 ]
 
 
-class MainMenu(Screen):
+class MainMenu(Screen, HelpableScreen):
     """
     Shared navigation menu.
 
@@ -342,6 +371,8 @@ class MainMenu(Screen):
 
         Screen.__init__(self, session)
 
+        HelpableScreen.__init__(self)
+
         self.session = session
 
         self._entries = [(_(label), action_id) for label, action_id in MENU_ENTRIES]
@@ -386,13 +417,43 @@ class MainMenu(Screen):
         }
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            ["OkCancelActions", "DirectionActions", "MenuActions", "HelpActions"],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = ["OkCancelActions", "DirectionActions", "MenuActions", "HelpActions"]
+
+        help_text_by_handler = {
+            self._select: _("select the highlighted entry"),
+            self._closeMenu: _("close the menu"),
+            self["menu"].up: _("move up"),
+            self["menu"].down: _("move down"),
+            self.infoPressed: _("show information about this screen"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[MainMenu] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._decodeBackgroundImage()
 
@@ -421,8 +482,7 @@ class MainMenu(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveMainMenuResolutionTier(self._screen_width),
             "mainmenu_background.png",
@@ -491,17 +551,20 @@ class MainMenu(Screen):
 
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def infoPressed(self) -> None:
         """
-        Build 0008 -- opens HelpScreen with the Main Menu's own
-        context-sensitive help document.
+        Round 139 -- renamed from helpPressed(); opens GuideScreen
+        with the Main Menu's own context-sensitive information
+        document (this screen has no EPG/INFO key of its own, so
+        this is reachable only via the HELP_KEY_ACTIONS fallback
+        spellings -- see this file's own getHelpKeyActionNames() loop).
         """
 
-        logger.verbose("[MainMenu] HELP pressed.")
+        logger.verbose("[MainMenu] INFO pressed.")
 
-        title, content = help_manager.getHelp("mainmenu")
+        title, content = guide_manager.getGuide("mainmenu")
 
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 
@@ -529,10 +592,10 @@ class MainMenu(Screen):
 # Controller directly, per MAINMENU_SPEC.md section 12 (Architecture
 # Notes).
 #
-# "About" currently opens a simple MessageBox from the calling Screen
-# (see mainscreen.py._showAbout()) rather than a dedicated AboutScreen,
-# since ARCHITECTURE.md section 10 lists AboutScreen as a *future*
-# screen, outside the scope of Build 0004.
+# Round 136, per direct request: "About" removed from this menu
+# entirely (it only ever showed the version number, already visible
+# in MainScreen's own header) -- see mainscreen.py's own round 136
+# comment for the full removal.
 #
 # ==============================================================================
 

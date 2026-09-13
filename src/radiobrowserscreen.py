@@ -141,25 +141,25 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
-from .config import config_manager, resolveLanguageCode
+from .config import config_manager
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .internetradio_manager import APP_LANGUAGE_TO_RADIOBROWSER_NAME, internetradio_manager
-from .paths import SKIN_PATH
-from .skin import to_opaque_skin_color
-from .localization import _
+from .skin import resolve_skin_asset_path, to_opaque_skin_color
+from .localization import _, getCurrentLanguage
 from .logger import logger
 from .mainmenu import MainMenu
 
@@ -208,7 +208,7 @@ _last_language_name = None
 # own dict, since the two screens don't otherwise depend on each
 # other and duplicating a small, stable palette is simpler than
 # introducing a cross-module dependency for it.
-RADIO_SKIN_VARIANTS = ("light", "dark")
+RADIO_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 RADIO_DEFAULT_SKIN_VARIANT = "light"
 
@@ -235,6 +235,44 @@ RADIO_SKIN_PALETTES = {
     },
 }
 
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning. No info_label_fg key here
+# -- this screen's own Light/Dark palettes never defined one either.
+RADIO_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+RADIO_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
 
 def _resolveRadioSkinVariant() -> str:
 
@@ -251,7 +289,7 @@ def _resolveRadioResolutionTier(screen_width: int) -> str:
     return "hd" if screen_width >= 1000 else "sd"
 
 
-class RadioBrowserScreen(Screen):
+class RadioBrowserScreen(Screen, HelpableScreen):
     """
     Internet Radio station browsing, search and favorites (Build 0007).
     """
@@ -301,6 +339,21 @@ class RadioBrowserScreen(Screen):
 
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
+
+        # Round 151, per direct request: see browserscreen.py's own
+        # round 151 comment for the full reasoning -- same fix, same
+        # scope (test_skin only).
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            scrollbar_bg = "#3A2E1A"
+
+            info_background_attr = 'transparent="1"'
+
+        else:
+
+            scrollbar_bg = "#E0E0E0"
+
+            info_background_attr = f'backgroundColor="{panel_background_color}"'
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
@@ -382,7 +435,7 @@ class RadioBrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="language"
@@ -391,7 +444,7 @@ class RadioBrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="region"
@@ -400,14 +453,14 @@ class RadioBrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
                     {rect(60, 702, 1550, 90)}
                     {font(22)}
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {info_background_attr}/>
 
             <widget name="warning"
                     {rect(60, 800, 1550, 36)}
@@ -480,6 +533,8 @@ class RadioBrowserScreen(Screen):
         self.skin = self._buildSkin(width, height)
 
         Screen.__init__(self, session)
+
+        HelpableScreen.__init__(self)
 
         self.session = session
 
@@ -558,7 +613,7 @@ class RadioBrowserScreen(Screen):
         self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
         self["hint_text_chpage"] = Label(_("CH+/CH-: Page"))
         self["hint_text_ok"] = Label(_("OK: Options"))
-        self["hint_text_info"] = Label(_("INFO: Search"))
+        self["hint_text_info"] = Label(_("INFO: Information"))
         self["hint_text_menu"] = Label(_("MENU: Menu"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
 
@@ -570,6 +625,15 @@ class RadioBrowserScreen(Screen):
             "up": self.moveUp,
             "down": self.moveDown,
             "menu": self.menuPressed,
+            # Round 132, per direct request: EPG/INFO used to open
+            # search directly; moved to YELLOW so EPG/INFO can
+            # consistently open this screen's own help content
+            # instead, matching every other screen.
+            "yellow": self.searchByName,
+            # Round 146, per direct request (colour-button audit):
+            # GREEN is a direct shortcut to the station menu's own
+            # existing "Add to Favorites" choice.
+            "green": self.greenPressed,
         }
 
         for action_name in compatibility.getChannelUpKeyActionNames():
@@ -579,26 +643,64 @@ class RadioBrowserScreen(Screen):
             actions[action_name] = self.pageDown
 
         for action_name in compatibility.getInfoKeyActionNames():
-            actions[action_name] = self.searchByName
+            actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "DirectionActions",
-                "MediaPlayerActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarActions",
-                "InfobarBouquetActions",
-                "InfobarEPGActions",
-                "HelpActions",
-            ],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "DirectionActions",
+            "MediaPlayerActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarActions",
+            "InfobarBouquetActions",
+            "InfobarEPGActions",
+            "HelpActions",
+        ]
+
+        help_text_by_handler = {
+            self.okPressed: _("open the actions menu"),
+            self.exitPressed: _("go back"),
+            self.focusPrevious: _("move to the previous column"),
+            self.focusNext: _("move to the next column"),
+            self.moveUp: _("move up"),
+            self.moveDown: _("move down"),
+            self.menuPressed: _("open the menu"),
+            self.pageUp: _("page up"),
+            self.pageDown: _("page down"),
+            self.searchByName: _("search by name"),
+            self.greenPressed: _("add the selected station to favorites"),
+            self.infoPressed: _("show information about this screen"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[RadioBrowserScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         # Default Region/Language follow Settings
         # (RADIOBROWSER_SCREEN_SPEC.md "Default Region and Language
@@ -772,7 +874,8 @@ class RadioBrowserScreen(Screen):
 
     # RadioBrowser identifies languages by full English name ("finnish",
     # "english", ...), not by MediaPlayer3's own "fi"/"en" language
-    # codes -- this maps the ones LocalizationManager currently ships.
+    # codes -- this maps the ones localization.py's own AVAILABLE_LANGUAGES
+    # currently ships.
     # Round 104 -- moved to internetradio_manager.py's own module-level
     # APP_LANGUAGE_TO_RADIOBROWSER_NAME (shared with that module's own
     # supplemental-download pass); kept as an alias here so this
@@ -793,9 +896,7 @@ class RadioBrowserScreen(Screen):
         actually returned.
         """
 
-        app_language_name = self._APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(
-            resolveLanguageCode(config_manager.get("general.language", "fi"))
-        )
+        app_language_name = self._APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(getCurrentLanguage())
 
         if not app_language_name:
             return
@@ -889,7 +990,7 @@ class RadioBrowserScreen(Screen):
 
         if search_language and config_manager.get("radio.unlimited_for_own_language", False):
 
-            app_language_code = resolveLanguageCode(config_manager.get("general.language", "fi"))
+            app_language_code = getCurrentLanguage()
 
             app_language_name = self._APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(app_language_code)
 
@@ -1207,8 +1308,7 @@ class RadioBrowserScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveRadioResolutionTier(self._screen_width),
             f"radiobrowser_{focus_state}_active.png",
@@ -1362,17 +1462,41 @@ class RadioBrowserScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def infoPressed(self) -> None:
         """
-        Build 0008 -- opens HelpScreen with RadioBrowserScreen's own
-        context-sensitive help document.
+        Round 139 -- renamed from helpPressed(); opens GuideScreen
+        with RadioBrowserScreen's own context-sensitive information
+        document.
         """
 
-        logger.verbose("[RadioBrowser] HELP pressed.")
+        logger.verbose("[RadioBrowser] INFO pressed.")
 
-        title, content = help_manager.getHelp("radiobrowserscreen")
+        title, content = guide_manager.getGuide("radiobrowserscreen")
 
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
+
+    # ------------------------------------------------------------------
+
+    def greenPressed(self) -> None:
+        """
+        Round 146, per direct request (colour-button audit): direct
+        shortcut to the station menu's own existing "Add to Favorites"
+        choice -- adds the currently selected station without needing
+        to open the full menu first. A no-op outside the Stations
+        column, and when nothing is actually selected there.
+        """
+
+        if self._focus != "stations":
+
+            return
+
+        index = self["stations"].getSelectedIndex()
+
+        if not (0 <= index < len(self._stations)):
+
+            return
+
+        self._chooseFavoriteList(self._stations[index])
 
     # ------------------------------------------------------------------
 

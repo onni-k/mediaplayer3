@@ -189,27 +189,27 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.config import getConfigListEntry
 from Components.ConfigList import ConfigListScreen
 from Components.Label import Label
 from Components.Pixmap import Pixmap
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 
 from .browserscreen import BrowserScreen
 from .compatibility import compatibility
-from .help_manager import help_manager
-from .help_screen import HelpScreen
-from .config import cfg, config_manager, resolveLanguageCode
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
+from .config import cfg, config_manager
 from .internetradio_manager import internetradio_manager
-from .localization import _, localization_manager
+from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
 from .radiobrowserscreen import RadioBrowserScreen
-from .paths import SKIN_PATH
-from .skin import skin_manager, to_opaque_skin_color
+from .skin import resolve_skin_asset_path, skin_manager, to_opaque_skin_color
 
 # Device test round 59 -- background-image variant/tier system, a
 # copy of MusicLibraryScreen's own (round 39/46). Simpler than every
@@ -218,7 +218,7 @@ from .skin import skin_manager, to_opaque_skin_color
 # background image per variant/tier -- no per-state swapping, no
 # normal/active header pair, the header is always shown in its own
 # "active" colour.
-SETTINGS_SKIN_VARIANTS = ("light", "dark")
+SETTINGS_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 SETTINGS_DEFAULT_SKIN_VARIANT = "light"
 
@@ -245,6 +245,45 @@ SETTINGS_SKIN_PALETTES = {
     },
 }
 
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning. This screen's own single
+# header_fg (no active/inactive distinction) uses the brighter of
+# MainScreen's own two header tones.
+SETTINGS_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+SETTINGS_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
 
 def _resolveSettingsSkinVariant() -> str:
 
@@ -261,7 +300,7 @@ def _resolveSettingsResolutionTier(screen_width: int) -> str:
     return "hd" if screen_width >= 1000 else "sd"
 
 
-class SettingsScreen(Screen, ConfigListScreen):
+class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
     """
     User configuration screen.
 
@@ -309,6 +348,15 @@ class SettingsScreen(Screen, ConfigListScreen):
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
 
+        # Round 151, per direct request: see browserscreen.py's own
+        # round 151 comment for the full reasoning. No scrollbar issue
+        # here (this screen's own config list doesn't define a
+        # hardcoded scrollbarBackgroundColor at all), so only the info
+        # widget's own background needs the same treatment.
+        info_background_attr = (
+            'transparent="1"' if self._skin_variant in ("test_skin", "vintage_radio") else f'backgroundColor="{panel_background_color}"'
+        )
+
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
 
@@ -352,7 +400,7 @@ class SettingsScreen(Screen, ConfigListScreen):
                     halign="center"
                     valign="center"
                     foregroundColor="{palette['info_label_fg']}"
-                    backgroundColor="{panel_background_color}"/>
+                    {info_background_attr}/>
 
             <widget name="hint_text_ok"
                     {rect(72, 874, 156, 63)}
@@ -403,6 +451,8 @@ class SettingsScreen(Screen, ConfigListScreen):
         self.skin = self._buildSkin(width, height)
 
         Screen.__init__(self, session)
+
+        HelpableScreen.__init__(self)
 
         self.session = session
 
@@ -461,17 +511,53 @@ class SettingsScreen(Screen, ConfigListScreen):
             "yellow": self.clearRadioHistoryPressed,
         }
 
+        # Round 132, per direct request: EPG/INFO used to show the
+        # highlighted setting's own description, already visible
+        # directly in this screen; now opens this screen's own help
+        # content instead, matching every other screen.
         for action_name in compatibility.getInfoKeyActionNames():
             actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            ["SetupActions", "MenuActions", "ColorActions", "InfoActions", "InfobarEPGActions", "HelpActions"],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = ["SetupActions", "MenuActions", "ColorActions", "InfoActions", "InfobarEPGActions", "HelpActions"]
+
+        help_text_by_handler = {
+            self.keyOK: _("edit the highlighted setting"),
+            self.exitPressed: _("save and exit"),
+            self.keyLeft: _("change the highlighted setting"),
+            self.keyRight: _("change the highlighted setting"),
+            self.menuPressed: _("open the menu"),
+            self.clearRadioHistoryPressed: _("clear radio history"),
+            self.infoPressed: _("show information about this screen"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[SettingsScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._buildList()
 
@@ -536,13 +622,6 @@ class SettingsScreen(Screen, ConfigListScreen):
             getConfigListEntry(_("Music Library directory"), cfg.library.scan_directory),
             getConfigListEntry(_("Hidden files"), cfg.general.hidden_files),
             getConfigListEntry(_("Show in main menu (restart required)"), cfg.general.show_in_main_menu),
-            # Device test round 31: deliberately NOT translated
-            # ("Language saa olla kaantamatta, niin sen loytaa vaikka
-            # tulisi joskus erikoisempiakin kielia kayttoon") -- this
-            # entry must stay findable by its English label regardless
-            # of which language is currently active, including a
-            # future one nobody has added a translation for yet.
-            getConfigListEntry("Language", cfg.general.language),
             getConfigListEntry(_("Skin"), cfg.appearance.skin),
         ]
 
@@ -586,7 +665,26 @@ class SettingsScreen(Screen, ConfigListScreen):
     # row) -- one entry ("Use ExtEplayer3 for radio") has a dynamic
     # "(installed)"/"(NOT installed)" suffix appended at build time,
     # so it's matched by prefix instead of exact equality below.
-    _SETTING_DESCRIPTIONS = {
+    #
+    # Round 108, per direct request (info text reportedly still not
+    # visible on every test since round 59, despite two earlier
+    # attempts that never actually addressed this): this used to be a
+    # class-level dict, meaning its own _("...") calls only ever ran
+    # ONCE, at module-import time -- before the correct language was
+    # necessarily settled on yet, and never again afterwards even if
+    # the box's own system language is later changed live (this
+    # project's own established, no-restart-needed design).
+    # _buildList()'s own labels, by contrast, call _("...") fresh
+    # every time it runs (inside __init__, by which point the correct
+    # language IS already loaded) -- so the label shown in the list
+    # and this dict's own keys could easily end up in two different
+    # languages, meaning .get(label) below could never find a match at
+    # all. Turned into a method rebuilding the dict fresh on every
+    # call instead, exactly like _buildList() itself already does for
+    # the labels.
+    def _buildSettingDescriptions(self):
+
+        return {
         _("Startup directory"): _(
             "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
         ),
@@ -597,8 +695,10 @@ class SettingsScreen(Screen, ConfigListScreen):
         _("Show in main menu (restart required)"): _(
             "Lets you launch the program directly from the main menu. (Default: no)"
         ),
-        "Language": _("Interface language (default: System)."),
-        _("Skin"): _("The program's appearance (default: Light)."),
+        _("Skin"): _(
+            "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see "
+            "SKIN_ELEMENTS.md in its own folder."
+        ),
         _("Return to start of playlist"): _(
             "When the playlist ends, start playing it again from the beginning (default: no)."
         ),
@@ -617,16 +717,17 @@ class SettingsScreen(Screen, ConfigListScreen):
             "issues in a stream."
         ),
         _("Radio default country"): _(
-            "This region shows first in Internet Radio's own language list (default: none). Set from the Internet "
-            "Radio screen by selecting a region and pressing OK."
+            "This region shows second in Internet Radio's own language list, right after \"Any\" (default: none). "
+            "Set from the Internet Radio screen by selecting a region and pressing OK."
         ),
         _("Radio default language"): _(
-            "This language shows first in Internet Radio's own region list (default: none). Set from the Internet "
-            "Radio screen by selecting a language and pressing OK."
+            "This language shows second in Internet Radio's own region list, right after \"Any\" (default: none). "
+            "Set from the Internet Radio screen by selecting a language and pressing OK."
         ),
         _("Radio station limit (0 = unlimited)"): _(
             "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own "
-            "database small (default: 0)."
+            "database small (default: 0). Values over 50000 may cause problems on some receivers when the "
+            "saved station list is read back into memory."
         ),
         _("Unlimited results for own language"): _(
             "Even while limiting the database, you can still search for all stations in your own current language "
@@ -676,14 +777,16 @@ class SettingsScreen(Screen, ConfigListScreen):
 
         label = current[0]
 
-        description = self._SETTING_DESCRIPTIONS.get(label)
+        descriptions = self._buildSettingDescriptions()
+
+        description = descriptions.get(label)
 
         if description is None:
 
             # The one dynamic-suffix entry ("Use ExtEplayer3 for
             # radio (installed)"/"(NOT installed)") won't match the
             # dict's own exact key -- match by prefix instead.
-            for key, value in self._SETTING_DESCRIPTIONS.items():
+            for key, value in descriptions.items():
 
                 if label.startswith(key):
 
@@ -698,6 +801,40 @@ class SettingsScreen(Screen, ConfigListScreen):
     def selectionChanged(self) -> None:
 
         ConfigListScreen.selectionChanged(self)
+
+        self._updateSettingInfo()
+
+    # ------------------------------------------------------------------
+
+    def keyUp(self) -> None:
+        """
+        Round 109, per direct request (a real device screenshot: the
+        info text showed the FIRST row's own description correctly,
+        but never changed when moving to a different row) --
+        ConfigListScreen's own selectionChanged() (called via its own
+        "config" widget's onSelectionChanged callback list) apparently
+        isn't actually firing on plain UP/DOWN navigation on this
+        receiver, only selectionChanged()'s own call from round 108's
+        own onShown-time and keyLeft/keyRight-time paths ever ran.
+        Explicit keyUp()/keyDown() overrides here guarantee the info
+        text refreshes on every row change regardless of whether
+        onSelectionChanged's own wiring does, matching this class's
+        own existing keyLeft()/keyRight() pattern exactly.
+        """
+
+        logger.verbose("[SettingsScreen] UP pressed.")
+
+        ConfigListScreen.keyUp(self)
+
+        self._updateSettingInfo()
+
+    # ------------------------------------------------------------------
+
+    def keyDown(self) -> None:
+
+        logger.verbose("[SettingsScreen] DOWN pressed.")
+
+        ConfigListScreen.keyDown(self)
 
         self._updateSettingInfo()
 
@@ -723,8 +860,7 @@ class SettingsScreen(Screen, ConfigListScreen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveSettingsResolutionTier(self._screen_width),
             "settings_background.png",
@@ -945,37 +1081,20 @@ class SettingsScreen(Screen, ConfigListScreen):
 
     def infoPressed(self) -> None:
         """
-        Build 0007, device test round 5 -- SettingsScreen previously
-        had no INFO handling at all, showing Enigma2's "unhandled
-        key" indicator (same audit that found PlaylistScreen missing
-        it, confirmed on OpenATV). Shows the currently selected
-        entry's name and value.
+        Round 139 -- renamed from helpPressed(); opens GuideScreen
+        with SettingsScreen's own context-sensitive information
+        document. This also replaces round 132's own dead infoPressed()
+        (which showed the current setting's name/value instead --
+        unreachable since round 132 moved EPG/INFO to open help
+        content here; removed as part of this rename rather than left
+        in place any longer).
         """
 
         logger.verbose("[SettingsScreen] INFO pressed.")
 
-        current = self.getCurrentEntry()
+        title, content = guide_manager.getGuide("settingsscreen")
 
-        value = self.getCurrentValue()
-
-        if current is None:
-            return
-
-        self.session.open(MessageBox, f"{current}\n\n{value}", MessageBox.TYPE_INFO)
-
-    # ------------------------------------------------------------------
-
-    def helpPressed(self) -> None:
-        """
-        Build 0008 -- opens HelpScreen with SettingsScreen's own
-        context-sensitive help document.
-        """
-
-        logger.verbose("[SettingsScreen] HELP pressed.")
-
-        title, content = help_manager.getHelp("settingsscreen")
-
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 
@@ -1054,22 +1173,16 @@ class SettingsScreen(Screen, ConfigListScreen):
 
     def _afterChange(self) -> None:
 
-        # Build 0006 -- apply language/skin/theme changes immediately,
-        # rather than waiting for a restart, so the user can see the
-        # effect right away. Each call falls back safely on its own
-        # if the new value turns out to be invalid.
+        # Build 0006 -- apply skin/theme changes immediately, rather
+        # than waiting for a restart, so the user can see the effect
+        # right away. Each call falls back safely on its own if the
+        # new value turns out to be invalid.
         #
-        # Device test round 66 -- resolveLanguageCode() added: cfg.
-        # general.language.value can now be the literal string
-        # "system" (a real, selectable choice, not an internal-only
-        # value), which setLanguage() itself has no way to resolve --
-        # passing it through unresolved would have made "system"
-        # silently behave as if the language never changed correctly.
-        resolved_language = resolveLanguageCode(cfg.general.language.value)
-
-        if resolved_language != localization_manager.getLanguage():
-
-            localization_manager.setLanguage(resolved_language)
+        # Round 140: no language apply-on-change needed here any more
+        # -- MediaPlayer3 no longer offers an independent language
+        # choice of its own; localization.py's own _() always follows
+        # the receiver's own current system language directly (see
+        # that file's own round 140 comment for the full reasoning).
 
         if cfg.appearance.skin.value != skin_manager.getSkinName():
 

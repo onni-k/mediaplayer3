@@ -1,6 +1,6 @@
 # Settings
 
-Change MediaPlayer3's appearance, language, and playback and radio
+Change MediaPlayer3's appearance, and playback and radio
 preferences.
 
 ## Keys
@@ -13,8 +13,12 @@ preferences.
   directory"/"Set as Music Library directory" from its own action
   menu to confirm it.
 - YELLOW: clear Internet Radio history.
-- INFO: show the current setting's name and value.
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: save and return to the previous screen.
 
+## Notes
+
+A short description of the currently selected setting is always shown
+below the list, updating automatically as you move between settings.

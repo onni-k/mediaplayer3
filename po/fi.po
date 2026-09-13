@@ -1,0 +1,1250 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Ready"
+msgstr "Valmis"
+
+msgid "No media selected"
+msgstr "Ei valittua tiedostoa"
+
+msgid "Unknown Artist"
+msgstr "Tuntematon esittäjä"
+
+msgid "Unknown Album"
+msgstr "Tuntematon albumi"
+
+msgid "Unknown"
+msgstr "Tuntematon"
+
+msgid "Playback failed"
+msgstr "Toisto epäonnistui"
+
+msgid "Seek failed"
+msgstr "Kelaus epäonnistui"
+
+msgid "No next track"
+msgstr "Ei seuraavaa kappaletta"
+
+msgid "Already at first track"
+msgstr "Jo ensimmäisessä kappaleessa"
+
+msgid "Browser"
+msgstr "Tiedostoselain"
+
+msgid "Playback Information"
+msgstr "Toistotiedot"
+
+msgid "Settings"
+msgstr "Asetukset"
+
+msgid "Developer Tools"
+msgstr "Kehittäjätyökalut"
+
+msgid "About"
+msgstr "Tietoja"
+
+msgid "Exit"
+msgstr "Poistu"
+
+msgid "General"
+msgstr "Yleiset"
+
+msgid "Playback"
+msgstr "Toisto"
+
+msgid "Logging"
+msgstr "Lokitus"
+
+msgid "Developer"
+msgstr "Kehittäjä"
+
+msgid "User Interface"
+msgstr "Käyttöliittymä"
+
+msgid "OK: Select   MENU/EXIT: Close"
+msgstr "OK: Valitse   MENU/EXIT: Sulje"
+
+msgid "Select a file to play"
+msgstr "Valitse toistettava tiedosto"
+
+msgid "Track"
+msgstr "Kappale"
+
+msgid "Pause failed"
+msgstr "Tauko epäonnistui"
+
+msgid "Stop failed"
+msgstr "Pysäytys epäonnistui"
+
+msgid "Resume failed"
+msgstr "Jatkaminen epäonnistui"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the startup directory"
+msgstr "Selaa haluamaasi hakemistoon ja paina sitten VIHREÄÄ asettaaksesi sen käynnistyshakemistoksi"
+
+msgid "Playlists"
+msgstr "Soittolistat"
+
+msgid "Internet Radio"
+msgstr "Internetradio"
+
+msgid "Tracks"
+msgstr "Kappaleet"
+
+msgid "Stations"
+msgstr "Asemat"
+
+msgid "Region"
+msgstr "Alue"
+
+msgid "Delete"
+msgstr "Poista"
+
+msgid "Exported"
+msgstr "Viety"
+
+msgid "Create New"
+msgstr "Luo uusi"
+
+msgid "Playlist already exists"
+msgstr "Soittolista on jo olemassa"
+
+msgid "Create playlist"
+msgstr "Luo soittolista"
+
+msgid "Empty Playlist"
+msgstr "Tyhjä soittolista"
+
+msgid "New playlist name"
+msgstr "Uuden soittolistan nimi"
+
+msgid "New favorite list name"
+msgstr "Uuden suosikkilistan nimi"
+
+msgid "Select playlist"
+msgstr "Valitse soittolista"
+
+msgid "Select favorite list"
+msgstr "Valitse suosikkilista"
+
+msgid "Search stations by name"
+msgstr "Hae asemia nimellä"
+
+msgid "Codec"
+msgstr "Koodekki"
+
+msgid "Bitrate"
+msgstr "Bittinopeus"
+
+msgid "Country"
+msgstr "Maa"
+
+msgid "Language"
+msgstr "Kieli"
+
+msgid "Tags"
+msgstr "Tunnisteet"
+
+msgid "Homepage"
+msgstr "Kotisivu"
+
+msgid "Any"
+msgstr "Mikä tahansa"
+
+msgid "Path"
+msgstr "Polku"
+
+msgid "Type"
+msgstr "Tyyppi"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Cancel"
+msgstr "Peruuta"
+
+msgid "Information"
+msgstr "Tiedot"
+
+msgid "Play"
+msgstr "Soita"
+
+msgid "Remove from Playlist"
+msgstr "Poista soittolistalta"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Options   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   OK: Valinnat   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Local Music"
+msgstr "Paikallinen musiikki"
+
+msgid "What would you like to open?"
+msgstr "Mitä haluat avata?"
+
+msgid "Searching for stations, please wait..."
+msgstr "Kanavia haetaan, odota hetki..."
+
+msgid "Found {0} stations"
+msgstr "Löytyi {0} kanavaa"
+
+msgid "Add all files from directory"
+msgstr "Lisää kaikki hakemiston tiedostot"
+
+msgid "Add entire directory to playlist"
+msgstr "Lisää koko hakemisto soittolistaan"
+
+msgid "Add this file"
+msgstr "Lisää tämä tiedosto"
+
+msgid "Add this file and remaining files in directory"
+msgstr "Lisää tämä ja loput hakemiston tiedostot"
+
+msgid "Add to Favorites"
+msgstr "Lisää suosikkeihin"
+
+msgid "Add to playlist"
+msgstr "Lisää soittolistaan"
+
+msgid "Added %d tracks to playlist: %s"
+msgstr "Lisättiin %d kappaletta soittolistaan: %s"
+
+msgid "Added to playlist: %s"
+msgstr "Lisätty soittolistaan: %s"
+
+msgid "Album"
+msgstr "Albumi"
+
+msgid "Albums"
+msgstr "Albumit"
+
+msgid "Already subscribed"
+msgstr "Jo tilattu"
+
+msgid "Artist"
+msgstr "Esittäjä"
+
+msgid "Artists"
+msgstr "Esittäjät"
+
+msgid "Available Podcasts"
+msgstr "Saatavilla olevat podcastit"
+
+msgid "Back"
+msgstr "Takaisin"
+
+msgid "Browse to the desired directory, then press GREEN to set it as the {0}"
+msgstr "Selaa haluamaasi hakemistoon ja paina sitten VIHREÄÄ asettaaksesi sen: {0}"
+
+msgid "Channels"
+msgstr "Kanavat"
+
+msgid "Clear Internet Radio listening history?"
+msgstr "Tyhjennetäänkö Internet-radion kuunteluhistoria?"
+
+msgid "Composer"
+msgstr "Säveltäjä"
+
+msgid "Create Favorite List"
+msgstr "Luo suosikkilista"
+
+msgid "Create new playlist..."
+msgstr "Luo uusi soittolista..."
+
+msgid "Directories"
+msgstr "Hakemistot"
+
+msgid "Directory not available."
+msgstr "Hakemisto ei ole käytettävissä."
+
+msgid "Episodes"
+msgstr "Jaksot"
+
+msgid "Export"
+msgstr "Vie"
+
+msgid "Files"
+msgstr "Tiedostot"
+
+msgid "Genre"
+msgstr "Tyylilaji"
+
+msgid "History"
+msgstr "Historia"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   CH+/CH-: Page   OK: Options   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   CH+/CH-: Sivu   OK: Valinnat   INFO: Haku   MENU: Valikko   EXIT: Takaisin"
+
+msgid "LEFT/RIGHT: Panel   UP/DOWN: Move   OK: Play   INFO: Search   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Paneeli   YLÖS/ALAS: Siirry   OK: Soita   INFO: Haku   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Loading library, please wait..."
+msgstr "Ladataan kirjastoa, odota..."
+
+msgid "Lyrics not available."
+msgstr "Sanoituksia ei saatavilla."
+
+msgid "Main Menu"
+msgstr "Päävalikko"
+
+msgid "MediaPlayer3 could not start:\n%s"
+msgstr "MediaPlayer3 ei käynnistynyt:\n%s"
+
+msgid "Metadata"
+msgstr "Metatiedot"
+
+msgid "Move Down"
+msgstr "Siirrä alas"
+
+msgid "Move Up"
+msgstr "Siirrä ylös"
+
+msgid "Move down"
+msgstr "Siirrä alas"
+
+msgid "Move up"
+msgstr "Siirrä ylös"
+
+msgid "Music Library"
+msgstr "Musiikkikirjasto"
+
+msgid "Music Library directory"
+msgstr "Musiikkikirjaston hakemisto"
+
+msgid "No information available."
+msgstr "Tietoja ei saatavilla."
+
+msgid "No music library available.\n\nUse Library Update from the menu\nafter adding music files."
+msgstr "Musiikkikirjastoa ei ole saatavilla.\n\nKäytä Päivitä kirjasto -toimintoa valikosta\nlisättyäsi musiikkitiedostoja."
+
+msgid "No playable files found."
+msgstr "Toistettavia tiedostoja ei löytynyt."
+
+msgid "No playlist selected."
+msgstr "Soittolistaa ei ole valittu."
+
+msgid "No podcasts found for \"%s\"."
+msgstr "Podcasteja haulla \"%s\" ei löytynyt."
+
+msgid "Nothing was added."
+msgstr "Mitään ei lisätty."
+
+msgid "Now"
+msgstr "Nyt"
+
+msgid "Now Playing"
+msgstr "Nyt soi"
+
+msgid "Now playing information not available."
+msgstr "Nyt soi -tietoja ei saatavilla."
+
+msgid "Open directory"
+msgstr "Avaa hakemisto"
+
+msgid "Open podcast"
+msgstr "Avaa podcast"
+
+msgid "Player"
+msgstr "Soitin"
+
+msgid "Playlist"
+msgstr "Soittolista"
+
+msgid "Playlist: %s"
+msgstr "Soittolista: %s"
+
+msgid "Podcast"
+msgstr "Podcast"
+
+msgid "Radio EPG"
+msgstr "Radio-ohjelmatiedot"
+
+msgid "Refresh"
+msgstr "Päivitä"
+
+msgid "Refresh failed -- keeping previous information."
+msgstr "Päivitys epäonnistui -- säilytetään aiemmat tiedot."
+
+msgid "Refreshing..."
+msgstr "Päivitetään..."
+
+msgid "Remove"
+msgstr "Poista"
+
+msgid "Rename"
+msgstr "Nimeä uudelleen"
+
+msgid "Resume"
+msgstr "Jatka"
+
+msgid "Sample rate"
+msgstr "Näytteenottotaajuus"
+
+msgid "Search podcasts"
+msgstr "Hae podcasteja"
+
+msgid "Search the music library"
+msgstr "Hae musiikkikirjastosta"
+
+msgid "Search: %s"
+msgstr "Haku: %s"
+
+msgid "Search: {0} ({1} results)"
+msgstr "Haku: {0} ({1} tulosta)"
+
+msgid "Searching..."
+msgstr "Haetaan..."
+
+msgid "Startup directory"
+msgstr "Käynnistyshakemisto"
+
+msgid "Station"
+msgstr "Asema"
+
+msgid "Station Information"
+msgstr "Aseman tiedot"
+
+msgid "Stop"
+msgstr "Pysäytä"
+
+msgid "Subscribe"
+msgstr "Tilaa"
+
+msgid "Subscribed Podcasts"
+msgstr "Tilatut podcastit"
+
+msgid "This episode has no playable audio."
+msgstr "Tässä jaksossa ei ole toistettavaa ääntä."
+
+msgid "Title"
+msgstr "Nimi"
+
+msgid "UP/DOWN: Scroll   LEFT/RIGHT: Page   HELP/EXIT: Close"
+msgstr "YLÖS/ALAS: Vieritä   VASEN/OIKEA: Sivu   HELP/EXIT: Sulje"
+
+msgid "Unable to add to playlist."
+msgstr "Soittolistaan lisääminen epäonnistui."
+
+msgid "Unable to play selected track"
+msgstr "Valitun kappaleen toisto epäonnistui"
+
+msgid "Unable to subscribe."
+msgstr "Tilaaminen epäonnistui."
+
+msgid "Unknown Genre"
+msgstr "Tuntematon tyylilaji"
+
+msgid "Unknown Year"
+msgstr "Tuntematon vuosi"
+
+msgid "Unsubscribe"
+msgstr "Peru tilaus"
+
+msgid "Update Library"
+msgstr "Päivitä kirjasto"
+
+msgid "Year"
+msgstr "Vuosi"
+
+msgid "album(s)"
+msgstr "albumi(a)"
+
+msgid "computed: size/duration"
+msgstr "laskettu: koko/kesto"
+
+msgid "from file extension"
+msgstr "tiedostopäätteestä"
+
+msgid "station info"
+msgstr "aseman tiedot"
+
+msgid "track(s)"
+msgstr "kappale(tta)"
+
+msgid "Podcasts"
+msgstr "Podcastit"
+
+msgid "Lyrics"
+msgstr "Sanoitukset"
+
+msgid "Lyrics LRC"
+msgstr "Sanoitukset (LRC)"
+
+msgid "Lyrics Embedded"
+msgstr "Sanoitukset (upotettu)"
+
+msgid "Lyrics TXT"
+msgstr "Sanoitukset (TXT)"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   PLAY: Play   INFO: Select Playlist   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Sarake   YLÖS/ALAS: Siirry   OK: Toiminnot   PLAY: Soita   INFO: Valitse soittolista   HELP: Ohje   MENU: Valikko   EXIT: Takaisin"
+
+msgid "LEFT/RIGHT: Column   UP/DOWN: Move   OK: Actions   INFO: Search   HELP: Help   MENU: Menu   EXIT: Back"
+msgstr "VASEN/OIKEA: Sarake   YLÖS/ALAS: Siirry   OK: Toiminnot   INFO: Haku   HELP: Ohje   MENU: Valikko   EXIT: Takaisin"
+
+msgid "Clear the local station database?"
+msgstr "Tyhjennetäänkö paikallinen asematietokanta?"
+
+msgid "Downloading station database, please wait..."
+msgstr "Ladataan asematietokantaa, odota..."
+
+msgid "No stations available yet. Download the station database now?"
+msgstr "Asemia ei ole vielä saatavilla. Ladataanko asematietokanta nyt?"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   RED: Update Station Database   BLUE: Clear Station List   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Muokkaa   VASEN/OIKEA: Vaihda   YELLOW: Tyhjennä radiohistoria   RED: Päivitä asematietokanta   BLUE: Tyhjennä asemalista   MENU: Valikko   EXIT: Tallenna ja takaisin"
+
+msgid "Station database updated: %d station(s)."
+msgstr "Asematietokanta päivitetty: %d asemaa."
+
+msgid "Station list cleared."
+msgstr "Asemalista tyhjennetty."
+
+msgid "Update failed -- keeping existing database (%d station(s))."
+msgstr "Päivitys epäonnistui -- säilytetään nykyinen tietokanta (%d asemaa)."
+
+msgid "Update failed. No station data available."
+msgstr "Päivitys epäonnistui. Asematietoja ei ole saatavilla."
+
+msgid "Updating station database, please wait..."
+msgstr "Päivitetään asematietokantaa, odota..."
+
+msgid "Clear history"
+msgstr "Tyhjennä historia"
+
+msgid "Clear station list"
+msgstr "Tyhjennä asemaluettelo"
+
+msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
+msgstr "OK: Muokkaa   VASEN/OIKEA: Vaihda   YELLOW: Tyhjennä radiohistoria   MENU: Valikko   EXIT: Tallenna ja takaisin"
+
+msgid "Remove from playlist"
+msgstr "Poista soittolistalta"
+
+msgid "Removed from playlist: %s"
+msgstr "Poistettu soittolistalta: %s"
+
+msgid "Station not found in playlist: %s"
+msgstr "Asemaa ei löytynyt soittolistalta: %s"
+
+msgid "Unable to remove from playlist."
+msgstr "Poistaminen soittolistalta epäonnistui."
+
+msgid "Update stations"
+msgstr "Päivitä asemat"
+
+msgid "Added to favorites: %s"
+msgstr "Lisätty suosikkeihin: %s"
+
+msgid "No favorite lists available."
+msgstr "Suosikkilistoja ei ole saatavilla."
+
+msgid "Remove from Favorites"
+msgstr "Poista suosikeista"
+
+msgid "Removed from favorites: %s"
+msgstr "Poistettu suosikeista: %s"
+
+msgid "Station not found in favorites: %s"
+msgstr "Asemaa ei löytynyt suosikeista: %s"
+
+msgid "Unable to add to favorites."
+msgstr "Suosikkeihin lisääminen epäonnistui."
+
+msgid "Save failed: %s"
+msgstr "Tallennus epäonnistui: %s"
+
+msgid "measured"
+msgstr "mitattu"
+
+msgid "Warning: this station may not work."
+msgstr "Varoitus: tämä kanava ei ehkä toimi."
+
+msgid "Warning: this episode may not work."
+msgstr "Varoitus: tämä jakso ei ehkä toimi."
+
+msgid " (NOT installed)"
+msgstr " (EI asennettu)"
+
+msgid " (installed)"
+msgstr " (asennettu)"
+
+msgid "Automatically play next track"
+msgstr "Soita seuraava kappale automaattisesti"
+
+msgid "Custom background color"
+msgstr "Mukautettu taustaväri"
+
+msgid "Hidden files"
+msgstr "Piilotiedostot"
+
+msgid "Log station codec info (Internet Radio)"
+msgstr "Kirjaa asemien koodekkitiedot (Internet-radio)"
+
+msgid "Logging level"
+msgstr "Lokitustaso"
+
+msgid "Lyrics offset step (seconds)"
+msgstr "Sanoitusten ajoitusaskel (sekuntia)"
+
+msgid "Podcast Index API key"
+msgstr "Podcast Index API -avain"
+
+msgid "Podcast Index API secret"
+msgstr "Podcast Index API -salaisuus"
+
+msgid "Radio default country"
+msgstr "Radion oletusmaa"
+
+msgid "Radio default language"
+msgstr "Radion oletuskieli"
+
+msgid "Radio history size"
+msgstr "Radiohistorian koko"
+
+msgid "Radio navigation mode"
+msgstr "Radion selaustila"
+
+msgid "Resume playback (future)"
+msgstr "Jatka toistoa (tuleva ominaisuus)"
+
+msgid "Resume radio station on start"
+msgstr "Jatka radiokanavaa käynnistyksessä"
+
+msgid "Seek step (seconds)"
+msgstr "Kelausaskel (sekuntia)"
+
+msgid "Show elapsed time"
+msgstr "Näytä kulunut aika"
+
+msgid "Show in main menu (restart required)"
+msgstr "Näytä päävalikossa (vaatii uudelleenkäynnistyksen)"
+
+msgid "Show playback state"
+msgstr "Näytä toiston tila"
+
+msgid "Show progress bar"
+msgstr "Näytä edistymispalkki"
+
+msgid "Show remaining time"
+msgstr "Näytä jäljellä oleva aika"
+
+msgid "Skin"
+msgstr "Skini"
+
+msgid "Theme"
+msgstr "Teema"
+
+msgid "Use ExtEplayer3 for radio"
+msgstr "Käytä ExtEplayer3:a radiolle"
+
+msgid "Use ffprobe for codec info"
+msgstr "Käytä ffprobea koodekkitietoihin"
+
+msgid "Yle EPG app_id"
+msgstr "Yle EPG app_id"
+
+msgid "Yle EPG app_key"
+msgstr "Yle EPG app_key"
+
+msgid "LEFT/RIGHT: Panel"
+msgstr "VASEN/OIKEA: Paneeli"
+
+msgid "UP/DOWN: Move"
+msgstr "YLÖS/ALAS: Siirry"
+
+msgid "OK: Play"
+msgstr "OK: Soita"
+
+msgid "INFO: Search"
+msgstr "INFO: Haku"
+
+msgid "MENU: Menu"
+msgstr "MENU: Valikko"
+
+msgid "EXIT: Back"
+msgstr "EXIT: Takaisin"
+
+msgid "CH+/CH-: Page"
+msgstr "CH+/CH-: Sivu"
+
+msgid "OK: Options"
+msgstr "OK: Valinnat"
+
+msgid "LEFT/RIGHT: Column"
+msgstr "VASEN/OIKEA: Sarake"
+
+msgid "OK: Actions"
+msgstr "OK: Toiminnot"
+
+msgid "PLAY: Play"
+msgstr "PLAY: Soita"
+
+msgid "INFO: Select Playlist"
+msgstr "INFO: Valitse soittolista"
+
+msgid "HELP: Help"
+msgstr "HELP: Ohje"
+
+msgid "No playlist selected"
+msgstr "Ei soittolistaa valittu"
+
+msgid "Press EPG/INFO to search"
+msgstr "Paina EPG/INFO hakeaksesi"
+
+msgid "%d station(s)"
+msgstr "%d asema(a)"
+
+msgid "OK: Edit"
+msgstr "OK: Muokkaa"
+
+msgid "LEFT/RIGHT: Change"
+msgstr "VASEN/OIKEA: Vaihda"
+
+msgid "YELLOW: Clear Radio History"
+msgstr "YELLOW: Tyhjennä radiohistoria"
+
+msgid "EXIT: Save & Back"
+msgstr "EXIT: Tallenna ja takaisin"
+
+msgid "Folder the file Browser opens in by default."
+msgstr "Kansio, jonka Tiedostoselain avaa oletuksena."
+
+msgid "Folder scanned for the Music Library."
+msgstr "Kansio, joka skannataan Musiikkikirjastoa varten."
+
+msgid "Show files and folders starting with a dot."
+msgstr "Näytä pisteellä alkavat tiedostot ja kansiot."
+
+msgid "Add MediaPlayer3 to the main menu."
+msgstr "Lisää MediaPlayer3 päävalikkoon."
+
+msgid "Interface language."
+msgstr "Käyttöliittymän kieli."
+
+msgid "Light or dark background style for the redesigned screens."
+msgstr "Vaalea tai tumma tausta uudistetuille näytöille."
+
+msgid "Colour theme for screens not yet using the new skin."
+msgstr "Väriteema näytöille, jotka eivät vielä käytä uutta ulkoasua."
+
+msgid "Background colour used when Theme is set to Custom."
+msgstr "Taustaväri, kun Teema on asetettu mukautetuksi."
+
+msgid "Resume the last track on startup (not yet implemented)."
+msgstr "Jatka viimeisintä kappaletta käynnistyksessä (ei vielä toteutettu)."
+
+msgid "Play the next track when one finishes."
+msgstr "Soita seuraava kappale edellisen loputtua."
+
+msgid "How far each seek key press moves playback."
+msgstr "Kuinka pitkälle jokainen kelauspainallus siirtää toistoa."
+
+msgid "How far each lyrics-offset key press shifts timing."
+msgstr "Kuinka paljon jokainen sanoitusten ajastuspainallus siirtää ajoitusta."
+
+msgid "Detect the real codec/bitrate instead of guessing from the file extension."
+msgstr "Tunnista todellinen koodekki/bittinopeus tiedostopäätteen arvaamisen sijaan."
+
+msgid "Country filter Internet Radio starts with."
+msgstr "Maasuodatin, jolla Internet-radio käynnistyy."
+
+msgid "Language filter Internet Radio starts with."
+msgstr "Kielisuodatin, jolla Internet-radio käynnistyy."
+
+msgid "Whether CH+/CH- browses favourites or history."
+msgstr "Selaako CH+/CH- suosikkeja vai historiaa."
+
+msgid "How many recently played stations to remember."
+msgstr "Kuinka monta viimeksi soitettua asemaa muistetaan."
+
+msgid "Reopen the last playing station automatically."
+msgstr "Avaa viimeksi soinut asema automaattisesti uudelleen."
+
+msgid "Use the ExtEplayer3 backend for Internet Radio playback."
+msgstr "Käytä ExtEplayer3-taustajärjestelmää Internet-radion toistoon."
+
+msgid "API app_id for Yle radio programme data."
+msgstr "API app_id Ylen radio-ohjelmatietoja varten."
+
+msgid "API app_key for Yle radio programme data."
+msgstr "API app_key Ylen radio-ohjelmatietoja varten."
+
+msgid "API key for searching podcasts."
+msgstr "API-avain podcastien hakuun."
+
+msgid "API secret for searching podcasts."
+msgstr "API-salaisuus podcastien hakuun."
+
+msgid "Show the playback progress bar on the Player screen."
+msgstr "Näytä toiston edistymispalkki Soitin-näytöllä."
+
+msgid "Show elapsed time on the Player screen."
+msgstr "Näytä kulunut aika Soitin-näytöllä."
+
+msgid "Show remaining time on the Player screen."
+msgstr "Näytä jäljellä oleva aika Soitin-näytöllä."
+
+msgid "Show Playing/Paused status on the Player screen."
+msgstr "Näytä Toistetaan/Pysäytetty-tila Soitin-näytöllä."
+
+msgid "Write detected station codec info to the log."
+msgstr "Kirjoita tunnistetut asematiedot lokiin."
+
+msgid "How much detail is written to the log file."
+msgstr "Kuinka paljon tietoa kirjoitetaan lokitiedostoon."
+
+msgid "OK: Select"
+msgstr "OK: Valitse"
+
+msgid "MENU/EXIT: Close"
+msgstr "MENU/EXIT: Sulje"
+
+msgid "Radio search result limit (0 = unlimited)"
+msgstr "Radion hakutulosraja (0 = rajoittamaton)"
+
+msgid "Unlimited results for own language"
+msgstr "Rajoittamattomat tulokset omalle kielelle"
+
+msgid "Maximum stations shown per search. 0 shows every match, however many that is."
+msgstr "Enimmäismäärä asemia hakua kohti. 0 näyttää kaikki osumat, montapa niitä onkin."
+
+msgid "Ignore the result limit when the Language filter matches your own app language."
+msgstr "Ohita tulosraja, kun Kieli-suodatin vastaa sovelluksen omaa kieltä."
+
+msgid "Radio station limit (0 = unlimited)"
+msgstr "Radioasemien raja (0 = rajoittamaton)"
+
+msgid "Maximum stations per search, and per station database update. 0 means no limit -- as many as RadioBrowser actually has."
+msgstr "Enimmäismäärä asemia hakua ja asematietokannan päivitystä kohti. 0 tarkoittaa ei rajaa -- niin monta kuin RadioBrowserilla oikeasti on."
+
+msgid "Download lyrics"
+msgstr "Lataa sanoitukset"
+
+msgid "Download lyrics?"
+msgstr "Ladataanko sanoitukset?"
+
+msgid "Downloading lyrics, please wait..."
+msgstr "Ladataan sanoituksia, odota hetki..."
+
+msgid "Synced lyrics downloaded."
+msgstr "Synkronoidut sanoitukset ladattu."
+
+msgid "Lyrics downloaded (plain text -- LRCLIB has no synced version for this track)."
+msgstr "Sanoitukset ladattu (tekstimuodossa -- LRCLIB:llä ei ole synkronoitua versiota tästä kappaleesta)."
+
+msgid "LRCLIB has this track marked as instrumental -- no lyrics to download."
+msgstr "LRCLIB on merkinnyt tämän kappaleen instrumentaaliksi -- ei ladattavia sanoituksia."
+
+msgid "No lyrics found on LRCLIB for this track."
+msgstr "Tälle kappaleelle ei löytynyt sanoituksia LRCLIB:stä."
+
+msgid "This track already has lyrics -- nothing downloaded."
+msgstr "Tällä kappaleella on jo sanoitukset -- mitään ei ladattu."
+
+msgid "Missing artist/title tags -- can't search LRCLIB for this track."
+msgstr "Esittäjä- tai kappaletiedot puuttuvat -- LRCLIB-hakua ei voi tehdä tälle kappaleelle."
+
+msgid "Lyrics download failed. Check your network connection."
+msgstr "Sanoitusten lataus epäonnistui. Tarkista verkkoyhteys."
+
+msgid "synced"
+msgstr "synkronoitu"
+
+msgid "plain text"
+msgstr "tekstimuoto"
+
+msgid "instrumental"
+msgstr "instrumentaali"
+
+msgid "not found"
+msgstr "ei löytynyt"
+
+msgid "already had lyrics"
+msgstr "oli jo sanoitukset"
+
+msgid "missing tags"
+msgstr "tiedot puuttuvat"
+
+msgid "failed"
+msgstr "epäonnistui"
+
+msgid "Lyrics download finished: %s."
+msgstr "Sanoitusten lataus valmis: %s."
+
+msgid "No audio files found in this directory."
+msgstr "Hakemistosta ei löytynyt äänitiedostoja."
+
+msgid "Also download lyrics for subdirectories?"
+msgstr "Ladataanko sanoitukset myös alihakemistoille?"
+
+msgid "Show lyrics fullscreen"
+msgstr "Näytä sanoitukset koko ruudussa"
+
+msgid "Show cover art fullscreen"
+msgstr "Näytä kansikuva koko ruudussa"
+
+msgid "No lyrics available."
+msgstr "Sanoituksia ei ole saatavilla."
+
+msgid "No cover art available."
+msgstr "Kansikuvaa ei ole saatavilla."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Säädä ajoitusta"
+
+msgid "Download cover art"
+msgstr "Lataa kansikuva"
+
+msgid "Download cover art?"
+msgstr "Ladataanko kansikuva?"
+
+msgid "Also download cover art for subdirectories?"
+msgstr "Ladataanko kansikuva myös alihakemistoille?"
+
+msgid "Downloading cover art, please wait..."
+msgstr "Ladataan kansikuvaa, odota hetki..."
+
+msgid "Cover art downloaded."
+msgstr "Kansikuva ladattu."
+
+msgid "This album already has cover art -- nothing downloaded."
+msgstr "Tällä albumilla on jo kansikuva -- mitään ei ladattu."
+
+msgid "No matching cover art found."
+msgstr "Sopivaa kansikuvaa ei löytynyt."
+
+msgid "Missing artist/album tags -- can't search for cover art."
+msgstr "Esittäjä- tai albumitiedot puuttuvat -- kansikuvahakua ei voi tehdä."
+
+msgid "Cover art download failed. Check your network connection."
+msgstr "Kansikuvan lataus epäonnistui. Tarkista verkkoyhteys."
+
+msgid "saved"
+msgstr "ladattu"
+
+msgid "already had cover art"
+msgstr "oli jo kansikuva"
+
+msgid "Cover art download finished: %s."
+msgstr "Kansikuvan lataus valmis: %s."
+
+msgid "MusicBrainz is temporarily busy. Try again in a moment."
+msgstr "MusicBrainz on tilapäisesti ruuhkautunut. Yritä hetken päästä uudestaan."
+
+msgid "temporarily busy, try again shortly"
+msgstr "tilapäisesti ruuhkautunut, yritä pian uudestaan"
+
+msgid "LRCLIB is temporarily busy. Try again in a moment."
+msgstr "LRCLIB on tilapäisesti ruuhkautunut. Yritä hetken päästä uudestaan."
+
+msgid "Download all"
+msgstr "Lataa kaikki"
+
+msgid "Download synced lyrics only (LRC)"
+msgstr "Lataa vain synkronoidut (LRC)"
+
+msgid "Download plain text lyrics only (TXT)"
+msgstr "Lataa vain tekstimuotoiset (TXT)"
+
+msgid "Return to start of playlist"
+msgstr "Palaa alkuun"
+
+msgid "The file Browser shows this folder's contents by default. Selected via the file browser with OK."
+msgstr "Tiedostoselain näyttää oletuksena tämän hakemiston sisällön. Valitaan tiedostoselaimella OK-napilla."
+
+msgid "The Music Library is built from the audio files under this folder. Selected via the file browser with OK."
+msgstr "Musiikkikirjasto luodaan tämän hakemiston alla olevista musiikkitiedostoista. Valitaan tiedostoselaimella OK-napilla."
+
+msgid "Whether the file Browser also shows hidden files (default: no)."
+msgstr "Näytetäänkö tiedostoselaimessa myös piilotiedostot (oletuksena: ei)."
+
+msgid "Lets you launch the program directly from the main menu. (Default: no)"
+msgstr "Saat käynnistettyä ohjelman suoraan päävalikosta. (Oletuksena ei)"
+
+msgid "Interface language (default: System)."
+msgstr "Käyttöliittymän kieli (Oletuksena järjestelmä)."
+
+msgid "The program's appearance (default: Light)."
+msgstr "Ohjelman ulkoasu (Oletuksena Light)."
+
+msgid "When the playlist ends, start playing it again from the beginning (default: no)."
+msgstr "Soittolistan loputtua jatka uudelleen soittolistan alusta (Oletuksena: Ei)."
+
+msgid "Play the next track in the playlist once the previous one has finished (default: yes)."
+msgstr "Soita soittolistan seuraava kappale, kun edellinen on loppunut. (Oletuksena: Kyllä)"
+
+msgid "During playback, seeking jumps this many seconds when you press the seek or page-arrow key (default: 30)."
+msgstr "Soitettaessa kelaus hyppää tämän verran kun painaa kelaus- tai sivunuolinappia (Oletus: 30)"
+
+msgid "If you want to change the timing of the scrolling lyrics, the UP/DOWN keys shift the timing by this much each press."
+msgstr "Jos haluat muuttaa sanoitusten vierimisen ajoitusta, niin ylös/alas -napilla ajoitus muuttuu tämän verran kerralla."
+
+msgid "Used to find out bitrate info for radio stations, podcasts and local music, and to detect compatibility issues in a stream."
+msgstr "Tällä selvitetään radiokanavien, podcastien ja paikallisen musiikin bittivirtatietoja ja havaitaan, jos streamissa on yhteensopivuusongelmia."
+
+msgid "This region shows first in Internet Radio's own language list (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "Tämä alue näkyy internetradion kieliluettelossa 1. sijalla (Oletus: ei mikään.) Valinta tehdään Internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "This language shows first in Internet Radio's own region list (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "Tämä kieli näkyy internetradion alueluettelossa 1. sijalla (Oletus: ei mitään) Valinta tehdään internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "The RadioBrowser database can hold a lot of stations. This can limit the search, keeping your own database small (default: 0). Values over 50000 may cause problems on some receivers when the saved station list is read back into memory."
+msgstr "Radiobrowser-tietokannassa voi olla paljon kanavia. Tällä voi rajoittaa hakua, jotta oma tietokanta pysyy pienenä. (Oletus= 0). Yli 50000 arvo voi aiheuttaa ongelmia joillakin vastaanottimilla, kun tallennettu asemalista luetaan takaisin muistiin."
+
+msgid "Even while limiting the database, you can still search for all stations in your own current language (default: yes)."
+msgstr "Vaikka rajoitat tietokantaa, niin voit silti hakea kaikki käytössä olevan kielen kanavat. (Oletus= Kyllä)"
+
+msgid "At most this many stations are kept in the history list (default: 20)."
+msgstr "Historialistaan Tallennetaan enintään tämän verran kanavia. (Oletus= 20)"
+
+msgid "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+msgstr "Jos on kyllä, niin ohjelman käynnistys lähtee suoraan toistamaan edellistä radiokanavaa. (Oletus= ei)"
+
+msgid "May help some radio stations play correctly (default: no)."
+msgstr "Voi auttaa joidenkin radiokanavien toimivuuteen. (Oletus= ei)"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_id here, from https://developer.yle.fi/"
+msgstr "Jos haluat käyttää radio epg ylen kanavilla, niin laita tähän app_id osoitteesta https://developer.yle.fi/"
+
+msgid "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+msgstr "Jos haluat käyttää radio epg ylen kanavilla, niin laita tähän app_key osoitteesta https://developer.yle.fi/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your key here, from https://api.podcastindex.org/"
+msgstr "Jos haluat hakea podcasteja podcastindex -palvelusta, niin laita tähän avain osoitteesta https://api.podcastindex.org/"
+
+msgid "If you want to search podcasts from the Podcast Index service, put your secret here, from https://api.podcastindex.org/"
+msgstr "Jos haluat hakea podcasteja podcastindex -palvelusta, niin laita tähän salaisuus osoitteesta https://api.podcastindex.org/"
+
+msgid "(Default: yes)"
+msgstr "(Oletus: Kyllä)"
+
+msgid "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
+msgstr "Jos Haluat selvittää ohjelman toimintaa ja virheitä syvällisemmin, niin valitse verbose"
+
+msgid "Set as startup directory"
+msgstr "Aseta oletushakemistoksi"
+
+msgid "Set as Music Library directory"
+msgstr "Aseta musiikkikirjaston hakemistoksi"
+
+msgid "{0} set to: {1}"
+msgstr "{0} asetettu: {1}"
+
+msgid "Set as Radio default language"
+msgstr "Aseta radion oletuskieleksi"
+
+msgid "Set as Radio default country"
+msgstr "Aseta radion oletusalueeksi"
+
+msgid "{0}: {1}?"
+msgstr "{0}: {1}?"
+
+msgid "Yes"
+msgstr "Kyllä"
+
+msgid "No"
+msgstr "Ei"
+
+msgid "Clear Radio default language"
+msgstr "Tyhjennä radion oletuskieli"
+
+msgid "Clear Radio default country"
+msgstr "Tyhjennä radion oletusalue"
+
+msgid "This region shows second in Internet Radio's own language list, right after \"Any\" (default: none). Set from the Internet Radio screen by selecting a region and pressing OK."
+msgstr "Tämä alue näkyy internetradion kieliluettelossa 2. sijalla (Oletus: ei mikään.) Valinta tehdään Internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "This language shows second in Internet Radio's own region list, right after \"Any\" (default: none). Set from the Internet Radio screen by selecting a language and pressing OK."
+msgstr "Tämä kieli näkyy internetradion alueluettelossa 2. sijalla (Oletus: ei mitään) Valinta tehdään internetradionäkymässä valitsemalla kieli ja painamalla OK"
+
+msgid "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
+msgstr "Ohjelman ulkoasu (Oletuksena Light). Test Skin -vaihtoehdolla voit kokeilla uutta ulkoasua turvallisesti -- katso SKIN_ELEMENTS.md sen omasta hakemistosta."
+
+# Round 155, per direct request: HelpableActionMap's own native
+# per-button help text (Enigma2's own remote-control guide, rounds
+# 130-132) had never been translated into any language since that
+# mechanism was introduced -- added here.
+
+msgid "add the current track to a playlist"
+msgstr "lisää nykyinen kappale soittolistaan"
+
+msgid "add the selected station to favorites"
+msgstr "lisää valittu asema suosikkeihin"
+
+msgid "add to playlist"
+msgstr "lisää soittolistaan"
+
+msgid "add to playlist (or select playlist in the Playlist column)"
+msgstr "lisää soittolistaan (tai valitse soittolista Soittolista-sarakkeessa)"
+
+msgid "change the highlighted setting"
+msgstr "muuta korostettua asetusta"
+
+msgid "clear radio history"
+msgstr "tyhjennä radion historia"
+
+msgid "close the fullscreen cover art view"
+msgstr "sulje koko näytön kansikuvanäkymä"
+
+msgid "close the fullscreen lyrics view"
+msgstr "sulje koko näytön sanoitusnäkymä"
+
+msgid "close the menu"
+msgstr "sulje valikko"
+
+msgid "close this information screen"
+msgstr "sulje tämä tietoruutu"
+
+msgid "create a new playlist"
+msgstr "luo uusi soittolista"
+
+msgid "delete the selected playlist, or remove the selected track"
+msgstr "poista valittu soittolista tai poista valittu kappale"
+
+msgid "edit the highlighted setting"
+msgstr "muokkaa korostettua asetusta"
+
+msgid "exit MediaPlayer3"
+msgstr "poistu MediaPlayer3:sta"
+
+msgid "go back"
+msgstr "palaa takaisin"
+
+msgid "move down"
+msgstr "siirry alas"
+
+msgid "move the selected playlist track down"
+msgstr "siirrä valittu soittolistan kappale alas"
+
+msgid "move the selected playlist track up"
+msgstr "siirrä valittu soittolistan kappale ylös"
+
+msgid "move the selected track down"
+msgstr "siirrä valittu kappale alas"
+
+msgid "move the selected track up"
+msgstr "siirrä valittu kappale ylös"
+
+msgid "move to the left panel"
+msgstr "siirry vasempaan paneeliin"
+
+msgid "move to the next column"
+msgstr "siirry seuraavaan sarakkeeseen"
+
+msgid "move to the previous column"
+msgstr "siirry edelliseen sarakkeeseen"
+
+msgid "move to the right panel"
+msgstr "siirry oikeaan paneeliin"
+
+msgid "move up"
+msgstr "siirry ylös"
+
+msgid "next page"
+msgstr "seuraava sivu"
+
+msgid "next track/station"
+msgstr "seuraava kappale/kanava"
+
+msgid "open the actions menu"
+msgstr "avaa toimintovalikko"
+
+msgid "open the file browser"
+msgstr "avaa tiedostoselain"
+
+msgid "open the main menu"
+msgstr "avaa päävalikko"
+
+msgid "open the menu"
+msgstr "avaa valikko"
+
+msgid "open the menu for the current view"
+msgstr "avaa nykyisen näkymän valikko"
+
+msgid "page down"
+msgstr "sivu alas"
+
+msgid "page up"
+msgstr "sivu ylös"
+
+msgid "pause"
+msgstr "keskeytä"
+
+msgid "play"
+msgstr "toista"
+
+msgid "play the selected file"
+msgstr "toista valittu tiedosto"
+
+msgid "previous page"
+msgstr "edellinen sivu"
+
+msgid "previous track/station"
+msgstr "edellinen kappale/kanava"
+
+msgid "remove from playlist"
+msgstr "poista soittolistalta"
+
+msgid "remove the current track from a playlist"
+msgstr "poista nykyinen kappale soittolistalta"
+
+msgid "save and exit"
+msgstr "tallenna ja poistu"
+
+msgid "scroll down"
+msgstr "vieritä alas"
+
+msgid "scroll up"
+msgstr "vieritä ylös"
+
+msgid "search"
+msgstr "hae"
+
+msgid "search by name"
+msgstr "hae nimellä"
+
+msgid "seek backward"
+msgstr "kelaa taaksepäin"
+
+msgid "seek backward a short step"
+msgstr "kelaa lyhyt askel taaksepäin"
+
+msgid "seek forward"
+msgstr "kelaa eteenpäin"
+
+msgid "seek forward a short step"
+msgstr "kelaa lyhyt askel eteenpäin"
+
+msgid "select the highlighted entry"
+msgstr "valitse korostettu kohde"
+
+msgid "show information about this screen"
+msgstr "näytä tietoja tästä ruudusta"
+
+msgid "show lyrics fullscreen"
+msgstr "näytä sanoitukset koko näytöllä"
+
+msgid "skip to the next track"
+msgstr "siirry seuraavaan kappaleeseen"
+
+msgid "skip to the previous track"
+msgstr "siirry edelliseen kappaleeseen"
+
+msgid "stop"
+msgstr "pysäytä"
+
+msgid "subscribe, or add episode to a playlist"
+msgstr "tilaa, tai lisää jakso soittolistaan"
+
+msgid "switch between the player and information views"
+msgstr "vaihda soitin- ja tietonäkymän välillä"
+
+msgid "switch to internet radio"
+msgstr "vaihda internetradioon"
+
+msgid "unsubscribe"
+msgstr "poista tilaus"
+
+msgid "update library"
+msgstr "päivitä kirjasto"

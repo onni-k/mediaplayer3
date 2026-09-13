@@ -974,16 +974,24 @@ class InternetRadioManager:
         käyttöliittymän kielen kanavat" -- fetches every station
         (exhaustively, no cap) for radio.default_language and/or
         radio.default_country if either is set; if NEITHER is set,
-        falls back to the app's own UI language (general.language),
-        matching RadioBrowserScreen's own _promoteAppLanguage() lookup
-        table exactly (APP_LANGUAGE_TO_RADIOBROWSER_NAME, this
-        module's own). Returns a flat, possibly-overlapping-with-each-
-        other (but not yet deduplicated against the main pass) list --
+        falls back to the app's own current display language, matching
+        RadioBrowserScreen's own _promoteAppLanguage() lookup table
+        exactly (APP_LANGUAGE_TO_RADIOBROWSER_NAME, this module's
+        own). Returns a flat, possibly-overlapping-with-each- other
+        (but not yet deduplicated against the main pass) list --
         updateStationDatabase() itself handles deduplication by
         stationuuid.
+
+        Round 140: "the app's own current display language" is now
+        always the receiver's own system language (MediaPlayer3 no
+        longer offers an independent language choice of its own --
+        see localization.py's own round 140 comment), so this reads
+        localization.getCurrentLanguage() directly rather than
+        resolving a now-removed general.language config value.
         """
 
-        from .config import config_manager, resolveLanguageCode
+        from .config import config_manager
+        from .localization import getCurrentLanguage
 
         default_language = config_manager.get("radio.default_language", "")
 
@@ -1001,9 +1009,7 @@ class InternetRadioManager:
 
         if not filters:
 
-            app_language_name = APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(
-                resolveLanguageCode(config_manager.get("general.language", "fi"))
-            )
+            app_language_name = APP_LANGUAGE_TO_RADIOBROWSER_NAME.get(getCurrentLanguage())
 
             if app_language_name:
 
@@ -1331,6 +1337,35 @@ class InternetRadioManager:
         self._favorites[list_name] = remaining
 
         self._log(f"Favorite removed: {stationuuid} <- {list_name}")
+
+        return self._saveFavorites()
+
+    # ------------------------------------------------------------------
+
+    def moveFavorite(self, list_name: str, index: int, direction: int) -> bool:
+        """
+        Round 146, per direct request (colour-button audit's own
+        follow-up: "soittolistanäkymässä siirrä ylös/alas koskemaan
+        myös radion suosikkilistoja" -- PlaylistScreen's own existing
+        "Move Up"/"Move Down" choices only ever applied to local
+        playlists, since this method didn't exist at all for radio
+        favorite lists until now). Moves the entry at `index` up
+        (direction=-1) or down (direction=+1) within favorite list
+        `list_name` -- mirrors playlist_manager.moveTrack()'s own
+        signature and swap-based approach exactly, so PlaylistScreen's
+        own move-track code can treat both kinds of list the same way.
+        """
+
+        entries = self._favorites.get(list_name, [])
+
+        target = index + direction
+
+        if not (0 <= index < len(entries) and 0 <= target < len(entries)):
+            return False
+
+        entries[index], entries[target] = entries[target], entries[index]
+
+        self._favorites[list_name] = entries
 
         return self._saveFavorites()
 

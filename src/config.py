@@ -141,7 +141,6 @@ from Components.config import (
     ConfigInteger,
 )
 
-from .compatibility import compatibility
 from .localization import _
 from .logger import (
     logger,
@@ -272,41 +271,14 @@ class ConfigYesNoLocalized(ConfigYesNo):
         return _("Yes") if self.value else _("No")
 
 
-
-
-# Device test round 65 -- guards against a language MediaPlayer3
-# doesn't actually ship a catalog for; round 66's own resolveLanguageCode()
-# below is the only place THIS copy of the list is consulted. A
-# second, separate copy (localization.py's own AVAILABLE_LANGUAGES)
-# is what LocalizationManager itself actually checks before loading a
-# catalog -- keep both in sync when adding a language (round 102).
-_AVAILABLE_LANGUAGE_CODES = ("en", "fi", "sv", "de", "es")
-
-
-def resolveLanguageCode(configured_value: str) -> str:
-    """
-    Device test round 66 -- resolves cfg.general.language's own
-    configured value ("fi", "en", or "system") to an actual 2-letter
-    language code LocalizationManager can load. "system" is resolved
-    fresh every time this is called (at plugin startup, and again
-    whenever Settings applies a language change live) rather than
-    baked into a config default once -- so if the receiver's own OSD
-    language changes later, MediaPlayer3 picks that up on its own
-    next start too, without the user needing to re-select anything
-    here. Replaces round 65's own _defaultLanguageCode(), which only
-    computed the system language once, at config-creation time.
-    """
-
-    if configured_value != "system":
-        return configured_value
-
-    system_language = compatibility.getSystemLanguage(fallback_language_code="en")
-
-    if system_language in _AVAILABLE_LANGUAGE_CODES:
-        return system_language
-
-    return "en"
-
+# Round 140, per direct request (translation setup simplified to
+# match standard Enigma2 plugin convention -- see localization.py's
+# own round 140 comment for the full reasoning): the independent
+# Settings -> Language choice this section used to define
+# (cfg.general.language, resolveLanguageCode(), and this constant)
+# is removed entirely. MediaPlayer3 now always follows the receiver's
+# own current system language (compatibility.getSystemLanguage()),
+# exactly like every other Enigma2 plugin surveyed for this rewrite.
 
 # ------------------------------------------------------------------------------
 # Build 0008 -- Library (LIBRARY_MANAGER_SPEC.md)
@@ -319,18 +291,6 @@ cfg.library = ConfigSubsection()
 # ------------------------------------------------------------------------------
 
 cfg.general = ConfigSubsection()
-
-cfg.general.language = ConfigSelection(
-    default="system",
-    choices=[
-        ("system", "Järjestelmä"),
-        ("fi", "Suomi"),
-        ("en", "English"),
-        ("sv", "Svenska"),
-        ("de", "Deutsch"),
-        ("es", "Español"),
-    ],
-)
 
 cfg.general.startup_directory = ConfigBrowsePath(
     default=default_media_directory()
@@ -458,6 +418,16 @@ cfg.appearance.skin = ConfigSelection(
         ("default", "Default"),
         ("light", "Light"),
         ("dark", "Dark"),
+        ("test_skin", "Test Skin"),
+        # Round 155, per direct request: a genuinely new, independent
+        # skin choice -- a frozen copy of Test Skin's own vintage
+        # radio look at the point this was added, not an alias. Own
+        # bundled resources/skins/vintage_radio/ tree (read the same
+        # way Light/Dark's own bundled images are, not through Test
+        # Skin's own separate writable-directory mechanism), own
+        # palette dicts in every screen. Editing Test Skin further
+        # from here on has no effect on this one, and vice versa.
+        ("vintage_radio", "Vintage Radio"),
     ],
 )
 
@@ -518,13 +488,28 @@ cfg.radio.default_language = ConfigBrowsePath(
 # what a "0 = unlimited" setting needs).
 cfg.radio.search_limit = ConfigInteger(
     default=100,
-    limits=(0, 20000),
+    limits=(0, 100000),
 )
+
+# Round 153, per direct request/device log: raised the configurable
+# ceiling from 20000 to 100000 -- comfortably above the full
+# RadioBrowser database's own real size (confirmed ~58000 stations in
+# round 152's own device log), which a value of 0 ("unlimited") was
+# already implicitly allowing anyway; this just lets a user pick that
+# same real number explicitly instead of only "unlimited" or "20000
+# at most". The device log that prompted this also showed exactly
+# why a hard ceiling still matters: reading a persisted station
+# database back into memory failed once with a genuine MemoryError on
+# that same real device at the full unlimited size -- handled
+# gracefully already (_loadJSON()'s own round 101 fix), but a real,
+# demonstrated risk worth warning about directly in this setting's
+# own hint text below, not just discovered the hard way.
 
 # Device test round 68 -- per direct request ("hae käytössä olevan
 # kielen kaikki kanavat"): when on, a search whose own Language filter
-# matches the app's own current UI language (general.language,
-# resolved through config.py's own resolveLanguageCode()) ignores
+# matches the app's own current display language (localization.py's
+# own getCurrentLanguage(), following the receiver's own system
+# language since round 140) ignores
 # radio.search_limit entirely for that one search, returning every
 # matching station regardless of the general cap -- letting a user
 # browse their own language's full station list without needing to
@@ -720,7 +705,6 @@ cfg.developer.disable_restore_tv_on_exit = ConfigYesNoLocalized(
 # generic instead of growing one method per setting.
 
 _ENTRIES: Dict[str, Any] = {
-    "general.language": cfg.general.language,
     "general.startup_directory": cfg.general.startup_directory,
     "general.hidden_files": cfg.general.hidden_files,
     "general.show_in_main_menu": cfg.general.show_in_main_menu,

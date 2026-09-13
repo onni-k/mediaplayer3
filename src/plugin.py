@@ -78,19 +78,21 @@
 MediaPlayer3 plugin entry point.
 """
 
+import os
 import platform
+import shutil
 import traceback
 
 from Plugins.Plugin import PluginDescriptor
 from Screens.MessageBox import MessageBox
 
 from .compatibility import compatibility
-from .config import config_manager, resolveLanguageCode
+from .config import config_manager
 from .internetradio_manager import internetradio_manager
-from .localization import localization_manager
 from .localization import _
 from .logger import logger
 from .mainscreen import MainScreen
+from .paths import RESOURCE_PATH
 from .playlist_manager import playlist_manager
 from .skin import skin_manager
 from .storage import storage_manager
@@ -99,6 +101,53 @@ from .version import get_version_string
 # ------------------------------------------------------------------------------
 # Plugin entry point
 # ------------------------------------------------------------------------------
+
+def _copyTestSkinTemplate() -> None:
+    """
+    Round 110, per direct request: populates a freshly-(re)created
+    .mediaplayer3/test_skin/ with the bundled starting-point template
+    (resources/skins/test_skin_template/ -- a copy of Dark, plus
+    SKIN_ELEMENTS.md documenting every screen's own background image
+    requirements) -- so selecting "Test Skin" for the very first time
+    has something real to try immediately, rather than an empty
+    folder falling back to Light for every single file until the user
+    populates it themselves.
+
+    Called only when storage_manager.wasTestSkinJustCreated() is True
+    (see this function's own call site below) -- never overwrites an
+    already-populated test_skin directory the user is actively editing.
+
+    Never raises: a copy failure just leaves test_skin empty, which
+    skin.py's own resolve_skin_asset_path() already handles safely
+    (falls back to Light per file) -- matching this whole startup
+    sequence's own "never prevent startup" convention.
+    """
+
+    template_dir = os.path.join(RESOURCE_PATH, "skins", "test_skin_template")
+
+    destination_dir = storage_manager.getTestSkinPath()
+
+    try:
+        for entry in os.listdir(template_dir):
+
+            source_path = os.path.join(template_dir, entry)
+
+            destination_path = os.path.join(destination_dir, entry)
+
+            if os.path.isdir(source_path):
+
+                shutil.copytree(source_path, destination_path, dirs_exist_ok=True)
+
+            else:
+
+                shutil.copy2(source_path, destination_path)
+
+        logger.info("Test Skin template copied to %s", destination_dir)
+
+    except Exception as error:
+
+        logger.warning("Unable to copy Test Skin template: %s", error)
+
 
 def main(session, **kwargs):
     """
@@ -147,19 +196,35 @@ def main(session, **kwargs):
         logger.warning("Unable to apply logging configuration: %s", error)
 
     #
-    # Apply saved language, skin and theme configuration (Build 0006).
-    # Each call falls back safely on its own if the saved value is no
-    # longer valid, so a bad/removed skin or theme can never prevent
-    # startup.
+    # Apply saved skin and theme configuration (Build 0006). Each call
+    # falls back safely on its own if the saved value is no longer
+    # valid, so a bad/removed skin or theme can never prevent startup.
+    #
+    # Round 140: no language application needed here any more --
+    # localization.py's own _() now always reads the receiver's own
+    # current system language fresh on every call (see that file's
+    # own round 140 comment), so there is nothing to apply at startup.
     #
     try:
-        localization_manager.setLanguage(resolveLanguageCode(config_manager.get("general.language", "fi")))
+        # Round 110, per direct request: a freshly-(re)created
+        # test_skin directory gets populated with the bundled
+        # template first, so there's something real to try/fall back
+        # to consistently -- then, if "test_skin" was still the saved
+        # Skin choice, reset it to "light" (see _copyTestSkinTemplate()
+        # and wasTestSkinJustCreated()'s own docstrings for the full
+        # reasoning). Read/copy before loadSkin() below so the
+        # corrected value and the copied files are both in place
+        # before anything actually tries to use them.
+        if storage_manager.wasTestSkinJustCreated():
 
-    except Exception as error:
+            _copyTestSkinTemplate()
 
-        logger.warning("Unable to apply language configuration: %s", error)
+            if config_manager.get("appearance.skin", "default") == "test_skin":
 
-    try:
+                logger.info("test_skin directory was just (re)created; resetting appearance.skin to light.")
+
+                config_manager.set("appearance.skin", "light")
+
         skin_manager.loadSkin(config_manager.get("appearance.skin", "default"))
 
         skin_manager.loadTheme(config_manager.get("appearance.theme", "gray"))

@@ -6,15 +6,36 @@
 #
 # Description :
 #
-#     LocalizationManager
+#     MediaPlayer3 localization.
 #
-#     Loads translations and provides translated strings to the
-#     Screen Layer. Owns language selection and fallback; contains no
-#     user interface code.
+#     Round 140, per direct request (programmer feedback: "Translation
+#     setup is over-complicated versus Enigma2 convention -- typically
+#     a handful of lines directly in __init__.py, not a dedicated
+#     LocalizationManager module/class"): rewritten to match the real,
+#     widely-used Enigma2 plugin convention confirmed against several
+#     real plugins' own __init__.py (IMDb, ShareMyBox, FileBrowser) --
+#     a module-level _() using gettext directly against the receiver's
+#     own current system language (Components.config's config.osd.
+#     language.value, read fresh on every call, matching this
+#     project's own established "always live, never baked in once"
+#     precedent from config.py's own ConfigYesNoLocalized).
+#
+#     This also means MediaPlayer3 no longer offers an independent
+#     language choice of its own -- a direct, deliberate decision made
+#     when this rewrite was scoped, not an oversight: every other
+#     Enigma2 plugin surveyed for this rewrite follows the box's own
+#     OSD language exclusively, and MediaPlayer3 now does the same.
+#     The removed Settings -> Language choice, config.py's own
+#     resolveLanguageCode()/_AVAILABLE_LANGUAGE_CODES, and every
+#     caller of the old LocalizationManager's own setLanguage()/
+#     getLanguage() were all removed together with this file's own
+#     rewrite -- see this round's own Claude_notes entry for the full
+#     list of touched files.
 #
 # Implements :
 #
-#     LOCALIZATION_MANAGER_SPEC.md v0.1
+#     LOCALIZATION_MANAGER_SPEC.md v0.1 (superseded by this rewrite --
+#     see this file's own Description above)
 #
 # Architecture :
 #
@@ -43,257 +64,102 @@
 #     docs/Claude_notes_build0006.txt for exactly which); full
 #     app-wide coverage is intentionally left as incremental future
 #     work rather than attempted in one pass.
+#
+# 2026-09-09  Build 0010 (device test round 140)
+#   - Rewritten from a dedicated LocalizationManager class down to a
+#     module-level _() following the box's own system language
+#     directly (see this file's own Description block above for the
+#     full reasoning). Independent language selection removed
+#     entirely, project-wide.
 # ------------------------------------------------------------------------------
 
 """
 MediaPlayer3 localization.
 
-Other modules should never call Python's gettext directly -- they go
-through the shared `localization_manager` instance's translate()
-method (usually aliased locally as `_`), so language selection and
-fallback stay centralized here.
+Other modules import `_` directly: `from .localization import _`.
 """
 
 from __future__ import annotations
 
 import gettext
-from typing import Optional
 
-from .logger import logger
+from .compatibility import compatibility
 from .paths import LOCALE_PATH
 
 DOMAIN = "MediaPlayer3"
 
 # Languages MediaPlayer3 ships a translation catalog for. A new
 # language needs both its own resources/locale/<code>/LC_MESSAGES/
-# MediaPlayer3.mo file AND its code added here -- this tuple is what
-# LocalizationManager actually checks before trying to load one
-# (config.py's own _AVAILABLE_LANGUAGE_CODES is a second, separate
-# copy of this same list, consulted before this one ever runs, for
-# Settings' own Language choices; keep both in sync).
+# MediaPlayer3.mo file (compiled from po/<code>.po -- see round 135's
+# own mediaplayer3.bb do_compile()) AND its code added here.
 AVAILABLE_LANGUAGES = ("en", "fi", "sv", "de", "es")
 
 FALLBACK_LANGUAGE = "en"
 
+# Cache of already-loaded gettext translation objects, keyed by
+# language code -- avoids re-reading the .mo file from disk on every
+# single _() call while still checking the box's own current system
+# language fresh every time (so a live language change, e.g. from
+# Enigma2's own Settings, takes effect on this app's own very next
+# translated string, no restart needed).
+_translation_cache = {}
 
-class LocalizationManager:
+
+def _loadTranslation(language_code: str):
+
+    if language_code in _translation_cache:
+
+        return _translation_cache[language_code]
+
+    try:
+        translation = gettext.translation(DOMAIN, localedir=LOCALE_PATH, languages=[language_code])
+
+    except (FileNotFoundError, OSError):
+
+        if language_code != FALLBACK_LANGUAGE:
+
+            return _loadTranslation(FALLBACK_LANGUAGE)
+
+        # Even the fallback catalog is missing -- degrade to a
+        # passthrough (gettext() returns its input unchanged) rather
+        # than leaving the application without any strings at all.
+        translation = gettext.NullTranslations()
+
+    _translation_cache[language_code] = translation
+
+    return translation
+
+
+def getCurrentLanguage() -> str:
     """
-    Loads translations and serves translated strings.
+    Return the language code MediaPlayer3 is actually translating
+    into right now -- the receiver's own current system language if
+    MediaPlayer3 ships a catalog for it, FALLBACK_LANGUAGE otherwise.
     """
 
-    SPECIFICATION_VERSION = "0.1"
-    ARCHITECTURE_VERSION = "0.4"
+    system_language = compatibility.getSystemLanguage(fallback_language_code=FALLBACK_LANGUAGE)
 
-    # ------------------------------------------------------------------
-    # Initialization
-    # ------------------------------------------------------------------
-
-    def __init__(self) -> None:
-
-        self._initialized = False
-
-        self._current_language = FALLBACK_LANGUAGE
-
-        self._translation = None
-
-        # Diagnostics (Build 0006 -- "Translation diagnostics",
-        # DEVELOPER_SCREEN_SPEC.md-style counters).
-        self._lookup_count = 0
-        self._missing_count = 0
-        self._missing_keys = set()
-
-        self._log("Created")
-
-        self._initialize()
-
-    # ------------------------------------------------------------------
-
-    def _log(self, message: str) -> None:
-
-        logger.info("[Localization] %s", message)
-
-    # ------------------------------------------------------------------
-
-    def _initialize(self) -> None:
-
-        self._log("Initializing")
-
-        self.setLanguage(FALLBACK_LANGUAGE)
-
-        self._initialized = True
-
-        self._log("Ready")
-
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
-
-    def setLanguage(self, language_code: str) -> bool:
-        """
-        Load `language_code`'s catalog and make it current.
-
-        Falls back to FALLBACK_LANGUAGE ("en") if `language_code` is
-        not in AVAILABLE_LANGUAGES or its .mo file cannot be loaded --
-        never raises, and MediaPlayer3 always has *some* working
-        translation catalog after this returns.
-
-        Returns:
-            True if `language_code` itself loaded successfully; False
-            if it fell back to FALLBACK_LANGUAGE instead (still usable,
-            just not the requested language).
-        """
-
-        if language_code not in AVAILABLE_LANGUAGES:
-
-            self._log(f"Unsupported language '{language_code}'; using fallback '{FALLBACK_LANGUAGE}'.")
-
-            language_code = FALLBACK_LANGUAGE
-
-        try:
-            self._translation = gettext.translation(
-                DOMAIN,
-                localedir=LOCALE_PATH,
-                languages=[language_code],
-            )
-
-            self._current_language = language_code
-
-            self._log(f"Selected language: {language_code}")
-
-            self._log(f"Translation loaded: {language_code}")
-
-            return True
-
-        except (FileNotFoundError, OSError) as error:
-
-            self._log(f"Unable to load '{language_code}' translation: {error}")
-
-            if language_code != FALLBACK_LANGUAGE:
-
-                self._log(f"Falling back to '{FALLBACK_LANGUAGE}'.")
-
-                return self.setLanguage(FALLBACK_LANGUAGE)
-
-            # Even the fallback catalog is missing -- degrade to a
-            # passthrough (translate() returns its input unchanged)
-            # rather than leaving the application without any strings.
-            self._translation = gettext.NullTranslations()
-
-            self._current_language = FALLBACK_LANGUAGE
-
-            return False
-
-    # ------------------------------------------------------------------
-
-    def getLanguage(self) -> str:
-        """
-        Return the currently active language code.
-        """
-
-        return self._current_language
-
-    # ------------------------------------------------------------------
-
-    def getFallbackLanguage(self) -> str:
-        """
-        Return the fallback language code (always "en").
-        """
-
-        return FALLBACK_LANGUAGE
-
-    # ------------------------------------------------------------------
-
-    def getAvailableLanguages(self):
-        """
-        Return the tuple of language codes MediaPlayer3 ships
-        translations for.
-        """
-
-        return AVAILABLE_LANGUAGES
-
-    # ------------------------------------------------------------------
-
-    def translate(self, text: str, default: Optional[str] = None) -> str:
-        """
-        Return `text` translated into the current language.
-
-        Returns `default` (or `text` itself if `default` is None) when
-        no translation exists for `text` -- a missing translation is
-        never allowed to surface as an empty or broken string, and is
-        tracked for translate diagnostics (see getTranslationStats()).
-        """
-
-        self._lookup_count += 1
-
-        if self._translation is None:
-            return default if default is not None else text
-
-        result = self._translation.gettext(text)
-
-        # Check catalog membership directly rather than comparing
-        # `result == text` -- the English catalog intentionally ships
-        # identity translations (msgid == msgstr for readability), so
-        # a naive equality check would flag every successful English
-        # lookup as "missing".
-        catalog = getattr(self._translation, "_catalog", None)
-
-        if catalog is not None and text not in catalog:
-
-            self._missing_count += 1
-
-            self._missing_keys.add(text)
-
-            logger.verbose(f"[Localization] Missing translation: '{text}' ({self._current_language})")
-
-        return result
-
-    # ------------------------------------------------------------------
-    # Diagnostics (Build 0006 -- Developer Mode "Translation diagnostics")
-    # ------------------------------------------------------------------
-
-    def getTranslationStats(self) -> dict:
-        """
-        Return translation diagnostics for DeveloperScreen.
-        """
-
-        return {
-            "language": self._current_language,
-            "fallback_language": FALLBACK_LANGUAGE,
-            "available_languages": ", ".join(AVAILABLE_LANGUAGES),
-            "lookups": self._lookup_count,
-            "missing": self._missing_count,
-            "missing_keys": ", ".join(sorted(self._missing_keys)) or "None",
-        }
-
-    # ------------------------------------------------------------------
-
-    def __repr__(self) -> str:
-
-        return f"LocalizationManager(language={self._current_language!r})"
-
-
-# ------------------------------------------------------------------------------
-# Shared instance
-# ------------------------------------------------------------------------------
-
-localization_manager = LocalizationManager()
+    return system_language if system_language in AVAILABLE_LANGUAGES else FALLBACK_LANGUAGE
 
 
 def _(text: str) -> str:
     """
-    Shorthand translate() -- the conventional gettext alias. Screens
-    import this as `from .localization import _`.
+    Translate `text` into the receiver's own current system language.
+
+    Always returns a usable string -- an untranslated `text` when no
+    catalog entry exists, exactly matching gettext's own standard
+    behaviour.
     """
 
-    return localization_manager.translate(text)
+    return _loadTranslation(getCurrentLanguage()).gettext(text)
 
 
 # ==============================================================================
 #
 # Build Notes
 #
-# LocalizationManager is deliberately independent of every other
-# module except logger.py and paths.py -- PlaybackController and
+# localization.py is deliberately independent of every other module
+# except compatibility.py and paths.py -- PlaybackController and
 # ServiceController must never depend on it (BUILD_0006_PLAN.md
 # "Design Principles": "PlaybackController remains independent of
 # ... LocalizationManager").

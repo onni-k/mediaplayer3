@@ -549,6 +549,105 @@ class PlaylistManager:
 
     # ------------------------------------------------------------------
 
+    def clearPlaylist(self, name: str) -> bool:
+        """
+        Round 133, per direct request ("punainen voi tyhjentää
+        soittolistan" -- RED clears the playlist): removes every
+        track from an existing playlist WITHOUT deleting the playlist
+        itself -- deliberately distinct from deletePlaylist(), which
+        removes the playlist entry entirely. A playlist that doesn't
+        exist yet is treated as already empty rather than an error,
+        matching removeTrack()'s own tolerant style for an
+        out-of-range index.
+        """
+
+        if not self._playlistExists(name):
+
+            return False
+
+        if self.savePlaylist(name, []):
+
+            self._log(f"Playlist cleared: {name}")
+
+            return True
+
+        return False
+
+    # ------------------------------------------------------------------
+
+    def removeTracksInDirectory(self, name: str, directory: str) -> int:
+        """
+        Round 133, per direct request (RED removes a directory's own
+        tracks from the current playlist, in Browser's Directories
+        column): removes every track in `name` whose own file path
+        falls inside `directory` (recursively, matching addFolder()'s
+        own directory-recursive behaviour so remove is the true
+        inverse of add). Returns the number of tracks actually
+        removed -- 0 if none matched, distinct from a save failure
+        (check getLastSaveError() the same way every other bulk
+        operation here already does).
+        """
+
+        tracks = self.loadPlaylist(name)
+
+        normalized_directory = os.path.normpath(directory)
+
+        def _isInside(filepath: str) -> bool:
+
+            normalized_file = os.path.normpath(filepath)
+
+            return normalized_file == normalized_directory or normalized_file.startswith(normalized_directory + os.sep)
+
+        remaining = [t for t in tracks if not _isInside(t.get("path", ""))]
+
+        removed_count = len(tracks) - len(remaining)
+
+        if removed_count == 0:
+
+            return 0
+
+        if self.savePlaylist(name, remaining):
+
+            self._log(f"{removed_count} track(s) removed from {name} (directory: {directory})")
+
+            return removed_count
+
+        return 0
+
+    # ------------------------------------------------------------------
+
+    def removeTrackByPath(self, name: str, filepath: str) -> bool:
+        """
+        Round 133, per direct request (RED removes a single file's own
+        entry from the current playlist, in Browser's Files column):
+        removes every track in `name` whose own file path matches
+        `filepath` exactly (there should only ever be one, but this
+        doesn't assume that) -- the path-based equivalent of
+        removeTrack()'s own index-based removal, needed here since the
+        Files column doesn't know the track's own index within
+        whichever playlist it's being removed from.
+        """
+
+        tracks = self.loadPlaylist(name)
+
+        normalized_target = os.path.normpath(filepath)
+
+        remaining = [t for t in tracks if os.path.normpath(t.get("path", "")) != normalized_target]
+
+        if len(remaining) == len(tracks):
+
+            return False
+
+        if self.savePlaylist(name, remaining):
+
+            self._log(f"Track removed from {name} (path: {filepath})")
+
+            return True
+
+        return False
+
+    # ------------------------------------------------------------------
+
     def moveTrack(self, name: str, index: int, direction: int) -> bool:
         """
         Move the track at `index` up (direction=-1) or down

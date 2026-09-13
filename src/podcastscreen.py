@@ -63,12 +63,13 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
@@ -76,15 +77,14 @@ from Screens.VirtualKeyBoard import VirtualKeyBoard
 from .compatibility import compatibility
 from .config import config_manager
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import SKIN_PATH
 from .playlist_manager import playlist_manager
 from .podcast_manager import podcast_manager
-from .skin import to_opaque_skin_color
+from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 COLUMNS = ("available", "subscribed", "episodes")
 
@@ -92,7 +92,7 @@ COLUMNS = ("available", "subscribed", "episodes")
 # copy of MusicLibraryScreen's own (round 39/46), matching the same
 # "reuse Music Library's images and colours" pattern already used for
 # RadioBrowserScreen (round 54) and BrowserScreen (round 55).
-PODCAST_SKIN_VARIANTS = ("light", "dark")
+PODCAST_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 PODCAST_DEFAULT_SKIN_VARIANT = "light"
 
@@ -119,6 +119,45 @@ PODCAST_SKIN_PALETTES = {
         "selected_row_bg": "#2B2F39",
         "selected_row_fg": "#C7AC4E",
     },
+}
+
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning.
+PODCAST_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+PODCAST_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
 }
 
 
@@ -196,7 +235,7 @@ def _formatPublished(timestamp) -> str:
         return ""
 
 
-class PodcastScreen(Screen):
+class PodcastScreen(Screen, HelpableScreen):
     """
     Podcast discovery, subscriptions and episode browsing
     (PODCAST_SCREEN_SPEC.md).
@@ -238,6 +277,21 @@ class PodcastScreen(Screen):
 
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
+
+        # Round 151, per direct request: see browserscreen.py's own
+        # round 151 comment for the full reasoning -- same fix, same
+        # scope (test_skin only).
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            scrollbar_bg = "#3A2E1A"
+
+            info_background_attr = 'transparent="1"'
+
+        else:
+
+            scrollbar_bg = "#E0E0E0"
+
+            info_background_attr = f'backgroundColor="{panel_background_color}"'
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
@@ -327,7 +381,7 @@ class PodcastScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="subscribed_list"
@@ -336,7 +390,7 @@ class PodcastScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="episodes_list"
@@ -345,14 +399,14 @@ class PodcastScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
                     {rect(60, 702, 1550, 130)}
                     {font(22)}
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {info_background_attr}/>
 
             <widget name="hint_text_leftright"
                     {rect(89, 874, 249, 63)}
@@ -417,6 +471,8 @@ class PodcastScreen(Screen):
         self.skin = self._buildSkin(width, height)
 
         Screen.__init__(self, session)
+
+        HelpableScreen.__init__(self)
 
         self.session = session
 
@@ -506,7 +562,7 @@ class PodcastScreen(Screen):
         self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Column"))
         self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
         self["hint_text_ok"] = Label(_("OK: Actions"))
-        self["hint_text_info"] = Label(_("INFO: Search"))
+        self["hint_text_info"] = Label(_("INFO: Information"))
         self["hint_text_help"] = Label(_("HELP: Help"))
         self["hint_text_menu"] = Label(_("MENU: Menu"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
@@ -521,6 +577,18 @@ class PodcastScreen(Screen):
             "up": self.moveUp,
             "down": self.moveDown,
             "menu": self.menuPressed,
+            # Round 132, per direct request: EPG/INFO used to open
+            # search directly; moved to YELLOW so EPG/INFO can
+            # consistently open this screen's own help content
+            # instead, matching every other screen.
+            "yellow": self.searchPressed,
+            # Round 146, per direct request (colour-button audit):
+            # GREEN subscribes (Available column) or adds to a
+            # playlist (Episodes column); RED unsubscribes (Subscribed
+            # column) -- see greenPressed()'s/redPressed()'s own
+            # docstrings for the full per-column reasoning.
+            "green": self.greenPressed,
+            "red": self.redPressed,
         }
 
         for action_name in compatibility.getChannelUpKeyActionNames():
@@ -530,26 +598,65 @@ class PodcastScreen(Screen):
             actions[action_name] = self.pageDown
 
         for action_name in compatibility.getInfoKeyActionNames():
-            actions[action_name] = self.searchPressed
+            actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "DirectionActions",
-                "MediaPlayerActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarActions",
-                "InfobarBouquetActions",
-                "InfobarEPGActions",
-                "HelpActions",
-            ],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "DirectionActions",
+            "MediaPlayerActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarActions",
+            "InfobarBouquetActions",
+            "InfobarEPGActions",
+            "HelpActions",
+        ]
+
+        help_text_by_handler = {
+            self.okPressed: _("open the actions menu"),
+            self.exitPressed: _("go back"),
+            self.focusPrevious: _("move to the previous column"),
+            self.focusNext: _("move to the next column"),
+            self.moveUp: _("move up"),
+            self.moveDown: _("move down"),
+            self.menuPressed: _("open the menu"),
+            self.pageUp: _("page up"),
+            self.pageDown: _("page down"),
+            self.searchPressed: _("search"),
+            self.greenPressed: _("subscribe, or add episode to a playlist"),
+            self.redPressed: _("unsubscribe"),
+            self.infoPressed: _("show information about this screen"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[PodcastScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._updateDisplay()
 
@@ -743,8 +850,7 @@ class PodcastScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolvePodcastResolutionTier(self._screen_width),
             f"podcast_{focus_state}_active.png",
@@ -1037,6 +1143,74 @@ class PodcastScreen(Screen):
             title=_("Search podcasts"),
             text=self._search_query,
         )
+
+    # ------------------------------------------------------------------
+
+    def greenPressed(self) -> None:
+        """
+        Round 146, per direct request (colour-button audit): direct
+        shortcut to whichever of the existing menu's own "Subscribe"
+        (Available column) or "Add to playlist" (Episodes column)
+        choices applies to the currently focused column -- no
+        equivalent action exists for the Subscribed column itself
+        (subscribing again to an already-subscribed podcast has no
+        meaning), so this is a no-op there.
+        """
+
+        if self._focus == "available":
+
+            podcast = self._selectedPodcast()
+
+            if podcast is None or podcast_manager.isSubscribed(podcast.get("podcast_id")):
+
+                return
+
+            if podcast_manager.subscribe(podcast):
+
+                self._subscribed_podcasts = podcast_manager.getSubscriptions()
+
+                self._updateDisplay()
+
+            else:
+
+                self.session.open(MessageBox, _("Unable to subscribe."), MessageBox.TYPE_ERROR)
+
+        elif self._focus == "episodes":
+
+            index = self["episodes_list"].getSelectedIndex()
+
+            if not (0 <= index < len(self._episodes)):
+
+                return
+
+            self._choosePlaylistForEpisode(self._episodes[index])
+
+    # ------------------------------------------------------------------
+
+    def redPressed(self) -> None:
+        """
+        Round 146, per direct request: direct shortcut to the
+        Subscribed column's own existing "Unsubscribe" choice -- the
+        inverse of greenPressed()'s own "Subscribe" above. A no-op in
+        the Available/Episodes columns, which have no equivalent
+        "remove" action of their own.
+        """
+
+        if self._focus != "subscribed":
+
+            return
+
+        podcast = self._selectedPodcast()
+
+        if podcast is None:
+
+            return
+
+        podcast_manager.unsubscribe(podcast.get("podcast_id"))
+
+        self._subscribed_podcasts = podcast_manager.getSubscriptions()
+
+        self._updateDisplay()
 
     # ------------------------------------------------------------------
 
@@ -1386,13 +1560,13 @@ class PodcastScreen(Screen):
     # Event Handlers
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def infoPressed(self) -> None:
 
-        logger.verbose("[Podcast] HELP pressed.")
+        logger.verbose("[Podcast] INFO pressed.")
 
-        title, content = help_manager.getHelp("podcastscreen")
+        title, content = guide_manager.getGuide("podcastscreen")
 
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 

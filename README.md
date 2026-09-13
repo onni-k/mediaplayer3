@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.0.0 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.1.000 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external
@@ -84,8 +84,7 @@ Settings (accessible from MediaPlayer3's own Main Menu, or Enigma2's
 Main Menu if enabled) covers:
 
 - Startup/Music Library directories, hidden files
-- Language (Suomi / English, or **System** to automatically follow
-  the receiver's own Enigma2 language), Skin (Light/Dark), Theme
+- Skin (Light/Dark/Vintage Radio), Theme
 - Radio: default country/language, navigation mode, history size,
   automatic station-database updates
 - Your own Podcast Index or Yle EPG API key, if you'd rather not use

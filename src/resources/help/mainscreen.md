@@ -1,29 +1,67 @@
-# Main Screen
+# Player & Information
 
-Shows what is currently playing -- local files or an Internet Radio
-station -- along with cover art, playback progress and metadata.
+MainScreen's own default view. Shows what is currently playing --
+local files or an Internet Radio station -- along with cover art,
+playback progress and status, plus a Playlist column and a Player/
+Information column shown side by side underneath.
+
+Press BLUE to switch the right-hand column between Player and
+Information; press it again to switch back.
+
+## Player
+
+The right-hand column's own default state, showing the current
+track's own playback status alongside the top info line.
+
+## Information
+
+Shows extra information about what's currently playing. Which pages
+are available depends entirely on what the current track or station
+actually has -- an empty page is never shown.
+
+For local music, possible pages are Lyrics (synchronized, embedded or
+plain text), Metadata and Codec Information. For Internet Radio,
+possible pages are Radio EPG (the current programme plus the next few
+upcoming ones, when a station has schedule data), Now Playing, Station
+Information and Codec Information.
+
+LEFT/RIGHT switches between the available Information pages; UP/DOWN
+scrolls the currently displayed page (or, on synchronized lyrics
+specifically, nudges the lyrics earlier/later relative to the song, in
+case the timing feels slightly off).
+
+## Playlist column
+
+The left-hand column, always visible regardless of whether the
+right-hand one is showing Player or Information. Shows the previous,
+current and next track (local music) or radio station (Internet
+Radio), the current one highlighted.
 
 ## Keys
 
 - OK: if nothing is playing, opens a chooser (Internet Radio / Local
-  Music / Playlists). Otherwise opens an action menu: Back, Stop/
-  Resume, Show lyrics fullscreen, Show cover art fullscreen, Cancel
-  (plus Clear history/Add to Favorites/Remove from Favorites while an
-  Internet Radio station is playing).
-- PLAY / PAUSE / STOP: control playback.
-- LEFT / RIGHT: seek a short step back/forward (local files), or
-  switch between favorite/history lists (Internet Radio).
-- FF / RW: seek back/forward.
-- UP / DOWN: switch radio station (Internet Radio), or move within
-  the favorites list.
-- PVR: open Browser.
+  Music / Music Library / Playlists / Podcasts). Otherwise, opens a
+  small menu: Back (return to wherever playback was started from),
+  Stop/Resume, Cancel -- plus, while listening to Internet Radio:
+  Clear history, Add to Favorites, Remove from Favorites.
+- PLAY / PAUSE / STOP: control playback directly.
+- LEFT / RIGHT: seek a short step back/forward for local files (Player
+  view), or switch between Information pages (Information view).
+  Switches the active favorite list instead while listening to
+  Internet Radio, since a live stream can't be seeked anyway.
+- FF / RW: seek a longer step back/forward (local files only).
+- UP / DOWN: previous/next track (or previous/next radio station,
+  while listening to Internet Radio) in the Player view; scrolls the
+  current page in the Information view.
+- CH+ / CH-: previous/next track (may not work on every remote/image).
+- PVR: opens the same chooser as OK (Internet Radio / Local Music /
+  Music Library / Playlists / Podcasts).
 - RADIO: switch between radio and local playback, or open the radio
   station search.
-- INFO: toggle between the seek view and the favorites/playlist view.
-- TEXT: cycle the information panel between Lyrics, Metadata and
-  Codec Information.
+- BLUE: switch between the Player view and the Information view.
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: stop playback and return to live TV.
 
 ## Notes
@@ -33,7 +71,7 @@ history entry when you choose Internet Radio from the startup
 chooser, falling back to your "General" favorites list, and finally
 to the station search if neither has anything yet.
 
-The lower-left corner always shows the previous/next item in the
-current queue or station list. The lower-right corner shows lyrics
-(synchronized automatically when a .lrc file is available), metadata,
-or codec information -- press TEXT to switch between them.
+The top info line shows the current track's tags for local files, or
+the station's Now Playing info (when available) for Internet Radio,
+falling back to just the station name when now-playing data isn't
+available for that particular station.

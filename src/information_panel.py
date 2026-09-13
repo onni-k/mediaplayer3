@@ -941,8 +941,8 @@ class InformationPanel:
         Returns the current page's content, windowed to
         `visible_lines` starting at the current scroll offset -- the
         same "show the maximum information that fits, only reveal
-        the rest as the user scrolls" pattern DeveloperScreen and
-        HelpScreen already use.
+        the rest as the user scrolls" pattern GuideScreen already uses
+        (round 139, renamed from HelpScreen).
         """
 
         if not self._pages:

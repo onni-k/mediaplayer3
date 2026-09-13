@@ -411,12 +411,14 @@ from __future__ import annotations
 import os
 import time
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.Label import Label
+from Components.Sources.StaticText import StaticText
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Components.ProgressBar import ProgressBar
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
@@ -427,29 +429,30 @@ from enigma import ePicLoad, eTimer, getDesktop, gFont
 from .browserscreen import BrowserScreen
 from .compatibility import compatibility
 from . import finland_radio_epg_registry
-from .help_manager import help_manager
+from .guide_manager import guide_manager
 from .coverart_fullscreen_screen import CoverArtFullscreenScreen
-from .information_panel import InformationPanel
+from .information_panel import DEFAULT_VISIBLE_LINES, InformationPanel
 from .lyrics_fullscreen_screen import LyricsFullscreenScreen
 from .lyrics_manager import lyrics_manager
 from .epg_manager import epg_manager
-from .help_screen import HelpScreen
+from .guide_screen import GuideScreen
 from .config import config_manager
-from .developer_screen import DeveloperScreen
+from .diagnostics import logStartupDiagnostics
 from .internetradio_manager import internetradio_manager
+from .browserscreen import _defaultPlayPlaylistName
 from .playlist_manager import playlist_manager
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
 from .musiclibraryscreen import MusicLibraryScreen
 from .podcastscreen import PodcastScreen
-from .paths import CACHE_PATH, RESOURCE_PATH, SKIN_PATH
+from .paths import CACHE_PATH, RESOURCE_PATH
 from .playback_controller import PlaybackController
-from .playbackinfo_screen import PlaybackInfoScreen
 from .playlistscreen import PlaylistScreen
 from .radiobrowserscreen import RadioBrowserScreen
 from .settingsscreen import SettingsScreen
 from .skin import (
+    resolve_skin_asset_path,
     skin_manager,
     to_opaque_skin_color,
 )
@@ -475,7 +478,7 @@ _COVER_ART_NOT_YET_CHECKED = object()
 # This dict only covers what MainScreen's own background image
 # generation needs -- text-widget colours below reuse the same keys
 # directly rather than duplicating a second, separate colour set.
-MAINSCREEN_SKIN_VARIANTS = ("light", "dark")
+MAINSCREEN_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 MAINSCREEN_DEFAULT_SKIN_VARIANT = "light"
 
@@ -485,13 +488,72 @@ MAINSCREEN_SKIN_PALETTES = {
         "panel_text_color": "#1A1A1A",
         "header_inactive_fg": "#1E2334",
         "header_active_fg": "#036DFA",
+        # Round 126: same literal value as SettingsScreen's own
+        # "light" hint_fg (settingsscreen.py) -- reusing it rather
+        # than inventing a new one keeps the new hint bar visually
+        # consistent with every other screen that already has one.
+        "hint_fg": "#036DFA",
     },
     "dark": {
         "panel_background_color": "#1C202B",
         "panel_text_color": "#F0F0F0",
         "header_inactive_fg": "#F0F0F0",
         "header_active_fg": "#FFFFFF",
+        # Round 126: same literal value as SettingsScreen's own
+        # "dark" hint_fg.
+        "hint_fg": "#F0F0F0",
     },
+}
+
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+MAINSCREEN_SKIN_PALETTES["test_skin"] = {
+    # Round 113, per direct request (a real device screenshot showed
+    # every text widget sitting on an opaque dark-blue block that hid
+    # the vintage-radio background entirely): "#FF000000" is
+    # Enigma2's own fully-TRANSPARENT value, not black -- this engine
+    # inverts the usual ARGB convention (00 = opaque, FF =
+    # transparent), see to_opaque_skin_color()'s own docstring. Note
+    # _buildSkin() passes panel_background_color through
+    # to_opaque_skin_color(), which would force alpha back to "00"
+    # (opaque) -- so this variant is special-cased there instead of
+    # relying on the value here alone.
+    "panel_background_color": "#FF000000",
+    # Amber/brass text tones sampled from the user's own reference
+    # image (old_radio_theme_test.png) rather than reusing Dark's own
+    # near-white values, which read as harsh and out-of-period against
+    # a warm wood/glass background.
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    # Round 141, per direct request (test_skin's own footer hint bar,
+    # matching Light/Dark's round 126 own addition): a brighter amber
+    # than panel_text_color, for readable contrast against the new
+    # footer bar's own dark background overlay (see _buildSkin()'s own
+    # test_skin hint_bar_xml block).
+    "hint_fg": "#FFC978",
+}
+
+# Round 155, per direct request: a genuinely independent copy of
+# test_skin's own palette above, not a reference to the same dict --
+# editing one from here on has no effect on the other. Frozen at the
+# same values since this is the same vintage-radio look at the moment
+# it graduated from an experimental Test Skin into its own named,
+# permanent choice.
+MAINSCREEN_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#FF000000",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
 }
 
 
@@ -510,9 +572,20 @@ def _resolveMainScreenResolutionTier(screen_width: int) -> str:
     return "hd" if screen_width >= 1000 else "sd"
 
 
-class MainScreen(Screen):
+class MainScreen(Screen, HelpableScreen):
     """
     MediaPlayer3 primary application window.
+
+    Round 130, per direct request (a pilot for the programmer-
+    feedback review's own item #1 -- Enigma2's native per-screen
+    HELP guide, tried here on MainScreen first before any wider
+    rollout): mixes in HelpableScreen so this screen's own
+    HelpableActionMap (see __init__) can register its actions/help
+    text with Enigma2's own Screens.HelpMenu.HelpMenu, the same
+    remote-control button guide every other Enigma2 screen already
+    uses. See __init__'s own comment for the multi-context support
+    this relies on, and its fallback if that support isn't present
+    on a given image.
     """
 
     SPECIFICATION_VERSION = "0.5"
@@ -565,7 +638,7 @@ class MainScreen(Screen):
     # comfortably within info_content's own box height (428 design
     # units): 10 normal rows (28) + 2 bigger prev/next rows (34) + 1
     # biggest/bold current row (44) = 392, leaving headroom (learned
-    # from HelpScreen's own round-81 lesson: leave real margin rather
+    # from GuideScreen's own round-81 lesson: leave real margin rather
     # than filling the box exactly).
     LYRICS_WINDOW_ROWS = (
         (28, 20, False),
@@ -650,8 +723,282 @@ class MainScreen(Screen):
         palette = MAINSCREEN_SKIN_PALETTES[self._skin_variant]
 
         background_color = to_opaque_skin_color(skin_manager.getColor("background", "#0A0A0A"))
-        panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+        # Round 113: test_skin deliberately wants a TRANSPARENT panel
+        # background (so the vintage-radio artwork shows through every
+        # text widget), but to_opaque_skin_color() exists precisely to
+        # force alpha to "00" (opaque) -- so its own palette value is
+        # passed straight through instead, bypassing that conversion.
+        # Every other variant keeps the existing behaviour exactly.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            panel_background_color = palette["panel_background_color"]
+
+        else:
+
+            panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
+
         panel_text_color = palette["panel_text_color"]
+
+        # Round 114, per direct request (a real device PHOTO -- not a
+        # screenshot, which looked correct -- showed the live TV/last
+        # channel behind every text widget instead of this screen's
+        # own background image): round 113's own "#FF000000" fix used
+        # backgroundColor's own alpha channel, which on this receiver
+        # punches straight through the whole OSD compositing stack to
+        # the video plane underneath -- not a same-window alpha blend
+        # against sibling GUI elements the way backgroundColor alpha
+        # behaves on, say, a desktop UI toolkit. A screenshot tool that
+        # captures the OSD layer alone can't show this at all, which
+        # is exactly why it looked fine there. `transparent="1"` is a
+        # different, WIDGET-level mechanism -- already used elsewhere
+        # in this exact skin (player_title/app_branding/clock/
+        # playlist_title/info_title) and confirmed working correctly
+        # on real devices -- that leaves the GUI's own background
+        # (this screen's own image) showing through instead of
+        # punching to video. Every widget that used panel_background_
+        # color now gets `transparent="1"` for test_skin instead of a
+        # colour value; Light/Dark keep their own real backgroundColor
+        # exactly as before (both already confirmed correct on real
+        # devices, untouched by this change).
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            panel_background_attr = 'transparent="1"'
+
+        else:
+
+            panel_background_attr = f'backgroundColor="{panel_background_color}"'
+
+        # Round 115, per direct request ("kokeile vielä saako
+        # elementit sovitettua tälle taustakuvalle" -- a specific
+        # reference image): the two lower panels are narrower under
+        # test_skin, leaving the reference image's own vacuum-tube and
+        # knob illustrations in the side margins actually visible
+        # instead of covered by the panel widgets, confirmed by
+        # overlaying the exact rects on the actual reference image
+        # before writing any of this in. Both panels keep the same
+        # centre gap (877 to 931) as Light/Dark; only their OUTER
+        # edges move inward. Light/Dark keep their own existing
+        # numbers exactly.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            pl_title_rect, pl_list_rect = (252, 490, 610, 64), (200, 560, 677, 428)
+            in_title_rect, in_content_rect = (946, 490, 610, 64), (931, 560, 677, 428)
+
+        else:
+
+            # Round 126, per direct request/feedback.txt ("there is no
+            # button bar" -- confirmed true, MainScreen had zero
+            # hint_text widgets while every other screen has one):
+            # panel height reduced (428 -> 330, 98px) to make genuine
+            # room for a reserved hint-bar footer at the bottom of the
+            # background image itself, matching Settings/Browser/etc.'s
+            # own existing convention exactly. test_skin's own
+            # pl_list_rect/in_content_rect (set below, in the other
+            # branch) are unaffected -- it has no hint bar of its own
+            # yet, a separate, not-yet-scoped follow-up.
+            # Round 127, per direct request (a photo showed the
+            # progress bar's own slider handle sitting right on a
+            # visible seam): confirmed by sampling the actual
+            # background image's pixels that round 126's own erase-
+            # and-redraw had removed the original middle status card
+            # (elapsed/progress/remaining's own dedicated background)
+            # entirely, leaving those widgets exposed over the gap
+            # between the two lower panels where the image crosses the
+            # screen's horizontal centre. Per the direct request
+            # itself ("progressbar mahtuu ylimpaan laatikkoon" -- the
+            # progress bar should FIT INSIDE the top box), the fix
+            # widens the top card to include the whole elapsed/
+            # progress/remaining row instead of restoring a separate
+            # middle card -- one card, not two. Playlist/Information
+            # titles also nudge up (490 -> 475) per the same request,
+            # giving the lower panels' own card a little more headroom
+            # below the widened top card.
+            # Round 128, per direct request ("Ehkä siinä sittenkin
+            # voisi olla keskimmainen tilastokortti takaisin" -- the
+            # separate middle status card, restored using the
+            # user's own attached original background images as the
+            # true source, showed it was never actually necessary to
+            # remove: round 127's "one wide top card" fix worked, but
+            # this restores the original three-card look instead,
+            # per this direct preference). Title y reverts to the
+            # original 490 (round 127's 475 was based on the
+            # incorrect assumption the middle card was gone for
+            # good -- with it restored, 475 would overlap the middle
+            # card's own real bottom edge at 478). pl_list_rect's own
+            # height raised from 330 to 400 -- carving out room for
+            # the hint bar without repeating round 126's own mistake
+            # of shrinking this box below the real 392px the
+            # scrolling lyrics rows need (round 119 established this
+            # exact number; 400 keeps the same 8px safety margin used
+            # for test_skin since round 120), moved up (560 -> 534) to
+            # fit within the tighter vertical budget this layout
+            # needs now.
+            # Round 129, per direct request: titles nudged up a
+            # little further (490 -> 484), matching the lower panel's
+            # own real card top exactly (484 -- round 128's own
+            # measured value) so the text sits right at the top of
+            # the header rather than floating above the card's own
+            # visible boundary. Stays well clear of the middle card's
+            # own real bottom edge (478).
+            pl_title_rect, pl_list_rect = (88, 484, 774, 64), (36, 534, 841, 400)
+            in_title_rect, in_content_rect = (983, 484, 774, 64), (931, 534, 841, 400)
+
+        # Round 113, per direct request ("Ylärivin tekstit vähän
+        # alemmaksi"): the header row (Player title / MediaPlayer3
+        # branding / clock) sits a little lower under test_skin, so it
+        # lands inside the vintage-radio background's own top bezel
+        # band instead of crowding its very top edge. Light/Dark keep
+        # their own existing 18 exactly -- their background images
+        # have a different top-edge geometry, and both are already
+        # confirmed correct on a real device.
+        header_y = 40 if self._skin_variant in ("test_skin", "vintage_radio") else 18
+
+        # Round 143, per direct request/device confirmation: paired
+        # with mainscreen.py's own __init__ setting a matching smaller
+        # visible_lines for test_skin's own TXT-format lyrics (6, vs
+        # the shared default 14) -- both numbers computed together (6
+        # lines * ~44px each, this font size's own approximate line
+        # height, ≈ 266px, comfortably inside test_skin's own 293px
+        # info_content box) rather than picked independently. Bigger
+        # than Light/Dark's own 28, per the direct request for a more
+        # legible font once fewer lines need to fit -- untested against
+        # Enigma2's own real line-height metrics for this font/size
+        # combination, so worth confirming on the next device test
+        # rather than assumed exact.
+        info_content_font_size = 32 if self._skin_variant in ("test_skin", "vintage_radio") else 28
+
+        # Round 116, per direct request (fine-tuning against the
+        # vintage-radio reference image, now that the tube/knob
+        # artwork is actually visible per round 115): several more
+        # elements shift position for test_skin only. Each is a
+        # small, independent nudge -- none change Light/Dark, whose
+        # own numbers stay exactly as literals below.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            # Round 118, per direct request (another photo): meta
+            # (artist/album) and status ("Playing: ...") both move
+            # right to align with media's own left edge; media itself
+            # moves up, clearing the background image's own horizontal
+            # line at y~264 (found by sampling the actual reference
+            # image's pixels, not guessed) entirely instead of
+            # crossing through it; cover moves right a little more;
+            # the progress bar narrows further; the lyrics box's own
+            # bottom edge comes up more still (280 -> 220).
+            # Round 119, per direct request: cover moves right
+            # further; progress bar moves down 5px so its own top
+            # edge lines up with the background image's own trough
+            # (sampled directly from the image's pixels: a sharp drop
+            # to near-black starting at y=377); player_title/clock
+            # both nudge further toward centre; player_title gets its
+            # own conditional x for the first time (was always the
+            # shared header_y-only literal 88).
+            cover_rect = (140, 112, 210, 210)
+            meta_rect = (402, 92, 1358, 140)
+            media_rect = (402, 185, 1350, 45)
+            status_rect = (402, 300, 1358, 32)
+            elapsed_rect = (130, 388, 150, 35)
+            remaining_rect = (1528, 388, 150, 35)
+            progress_rect = (335, 377, 1150, 20)
+            clock_rect = (1500, header_y, 170, 64)
+            player_title_rect = (140, header_y, 894, 64)
+            pl_list_rect = (220, 545, 677, 293)
+            pl_title_rect = (pl_title_rect[0], 470, pl_title_rect[2], pl_title_rect[3])
+            in_title_rect = (in_title_rect[0], 470, in_title_rect[2], in_title_rect[3])
+            # Round 120, per direct request ("sanoitusten alareuna on
+            # nyt liian alhaalla sekä soitettaessa että pysäytettynä"
+            # -- the box is too low both while playing and while
+            # stopped, i.e. this is about the box's own height/
+            # position, not the earlier row-vs-box mismatch round 119
+            # already fixed): the real 13-row window needs 392px at
+            # Light/Dark's own row heights (MainScreen.LYRICS_WINDOW_
+            # ROWS, unchanged), which round 119 confirmed correctly
+            # already just barely fits in 400px starting at y=560 --
+            # so making the box itself shorter without changing the
+            # actual row heights would reopen round 119's own bug
+            # (rows overflowing below the box again). Scaled the row
+            # heights down for test_skin specifically instead (kept
+            # as a local override here, not touching the shared
+            # MainScreen.LYRICS_WINDOW_ROWS class constant Light/Dark
+            # both still use unmodified) so the real total genuinely
+            # shrinks, rather than just moving the box and hoping.
+            #
+            # Round 142, per direct request/device confirmation
+            # ("sanoitukset ovat vierineet test skinillä liian
+            # alhaalta" -- lyrics have scrolled too far down on
+            # test_skin): round 141's own careful measurement of the
+            # reference image found the panels' own real visual bottom
+            # edge sits at y~838-840, well above the y=900 round 120's
+            # own 340px box (starting at the previous y=560) actually
+            # reaches -- this round 120 box was never re-checked
+            # against that real boundary because round 120 itself
+            # predates round 141's own measurement. Moved the content
+            # start up to y=545 (a small 10px gap after the title's own
+            # underline decoration at y=535, rather than round 120's
+            # own more generous 26px gap) and scaled the row heights
+            # down further so the real total (282px, computed below)
+            # fits inside the genuinely available 293px (545 to the
+            # real 838 boundary) with an 11px safety margin, matching
+            # this project's own established margin convention (round
+            # 119/120's own 8px, round 138's own multi-x safety ratio)
+            # rather than filling the box exactly.
+            # Round 148, per direct request ("txt-muotoisella on hyvä
+            # että koko ruudussa näkyy enemmän rivejä" -- fullscreen
+            # already shows plenty of rows for TXT and stays untouched;
+            # this is specifically about the windowed 13-row display
+            # above, which round 142's own fix made readable for LRC
+            # -- LRC's own bigger "current" row tier already worked --
+            # but left every row uniformly small for TXT, which has no
+            # "current" row concept of its own to enlarge (see
+            # _showLyricsWindow()'s own docstring: unsynchronized
+            # lyrics are forced to the normal tier's size regardless of
+            # each row's own baked-in tier -- 13 rows of the SAME small
+            # size, all showing at once, however that specific size is
+            # chosen). Reduced from 13 rows to 7, in the same
+            # 3-normal/1-current/3-normal shape the original design
+            # used, so each row can be genuinely bigger while still
+            # fitting the real 293px budget (round 141's own measured
+            # boundary) -- confirmed getScrollWindowData()'s own
+            # window_size // 2 "current" placement (lyrics_manager.py)
+            # naturally centers a 7-line window the same way it always
+            # centered the 13-line one, so no other code needed to
+            # change for this specific count. This changes LRC's own
+            # display too (fewer lines visible, each bigger) -- an
+            # accepted, likely welcome side effect rather than a
+            # regression, since the request was to improve line
+            # legibility generally, not LRC specifically.
+            test_skin_lyrics_rows = (
+                (36, 26, False), (36, 26, False), (36, 26, False),
+                (52, 37, True),
+                (36, 26, False), (36, 26, False), (36, 26, False),
+            )
+            in_content_rect = (in_content_rect[0], 545, in_content_rect[2], 293)
+            # Round 118, per direct request ("ruskeansävyisen
+            # taustavärin" for the playlist's own selected row):
+            # selection_background_color (below) was computed but
+            # never actually wired into any widget's own XML at all --
+            # confirmed by grepping for it -- so playlist_list's own
+            # selected-row colour was always just Enigma2's own
+            # built-in default (the plain grey visible in the photo),
+            # regardless of variant. Added as a genuinely new
+            # attribute, but only for test_skin, to avoid changing
+            # Light/Dark's own already-device-confirmed appearance by
+            # introducing an attribute that was never there before.
+            selection_attr = 'backgroundColorSelected="#C08A45" foregroundColorSelected="#2B1B08"'
+
+        else:
+
+            cover_rect = (46, 92, 210, 210)
+            meta_rect = (290, 92, 1470, 140)
+            media_rect = (332, 255, 1420, 45)
+            status_rect = (290, 300, 1470, 32)
+            elapsed_rect = (36, 365, 150, 35)
+            remaining_rect = (1622, 365, 150, 35)
+            progress_rect = (200, 372, 1408, 20)
+            clock_rect = (1602, header_y, 170, 64)
+            player_title_rect = (88, header_y, 894, 64)
+            selection_attr = ""
+            test_skin_lyrics_rows = None
+
         selection_background_color = to_opaque_skin_color(skin_manager.getColor("selection_background", "#0056B3"))
         progress_color = skin_manager.getColor("progress", "#E6E6E6")
         progress_track_color = to_opaque_skin_color(skin_manager.getColor("accent", "#4C4449"))
@@ -678,6 +1025,139 @@ class MainScreen(Screen):
         def font(size):
             return f'font="{font_family};{max(10, int(size * sx))}"'
 
+        # Round 126, per direct request/feedback.txt ("there is no
+        # button bar" -- confirmed true, MainScreen had zero
+        # hint_text widgets while every other screen has one): the
+        # reserved footer space freed up by pl_list_rect/
+        # in_content_rect's own height reduction above is filled here
+        # with MainScreen's own hint bar, matching every other
+        # screen's existing convention (see settingsscreen.py's own
+        # hint_text_* widgets) for the first time. Placed here,
+        # rather than in the earlier per-variant block above, because
+        # it needs rect() and font_family, both of which are only
+        # defined from this point on in this method. Not yet designed
+        # for test_skin (empty string there) -- its own lower panels
+        # already end further up than Light/Dark's real panel bottom
+        # edge, for a different reason (round 115 onward, leaving its
+        # own reference image's tube/knob artwork visible), so it
+        # doesn't have this same gap to fill; a separate, not-yet-
+        # scoped follow-up.
+        # Round 141, per direct request: test_skin's own hint bar,
+        # matching Light/Dark's own round 126 addition. Placed over the
+        # reference image's own speaker-grille area (y 858-936 design
+        # units) rather than carving space out of the lower panels the
+        # way round 126 did for Light/Dark -- test_skin's own lower
+        # panels are part of the photographed background itself, not a
+        # programmatically-drawn card, so there was no card height to
+        # reduce. Coordinates measured directly from the reference
+        # image (a labelled grid overlay confirmed the panels' own real
+        # visual bottom edge at y~838-840, well above the ~988 the
+        # existing pl_list_rect/in_content_rect actually extend to --
+        # a separate, pre-existing mismatch noted to the user but not
+        # attempted here, since it predates this round and the request
+        # was specifically the hint bar). The footer bar image itself
+        # (mainscreen_player_active.png/mainscreen_info_active.png,
+        # both tiers) was regenerated to bake in a new rounded overlay
+        # plate spanning x 140-1668, y 858-936, in the same dark-brown/
+        # brass-trim style as the tube/knob artwork elsewhere in this
+        # skin -- confirmed by direct visual review before finalizing
+        # the exact rect, not assumed correct from the numbers alone.
+        # Round 143, per direct request/device photos: reverted to the
+        # plain reference image with no drawn overlay plate at all --
+        # confirmed working directly from the user's own preserved
+        # "before" copy of the background images (uploaded, now the
+        # new resources/skins/test_skin_template/ source for both
+        # tiers) rather than round 141/142's own opaque plate, which
+        # this skin apparently reads better without. Text sits
+        # directly on the photograph, transparent, the same way it
+        # already does for Light/Dark. OK/MENU/HELP keep their own
+        # round 142 positions (already clear of the badge); BLUE/
+        # EPG-INFO/EXIT shifted right per the direct request.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            hint_bar_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(150, 875, 170, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_blue"
+                    {rect(355, 875, 290, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(640, 875, 200, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(990, 875, 300, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(1285, 875, 170, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1490, 875, 195, 45)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """
+
+        else:
+
+            hint_bar_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(104, 950, 230, 50)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_blue"
+                    {rect(420, 950, 330, 50)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(840, 950, 230, 50)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(1160, 950, 290, 50)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1540, 950, 230, 50)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """
+
         # Round 93, per direct request -- one Label widget per row of
         # MainScreen.LYRICS_WINDOW_ROWS, stacked top-to-bottom over
         # the exact same box info_content occupies below. Font family
@@ -686,20 +1166,42 @@ class MainScreen(Screen):
         # convention already used elsewhere in this skin.
         lyrics_window_widgets = []
 
-        lyrics_row_y = 560
+        # Round 119, per direct request (a real, structural bug found
+        # via "kun testin vieritys alkaa, niin tekstit hyppää liian
+        # alas" -- once actual scrolling starts, the text jumps too
+        # far down): these 13 rows were ALWAYS positioned with
+        # hardcoded x=931/width=841/y-start=560, completely ignoring
+        # in_content_rect -- so every earlier round's own adjustment
+        # to that box (113 through 118) only ever affected the STATIC
+        # info_content placeholder, never the actual scrolling lyrics
+        # rows that replace it the moment real synced lyrics start
+        # (round 93's own mechanism). Now built from in_content_rect
+        # directly, so both are always in agreement, for every variant.
+        lyrics_row_y = in_content_rect[1]
 
-        for row_index, (row_height, row_font_size, row_bold) in enumerate(MainScreen.LYRICS_WINDOW_ROWS):
+        active_lyrics_rows = test_skin_lyrics_rows if test_skin_lyrics_rows is not None else MainScreen.LYRICS_WINDOW_ROWS
+
+        # Round 120: stashed the same way self._lyrics_font_family/
+        # self._lyrics_font_scale already are above -- _showLyricsWindow()'s
+        # own runtime font-sizing (round 93) referenced the shared
+        # MainScreen.LYRICS_WINDOW_ROWS class constant directly, which
+        # would have kept using Light/Dark's own bigger font sizes for
+        # test_skin even after this round's own smaller row heights
+        # went in above, overflowing each row's own now-smaller box.
+        self._lyrics_window_rows = active_lyrics_rows
+
+        for row_index, (row_height, row_font_size, row_bold) in enumerate(active_lyrics_rows):
 
             row_font_family = "Bold" if row_bold else font_family
 
             lyrics_window_widgets.append(
                 f'<widget name="lyrics_line_{row_index}"\n'
-                f'        {rect(931, lyrics_row_y, 841, row_height)}\n'
+                f'        {rect(in_content_rect[0], lyrics_row_y, in_content_rect[2], row_height)}\n'
                 f'        font="{row_font_family};{max(10, int(row_font_size * sx))}"\n'
                 f'        halign="left"\n'
                 f'        valign="center"\n'
                 f'        foregroundColor="{panel_text_color}"\n'
-                f'        backgroundColor="{panel_background_color}"/>'
+                f'        {panel_background_attr}/>'
             )
 
             lyrics_row_y += row_height
@@ -766,7 +1268,7 @@ class MainScreen(Screen):
                  module. -->
 
             <widget name="player_title_normal"
-                    {rect(88, 18, 894, 64)}
+                    {rect(*player_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -774,7 +1276,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="player_title_active"
-                    {rect(88, 18, 894, 64)}
+                    {rect(*player_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -803,7 +1305,7 @@ class MainScreen(Screen):
                  aktiivisuutta, kuten nyt Soitin-teksti". -->
 
             <widget name="app_branding_normal"
-                    {rect(604, 18, 600, 64)}
+                    {rect(604, header_y, 600, 64)}
                     font="Bold;{max(10, int(36 * sx))}"
                     halign="center"
                     valign="center"
@@ -811,7 +1313,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="app_branding_active"
-                    {rect(604, 18, 600, 64)}
+                    {rect(604, header_y, 600, 64)}
                     font="Bold;{max(10, int(36 * sx))}"
                     halign="center"
                     valign="center"
@@ -819,7 +1321,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="clock_normal"
-                    {rect(1602, 18, 170, 64)}
+                    {rect(*clock_rect)}
                     font="Bold;{max(10, int(32 * sx))}"
                     halign="right"
                     valign="center"
@@ -827,7 +1329,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="clock_active"
-                    {rect(1602, 18, 170, 64)}
+                    {rect(*clock_rect)}
                     font="Bold;{max(10, int(32 * sx))}"
                     halign="right"
                     valign="center"
@@ -835,30 +1337,30 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="cover"
-                    {rect(46, 92, 210, 210)}
+                    {rect(*cover_rect)}
                     alphatest="blend"/>
 
             <widget name="meta"
-                    {rect(290, 92, 1470, 140)}
+                    {rect(*meta_rect)}
                     {font(36)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {panel_background_attr}/>
 
             <widget name="media"
-                    {rect(332, 255, 1420, 45)}
+                    {rect(*media_rect)}
                     {font(38)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {panel_background_attr}/>
 
             <widget name="status"
-                    {rect(290, 300, 1470, 32)}
+                    {rect(*status_rect)}
                     {font(22)}
                     halign="left"
                     valign="center"
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {panel_background_attr}/>
 
             <!-- Progress bar card: grown taller (round 50) so the
                  bar row AND the track-position row underneath both
@@ -867,25 +1369,25 @@ class MainScreen(Screen):
                  entirely. -->
 
             <widget name="elapsed"
-                    {rect(36, 365, 150, 35)}
+                    {rect(*elapsed_rect)}
                     {font(32)}
                     halign="left"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
             <widget name="progressbar"
-                    {rect(200, 372, 1408, 20)}
+                    {rect(*progress_rect)}
                     borderWidth="1"
                     backgroundColor="{progress_track_color}"
                     foregroundColor="{progress_color}"/>
 
             <widget name="remaining"
-                    {rect(1622, 365, 150, 35)}
+                    {rect(*remaining_rect)}
                     {font(32)}
                     halign="right"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
             <widget name="queueposition"
@@ -893,7 +1395,7 @@ class MainScreen(Screen):
                     {font(24)}
                     halign="center"
                     valign="center"
-                    backgroundColor="{panel_background_color}"
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
             <!-- Playlist card (left) and Information card (right):
@@ -903,7 +1405,7 @@ class MainScreen(Screen):
                  own icon. -->
 
             <widget name="playlist_title_normal"
-                    {rect(88, 490, 774, 64)}
+                    {rect(*pl_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -911,7 +1413,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="playlist_title_active"
-                    {rect(88, 490, 774, 64)}
+                    {rect(*pl_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -919,13 +1421,14 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="playlist_list"
-                    {rect(36, 560, 841, 428)}
-                    backgroundColor="{panel_background_color}"
+                    {rect(*pl_list_rect)}
+                    {panel_background_attr}
                     foregroundColor="{panel_text_color}"
+                    {selection_attr}
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info_title_normal"
-                    {rect(983, 490, 774, 64)}
+                    {rect(*in_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -933,7 +1436,7 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="info_title_active"
-                    {rect(983, 490, 774, 64)}
+                    {rect(*in_title_rect)}
                     font="Bold;{max(10, int(34 * sx))}"
                     halign="left"
                     valign="center"
@@ -941,13 +1444,15 @@ class MainScreen(Screen):
                     transparent="1"/>
 
             <widget name="info_content"
-                    {rect(931, 560, 841, 428)}
-                    {font(28)}
+                    {rect(*in_content_rect)}
+                    {font(info_content_font_size)}
                     halign="left"
                     foregroundColor="{panel_text_color}"
-                    backgroundColor="{panel_background_color}"/>
+                    {panel_background_attr}/>
 
             {lyrics_window_xml}
+
+            {hint_bar_xml}
 
         </screen>
     """
@@ -990,6 +1495,15 @@ class MainScreen(Screen):
 
         Screen.__init__(self, session)
 
+        # Round 130: registers this screen with Enigma2's own native
+        # help mechanism -- required alongside the HelpableActionMap
+        # itself (see the ActionMap construction further down); a
+        # real bug report found during this project's own earlier
+        # research showed a screen with HelpableActionMaps but a
+        # missing call to this exact method left its own HELP button
+        # completely inactive, so this is deliberately not skipped.
+        HelpableScreen.__init__(self)
+
         self.session = session
 
         self._initialized = False
@@ -1001,6 +1515,28 @@ class MainScreen(Screen):
         # whole application lifetime (ARCHITECTURE.md section 4).
         #
         self._playback = PlaybackController()
+
+        # Round 133, per direct request (GREEN adds the currently
+        # playing track to a playlist, RED removes it): MainScreen's
+        # own equivalent of BrowserScreen's own self._current_playlist_
+        # name -- which playlist GREEN/RED target, remembered across
+        # presses so the user isn't asked every single time. See
+        # _requireCurrentPlaylist()'s own docstring for the full
+        # picker flow.
+        self._current_playlist_name = None
+
+        # Round 136, per direct request ("Kehittajatyokalut -sivu
+        # voidaan myos poistaa. Siella nakyvat tiedot saisi kaikki
+        # tulla lokiin verbose-asetuksella" -- the Developer Tools
+        # screen can be removed too; the information it showed should
+        # all come to the log at the verbose setting instead): replaces
+        # the old interactive DeveloperScreen menu entry with a single
+        # startup log dump, a no-op unless Logging Level is Verbose.
+        # Called here (self._playback already exists, nothing has
+        # played yet) rather than later, so a support request's own
+        # log capture always has this near the very top regardless of
+        # what the user did afterward.
+        logStartupDiagnostics(self._playback)
 
         # Build 0006 (device test round 3) -- stop whatever's playing
         # (typically live TV) immediately, rather than waiting until
@@ -1062,7 +1598,25 @@ class MainScreen(Screen):
         # _formatCodecPanel, all removed) with a dynamically-built
         # page list that also covers Internet Radio (Radio EPG/Now
         # Playing/Station), which the old fixed cycle never did.
-        self._information_panel = InformationPanel()
+        # Round 143, per direct request/device confirmation: plain
+        # TXT-format lyrics (InformationPanel's own single-Label
+        # getCurrentContent() path, distinct from LRC's own live-
+        # windowed getCurrentLyricsWindowData() -- see that method's
+        # own docstring) always requested DEFAULT_VISIBLE_LINES (14)
+        # regardless of skin variant, even though test_skin's own
+        # info_content box (293px, round 142) is far smaller than
+        # Light/Dark's own (400px) -- 14 lines' worth of text simply
+        # doesn't fit in 293px at any legible size, and the user
+        # confirmed this made TXT format specifically hard to read
+        # (LRC format was fine, since its own tiered row system was
+        # already scaled down correctly for test_skin back in round
+        # 142). Fewer lines for test_skin, matching _buildSkin()'s own
+        # matching info_content font-size increase below -- both
+        # numbers computed together (6 lines * ~44px each ≈ 266px,
+        # comfortably inside 293px) rather than picked independently.
+        visible_lines = 6 if self._skin_variant in ("test_skin", "vintage_radio") else DEFAULT_VISIBLE_LINES
+
+        self._information_panel = InformationPanel(visible_lines=visible_lines)
 
         # Build 0008, device test round 8 -- last-fired time per action
         # name, used by _isDebounced() to guard toggle-style handlers
@@ -1253,6 +1807,44 @@ class MainScreen(Screen):
         self["remaining"] = Label("--:--")
         self["queueposition"] = Label("")
 
+        # Round 126: MainScreen's own hint bar -- created unconditionally
+        # like every other widget here, but only actually visible when
+        # the skin variant's own hint_bar_xml defines them (Light/Dark
+        # for now, test_skin from round 141); Enigma2 skins are free to
+        # omit a defined widget from their own XML, so this is safe
+        # regardless of which variants actually use it.
+        self["hint_text_ok"] = Label(_("OK: Menu"))
+        self["hint_text_blue"] = Label(_("BLUE: Player/Info"))
+        self["hint_text_menu"] = Label(_("MENU: Main Menu"))
+        self["hint_text_info"] = Label(_("EPG/INFO: Information"))
+        self["hint_text_exit"] = Label(_("EXIT: Back"))
+
+        # Round 142, per direct request (a real device photo: test_skin's
+        # own hint bar text sat directly on top of the reference image's
+        # own decorative centre badge): HELP added as a genuinely new
+        # sixth hint bar entry -- Enigma2's own native per-screen guide
+        # (rounds 130-132) never had one of its own on this bar at all,
+        # on any variant, so this also fills a real, pre-existing gap
+        # rather than just working around the overlap. Created
+        # unconditionally like the other five; only test_skin's own
+        # hint_bar_xml defines a matching widget so far (see
+        # _buildSkin()'s own round 142 comment) -- Light/Dark keep
+        # their existing five-slot layout untouched for now, a
+        # reasonable separate follow-up if wanted later.
+        self["hint_text_help"] = Label(_("HELP: Help"))
+
+        # Round 134, per direct programmer feedback (see
+        # playlistscreen.py's own round 134 comment for the full
+        # reasoning): the correct StaticText()/key_red component and
+        # naming for round 133's own GREEN/RED playlist add/remove
+        # additions. MainScreen's own 5-slot hint bar (OK/BLUE/MENU/
+        # EPG-INFO/EXIT) already fills its own available width -- no
+        # skin <widget source="key_green".../> entry yet, same
+        # well-scoped-follow-up reasoning as the other four screens
+        # this round.
+        self["key_green"] = StaticText(_("Add to Playlist"))
+        self["key_red"] = StaticText(_("Remove from Playlist"))
+
         self._statusbar = StatusBar(self["status"])
 
         actions = {
@@ -1297,11 +1889,76 @@ class MainScreen(Screen):
         for action_name in compatibility.getRadioKeyActionNames():
             actions[action_name] = self.radioPressed
 
-        for action_name in compatibility.getInfoKeyActionNames():
-            actions[action_name] = self.activePanelPressed
+        # Round 125, per direct request from the programmer's own
+        # feedback (feedback.txt: colour buttons currently do nothing
+        # at all in this app, and the custom Help screen's rambling
+        # text should be a separate "info" screen once HELP itself
+        # becomes Enigma2's own native per-screen button guide): the
+        # panel cycle (Player <-> Information) that EPG/INFO has done
+        # since Build 0009 moves to BLUE, freeing EPG/INFO to open
+        # this project's own existing custom help content instead --
+        # which is exactly what it already is content-wise (detailed,
+        # free-form explanation), just relocated to the button that
+        # conventionally carries it. HELP itself is intentionally left
+        # bound to the same infoPressed() for now (renamed from
+        # helpPressed() in round 139), until a later round
+        # replaces it with Enigma2's own HelpableActionMap/HelpMenu
+        # mechanism -- a much larger, separate project spanning every
+        # screen, not attempted here.
+        actions["blue"] = self.activePanelPressed
 
+        # Round 133, per direct request: GREEN adds the currently
+        # loaded track to a playlist, RED removes it.
+        actions["green"] = self.greenPressed
+        actions["red"] = self.redPressed
+
+        # Round 146, per direct request (colour-button audit): YELLOW
+        # opens the same fullscreen lyrics view the OK menu's own
+        # "Show lyrics fullscreen" choice already leads to --
+        # _showLyricsFullscreen() already handles the "no lyrics yet"
+        # case gracefully on its own, so no extra guard is needed here.
+        actions["yellow"] = self._showLyricsFullscreen
+
+        for action_name in compatibility.getInfoKeyActionNames():
+            actions[action_name] = self.infoPressed
+
+        # Round 130: "displayHelp" specifically is deliberately
+        # skipped here -- it's the exact action name Enigma2's own
+        # native help mechanism (HelpableScreen, mixed into this
+        # class's own bases above) listens for internally. Binding it
+        # here too, in this screen's own local ActionMap, would beat
+        # HelpableScreen's own handler to it every time (a local
+        # screen ActionMap always wins over a mixed-in base class's
+        # own), meaning the physical HELP button would keep opening
+        # this project's own custom help content and the native guide
+        # would never actually be reachable -- defeating the entire
+        # point of this round. Every OTHER spelling HELP_KEY_ACTIONS
+        # covers (a handful of older/alternate keymap conventions)
+        # still routes to infoPressed() (renamed from helpPressed() in
+        # round 139) as a compatibility fallback,
+        # in case a given image's own keymap uses one of those instead
+        # of "displayHelp" for its own physical Help key.
+        #
+        # Round 156, per direct request/device log (OpenATV specifically
+        # showed HELP opening this project's own guide instead of the
+        # native one, matching EPG/INFO's own behaviour exactly): a
+        # real device log confirmed "displayHelpLong" is registered on
+        # the very same 'HelpActions' context, for the very same
+        # physical HELP key, alongside "displayHelp" itself, on this
+        # image -- it isn't a different image's own alternate primary
+        # binding the way the other HELP_KEY_ACTIONS entries are, it's
+        # a second action HelpableScreen's own native mechanism also
+        # listens for on some images. Excluding only "displayHelp" left
+        # this local ActionMap's own "displayHelpLong": infoPressed()
+        # binding free to win the single HELP keypress on exactly the
+        # images that fire both. Now excluded the same way.
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
+
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
 
         # LEFT/RIGHT double as a smaller seek step, per user feedback
         # after a real device test (docs/Claude_notes_build0005.txt).
@@ -1314,23 +1971,80 @@ class MainScreen(Screen):
         actions["up"] = self.upPressed
         actions["down"] = self.downPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "ColorActions",
-                "MediaPlayerActions",
-                "InfobarActions",
-                "InfobarSeekActions",
-                "DirectionActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarEPGActions",
-                "HelpActions",
-                "TeletextActions",
-            ],
-            actions,
-            -1,
-        )
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "MediaPlayerActions",
+            "InfobarActions",
+            "InfobarSeekActions",
+            "DirectionActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarEPGActions",
+            "HelpActions",
+            "TeletextActions",
+        ]
+
+        # Round 130, per direct request (a pilot of the programmer-
+        # feedback review's own item #1, tried on MainScreen first):
+        # HelpableActionMap registers each action's own help text with
+        # Enigma2's native per-screen HELP guide (Screens.HelpMenu.
+        # HelpMenu) instead of this project's own custom GuideScreen.
+        # Help text is keyed by HANDLER FUNCTION, not by literal
+        # action name -- several action names above resolve to the
+        # very same handler (e.g. every compatibility.getXxxKeyAction
+        # Names() loop can bind more than one literal key to one
+        # method), and they should all read the same short
+        # description rather than needing one entry per literal name.
+        help_text_by_handler = {
+            self.okPressed: _("open the menu for the current view"),
+            self.exitPressed: _("exit MediaPlayer3"),
+            self.playPressed: _("play"),
+            self.pausePressed: _("pause"),
+            self.stopPressed: _("stop"),
+            self.menuPressed: _("open the main menu"),
+            self.pvrPressed: _("open the file browser"),
+            self.nextTrackPressed: _("skip to the next track"),
+            self.previousTrackPressed: _("skip to the previous track"),
+            self.seekForwardPressed: _("seek forward"),
+            self.seekBackwardPressed: _("seek backward"),
+            self.seekForwardShortPressed: _("seek forward a short step"),
+            self.seekBackwardShortPressed: _("seek backward a short step"),
+            self.radioPressed: _("switch to internet radio"),
+            self.activePanelPressed: _("switch between the player and information views"),
+            self.infoPressed: _("show information about this screen"),
+            self.upPressed: _("previous track/station"),
+            self.downPressed: _("next track/station"),
+            self.greenPressed: _("add the current track to a playlist"),
+            self.redPressed: _("remove the current track from a playlist"),
+            self._showLyricsFullscreen: _("show lyrics fullscreen"),
+        }
+
+        # Enigma2 versions differ on whether HelpableActionMap accepts
+        # a LIST of contexts (a later addition -- see e.g. OpenViX#253
+        # "HelpableActionMaps multiple contexts") or only a single
+        # context string, per its own original docstring ("Note that
+        # you can only use ONE context here!"). This project targets
+        # several distributions (OpenATV/OpenPLi/OpenViX/OpenBH) whose
+        # exact support for this isn't something to assume -- so this
+        # is attempted, but never allowed to cost real functionality:
+        # if it raises for any reason, every key still works exactly
+        # as before via the plain ActionMap, just without the native
+        # help text for this screen specifically.
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[MainScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._applyUiSettings()
 
@@ -1751,7 +2465,16 @@ class MainScreen(Screen):
 
         self._information_panel.refresh(self._playback, filename, elapsed, duration, station=station)
 
-        lyrics_window = self._information_panel.getCurrentLyricsWindowData(len(self.LYRICS_WINDOW_ROWS))
+        # Round 148: requests exactly as many lines as this instance's
+        # own active row set (self._lyrics_window_rows, already
+        # variant-aware -- shrunk to 7 for test_skin per the direct
+        # request below), not the shared 13-row class constant every
+        # variant used to be given regardless. _showLyricsWindow()/
+        # _hideLyricsWindow() already iterated self._lyrics_window_rows
+        # directly (confirmed by reading both before touching this),
+        # so this was the one remaining place still asking the manager
+        # for more lines than test_skin's own window can ever display.
+        lyrics_window = self._information_panel.getCurrentLyricsWindowData(len(self._lyrics_window_rows))
 
         if lyrics_window is not None:
 
@@ -1794,9 +2517,9 @@ class MainScreen(Screen):
 
         synchronized = lyrics_window["synchronized"]
 
-        _normal_height, normal_size, normal_bold = self.LYRICS_WINDOW_ROWS[0]
+        _normal_height, normal_size, normal_bold = self._lyrics_window_rows[0]
 
-        for row_index, (_row_height, row_font_size, row_bold) in enumerate(self.LYRICS_WINDOW_ROWS):
+        for row_index, (_row_height, row_font_size, row_bold) in enumerate(self._lyrics_window_rows):
 
             widget = self[f"lyrics_line_{row_index}"]
 
@@ -1816,7 +2539,7 @@ class MainScreen(Screen):
 
     def _hideLyricsWindow(self) -> None:
 
-        for row_index in range(len(self.LYRICS_WINDOW_ROWS)):
+        for row_index in range(len(self._lyrics_window_rows)):
 
             self[f"lyrics_line_{row_index}"].hide()
 
@@ -1855,7 +2578,7 @@ class MainScreen(Screen):
         applies here since EPG/INFO is the same physical key.
         """
 
-        logger.verbose("[MainScreen] EPG/INFO pressed.")
+        logger.verbose("[MainScreen] BLUE pressed (panel switch).")
 
         if self._isDebounced("active_panel"):
 
@@ -2583,8 +3306,7 @@ class MainScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveMainScreenResolutionTier(self._screen_width),
             f"mainscreen_{target_state}_active.png",
@@ -3561,19 +4283,191 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def greenPressed(self) -> None:
         """
-        Build 0009, MAINSCREEN_SPEC.md "Help Integration" -- opens
-        whichever help document matches the currently active panel
-        (player.md/playlist.md/information.md), replacing Build
-        0008's single, fixed mainscreen.md.
+        Round 133, per direct request ("Mainscreen... vihreä lisää
+        soittolistaan"): adds the currently loaded track
+        (self._playback.getCurrentFile()) to the current/target
+        playlist, prompting for one first if none is set yet.
         """
 
-        logger.verbose("[MainScreen] HELP pressed.")
+        filepath = self._playback.getCurrentFile()
 
-        title, content = help_manager.getHelp(self._active_panel)
+        if not filepath:
 
-        self.session.open(HelpScreen, title, content)
+            return
+
+        self._requireCurrentPlaylist(lambda name: self._afterPlaylistAdd(name, filepath))
+
+    # ------------------------------------------------------------------
+
+    def _afterPlaylistAdd(self, playlist_name: str, filepath: str) -> None:
+
+        added = playlist_manager.addTrack(playlist_name, filepath)
+
+        if added:
+
+            self.session.open(
+                MessageBox,
+                _("Added to playlist: %s") % playlist_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            box_type = MessageBox.TYPE_ERROR if playlist_manager.getLastSaveError() else MessageBox.TYPE_INFO
+
+            message = (
+                _("Save failed: %s") % playlist_manager.getLastSaveError()
+                if playlist_manager.getLastSaveError()
+                else _("Could not add to playlist.")
+            )
+
+            self.session.open(MessageBox, message, box_type, timeout=3)
+
+    # ------------------------------------------------------------------
+
+    def redPressed(self) -> None:
+        """
+        Round 133, per direct request ("Mainscreen... punainen poista
+        soittolistasta"): removes the currently loaded track from the
+        current/target playlist -- the inverse of greenPressed() above,
+        targeting the exact same playlist concept.
+        """
+
+        filepath = self._playback.getCurrentFile()
+
+        if not filepath:
+
+            return
+
+        self._requireCurrentPlaylist(lambda name: self._afterPlaylistRemove(name, filepath))
+
+    # ------------------------------------------------------------------
+
+    def _afterPlaylistRemove(self, playlist_name: str, filepath: str) -> None:
+
+        removed = playlist_manager.removeTrackByPath(playlist_name, filepath)
+
+        message = _("Removed from playlist: %s") % playlist_name if removed else _("Not found in playlist: %s") % playlist_name
+
+        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=3)
+
+    # ------------------------------------------------------------------
+
+    def _requireCurrentPlaylist(self, callback) -> None:
+        """
+        Round 133: MainScreen's own simplified equivalent of
+        BrowserScreen's own _requireCurrentPlaylist() -- calls back
+        immediately with the already-set target playlist, or opens a
+        picker first if none is set yet. Unlike BrowserScreen's own
+        version, there's no force_prompt parameter: MainScreen has no
+        UI path yet for explicitly changing an already-set target
+        (BrowserScreen's own GREEN, in its own Playlist column, is
+        that path there) -- a reasonable follow-up if this turns out
+        to be needed, not attempted here.
+
+        Round 134, per direct request ("jos on soittamassa radiota,
+        niin ehdottaisi vihreää painettaessa soittolistaksi
+        general(radio) ja tiedostoilla Tiedostot"): MainScreen plays
+        both local files and Internet Radio through the SAME
+        _current_playlist_name, which round 133's own picker never
+        distinguished -- a radio stream and a local file don't belong
+        in the same playlist by default. The picker's own top entry is
+        now a smart suggestion depending on self._playback.
+        isPlayingStream(): "General (radio)" while playing a stream,
+        or _defaultPlayPlaylistName()'s own existing "Files" string
+        while playing a local file -- reusing that exact string rather
+        than inventing a second one, for the same local-file case
+        BrowserScreen's own quick-play already uses it for. The
+        suggestion is de-duplicated out of the regular playlist list
+        below it if a playlist by that exact name already exists, so
+        it's never shown twice.
+        """
+
+        if self._current_playlist_name:
+
+            callback(self._current_playlist_name)
+
+            return
+
+        suggested_name = _("General (radio)") if self._playback.isPlayingStream() else _defaultPlayPlaylistName()
+
+        names = playlist_manager.getPlaylistNames()
+
+        choices = [(_("Suggested: %s") % suggested_name, suggested_name)]
+
+        choices.extend((name, name) for name in names if name != suggested_name)
+
+        choices.append((_("Create new playlist..."), "__new__"))
+        choices.append((_("Cancel"), "__cancel__"))
+
+        self.session.openWithCallback(
+            lambda choice: self._playlistPickerChosen(choice, callback),
+            ChoiceBox,
+            title=_("Select playlist"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _playlistPickerChosen(self, choice, callback) -> None:
+
+        if choice is None or choice[1] == "__cancel__":
+
+            return
+
+        if choice[1] == "__new__":
+
+            self.session.openWithCallback(
+                lambda text: self._newPlaylistNameEntered(text, callback),
+                VirtualKeyBoard,
+                title=_("New playlist name"),
+                text="",
+            )
+
+            return
+
+        self._current_playlist_name = choice[1]
+
+        callback(choice[1])
+
+    # ------------------------------------------------------------------
+
+    def _newPlaylistNameEntered(self, text, callback) -> None:
+
+        if not text:
+
+            return
+
+        playlist_manager.createPlaylist(text)
+
+        self._current_playlist_name = text
+
+        callback(text)
+
+    # ------------------------------------------------------------------
+
+    def infoPressed(self) -> None:
+        """
+        Round 139 -- renamed from helpPressed() (see guide_manager.py's
+        own round 139 comment for the full rename reasoning). Opens a
+        single combined guide document (round 145: previously
+        switched between player.md/playlist.md/information.md
+        depending on self._active_panel -- but the Player/Information
+        cycle round 132 established, and confirmed still true now, is
+        the only cycle EPG/INFO's own sibling key (BLUE) ever visits;
+        "playlist" was already unreachable there, so a separate guide
+        page for it was never actually openable either. One page
+        covering both panels needs no active_panel check at all).
+        """
+
+        logger.verbose("[MainScreen] INFO pressed.")
+
+        title, content = guide_manager.getGuide("mainscreen")
+
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 
@@ -4154,37 +5048,13 @@ class MainScreen(Screen):
 
             self.openPodcastScreen()
 
-        elif action_id == "playback_info":
-
-            self.openPlaybackInfo()
-
         elif action_id == "settings":
 
             self.openSettings()
 
-        elif action_id == "developer":
-
-            self.openDeveloperScreen()
-
-        elif action_id == "about":
-
-            self._showAbout()
-
         elif action_id == "exit":
 
             self._updateDisplay()
-
-    # ------------------------------------------------------------------
-
-    def openPlaybackInfo(self) -> None:
-
-        self._log("Opening PlaybackInfoScreen.")
-
-        self.session.openWithCallback(
-            self._childScreenClosed,
-            PlaybackInfoScreen,
-            self._playback,
-        )
 
     # ------------------------------------------------------------------
 
@@ -4196,22 +5066,13 @@ class MainScreen(Screen):
 
     # ------------------------------------------------------------------
 
-    def openDeveloperScreen(self) -> None:
-
-        self._log("Opening DeveloperScreen.")
-
-        self.session.openWithCallback(
-            self._childScreenClosed,
-            DeveloperScreen,
-            self._playback,
-        )
-
-    # ------------------------------------------------------------------
-
     def _childScreenClosed(self, action_id=None) -> None:
         """
-        Called when BrowserScreen, SettingsScreen, PlaybackInfoScreen or
-        DeveloperScreen closes.
+        Called when BrowserScreen or SettingsScreen closes.
+
+        Round 136: previously also called when PlaybackInfoScreen or
+        DeveloperScreen closed -- both removed (see this method's own
+        callers' own round 136 comments for the full removal).
 
         Each of those Screens closes with `None` on a normal EXIT, or
         with a Main Menu action_id when the user pressed MENU inside
@@ -4231,16 +5092,6 @@ class MainScreen(Screen):
         self._applyUiSettings()
 
         self._updateDisplay()
-
-    # ------------------------------------------------------------------
-
-    def _showAbout(self) -> None:
-
-        self.session.open(
-            MessageBox,
-            get_version_string(),
-            MessageBox.TYPE_INFO,
-        )
 
 # End of Part 3
     # ------------------------------------------------------------------

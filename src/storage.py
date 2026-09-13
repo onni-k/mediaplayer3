@@ -48,6 +48,7 @@ MediaPlayer3 application storage.
 from __future__ import annotations
 
 import os
+import time
 from typing import Dict
 
 from .logger import logger
@@ -69,6 +70,7 @@ SUBDIRECTORIES = (
     "exports",
     "backups",
     "userdata",
+    "test_skin",
 )
 
 # Candidate parent locations, in preference order -- the first one
@@ -89,11 +91,43 @@ _FALLBACK_PARENT = "/tmp"
 
 
 def _pickWorkingDirectoryParent() -> str:
+    """
+    Round 152, per direct request/device log ("radio haluaa hakea
+    kanavat aina uudestaan, kun laite on käynnistetty uudelleen" --
+    the radio station database, along with playlists/favorites, kept
+    starting over after every reboot): a device log showed the "No
+    stations available yet" download prompt firing, and the user
+    confirming it, on a device whose /media/hdd was otherwise
+    confirmed writable moments later in that same boot -- pointing at
+    a startup race rather than a genuinely unavailable drive.
+    StorageManager is a module-level singleton (see storage_manager
+    below), so this runs once, synchronously, the moment this module
+    is first imported during plugin startup -- often only moments
+    after boot, before a slower-to-mount external HDD has necessarily
+    finished mounting yet. The single, immediate check this used to
+    do had no way to tell "genuinely unavailable" apart from "not
+    ready yet", and always chose the non-persistent /tmp fallback
+    for the latter too -- silently losing that boot's own
+    playlists/favorites/radio database the moment anything got
+    written there, without the user ever being told. Retries for up
+    to 3 seconds (12 attempts, 250ms apart) before giving up -- long
+    enough to cover a typical slow-mounting USB HDD finishing just
+    after the plugin's own module import runs, short enough that a
+    receiver with no external drive at all (for which /tmp is a
+    legitimate, permanent choice, not a failure) doesn't pay a large
+    fixed startup cost it can never actually benefit from.
+    """
 
-    for candidate in _CANDIDATE_PARENTS:
+    for attempt in range(12):
 
-        if os.path.isdir(candidate) and os.access(candidate, os.W_OK):
-            return candidate
+        for candidate in _CANDIDATE_PARENTS:
+
+            if os.path.isdir(candidate) and os.access(candidate, os.W_OK):
+                return candidate
+
+        if attempt < 11:
+
+            time.sleep(0.25)
 
     return _FALLBACK_PARENT
 
@@ -272,6 +306,59 @@ class StorageManager:
 
     def getUserDataPath(self) -> str:
         return self._getSubdirectory("userdata")
+
+    def getTestSkinPath(self) -> str:
+        """
+        Round 110, per direct request: a writable location for trying
+        out a new skin without touching the plugin's own installed
+        files -- copy PNGs (and the reference document, round 110's
+        own SKIN_ELEMENTS.md) here, select "Test Skin" in Settings,
+        and every screen reads its own background image from here
+        instead of the plugin's own bundled resources/skins/ directory.
+        Deleting or renaming this directory falls back to Light again
+        automatically (skin.py's own resolve_skin_asset_path()).
+        """
+
+        return self._getSubdirectory("test_skin")
+
+    def wasTestSkinJustCreated(self) -> bool:
+        """
+        True if the test_skin directory is currently EMPTY (or doesn't
+        exist at all) -- checked fresh against the real filesystem on
+        every call, not cached from this object's own construction.
+
+        Round 111, per direct request (a real device log: every
+        single plugin launch logged "test_skin directory was just
+        (re)created" and reset appearance.skin back to Light, not just
+        the first one) -- the previous version cached this once, in
+        _initialize(), assuming StorageManager's own module-level
+        singleton is constructed exactly once per Enigma2 session.
+        That assumption doesn't hold on this receiver: its own plugin
+        loader apparently re-imports this module (and so reconstructs
+        the singleton) on every single launch, not just once -- so a
+        construction-time snapshot was stale before it was ever read.
+        Checking real emptiness fresh, on demand, sidesteps the whole
+        question of how many times the module gets reloaded: an
+        already-populated directory (whether from a previous copy or
+        the user's own edits) reads as "not empty" correctly regardless
+        of when or how many times this method itself gets called.
+
+        This also fixes a second, more serious bug the caching version
+        had: plugin.py's own _copyTestSkinTemplate() call was guarded
+        by this same (wrongly-always-True) flag, meaning it would have
+        overwritten a user's own already-customised test_skin files
+        with the bundled template on every single launch, not just
+        skipped-vs-run once correctly.
+        """
+
+        path = self._getSubdirectory("test_skin")
+
+        try:
+            return not os.listdir(path)
+
+        except OSError:
+
+            return True
 
     # ------------------------------------------------------------------
     # Diagnostics (Build 0007 -- Developer Mode "Storage diagnostics")

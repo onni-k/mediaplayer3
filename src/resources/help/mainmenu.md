@@ -6,5 +6,6 @@ Quick access to every part of MediaPlayer3.
 
 - UP / DOWN: move between entries.
 - OK: open the selected entry.
-- HELP: show this help.
+- EPG / INFO: open this guide.
+- HELP: show the remote control's own button guide.
 - MENU / EXIT: close the menu.

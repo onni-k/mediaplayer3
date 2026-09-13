@@ -15,9 +15,15 @@ Episodes (for whichever podcast is currently selected).
   at the top/bottom of the column.
 - OK: open options for the selected item -- subscribe/open a podcast,
   or play/add an episode to a playlist.
-- INFO: search for podcasts by name.
+- YELLOW: search for podcasts by name.
+- GREEN: subscribe to the selected podcast (Available Podcasts
+  column), or add the selected episode to a playlist (Episodes
+  column) -- without opening the OK menu first.
+- RED: unsubscribe from the selected podcast (Subscribed Podcasts
+  column).
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 
 ## Notes

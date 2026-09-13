@@ -12,10 +12,16 @@ read from your files rather than folder names.
 - OK: play. On the artists panel, plays every track by that artist;
   on the albums panel, plays the whole album; on the tracks panel,
   starts from that track and continues through the rest of the album.
-- INFO: search the library by name.
+- YELLOW: search the library by name.
+- GREEN: add the current selection to a playlist -- every track by
+  the selected artist, the whole selected album, or just the selected
+  track, depending on which panel is active.
+- RED: remove the same selection from a playlist.
+- BLUE: update the library directly, without opening the menu first.
+- EPG / INFO: open this guide.
 - MENU: open Music Library functions (update the library, or open the
   Main Menu).
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 
 ## Notes

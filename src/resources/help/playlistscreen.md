@@ -12,13 +12,20 @@ together, side by side with their contents.
   at the top/bottom of the list.
 - OK: open options for the selected playlist/list, or the selected
   track/station -- play, rename, delete, and more.
-- INFO: show information for whichever panel currently has focus.
+- GREEN: create a new playlist directly, without opening the OK menu
+  first.
+- YELLOW / BLUE: move the selected track/station up/down.
+- RED: delete the selected playlist/list (Playlists panel), or remove
+  the selected track/station, with a confirmation either way
+  (Tracks/Stations panel).
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 
 ## Notes
 
 Local playlists are listed first, followed by your Internet Radio
-favorite lists. Radio lists have a shorter menu, since actions like
-Export or reordering only make sense for local playlists.
+favorite lists. Radio lists have a shorter menu than local playlists
+-- actions like Export only make sense for local playlists -- but
+share the same reordering and single-track removal.

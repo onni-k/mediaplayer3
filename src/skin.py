@@ -137,6 +137,54 @@ _FALLBACK_SKIN_INFO = {
 }
 
 
+def resolve_skin_asset_path(variant: str, tier: str, filename: str) -> str:
+    """
+    Round 110, per direct request: returns the on-disk path for a
+    background-image skin asset (variant "light"/"dark"/"test_skin",
+    tier "hd"/"sd", filename e.g. "mainscreen_player_active.png").
+
+    Every background-image screen (MainScreen, MainMenu, Browser,
+    Music Library, Playlist, Podcast, Internet Radio, Settings, the
+    lyrics fullscreen view) used to build this path inline with its
+    own `os.path.join(SKIN_PATH, variant, tier, filename)` -- routed
+    through this one shared function instead so "test_skin" only
+    needs handling in a single place.
+
+    "light"/"dark" are unchanged: read straight from the plugin's own
+    bundled resources/skins/ tree, exactly as before.
+
+    "test_skin" reads from StorageManager's own writable test_skin
+    directory instead (.mediaplayer3/test_skin/<tier>/<filename>) --
+    lets someone try out a new skin by dropping files there (a
+    first-run copy of the bundled template, see plugin.py's own
+    _ensureTestSkinTemplate(), gives a working starting point) without
+    ever touching the plugin's own installed files. Falls back to
+    "light" (from the plugin's own bundled tree) whenever the specific
+    file isn't present there -- deleting, renaming, or simply never
+    fully populating .mediaplayer3/test_skin/ recovers Light
+    automatically, per direct request, rather than showing a broken/
+    missing image or crashing.
+    """
+
+    if variant == "test_skin":
+
+        from .storage import storage_manager
+
+        test_skin_path = os.path.join(storage_manager.getTestSkinPath(), tier, filename)
+
+        if os.path.isfile(test_skin_path):
+
+            return test_skin_path
+
+        logger.verbose(
+            f"[Skin] test_skin asset missing ({tier}/{filename}), falling back to Light."
+        )
+
+        return os.path.join(SKIN_PATH, "light", tier, filename)
+
+    return os.path.join(SKIN_PATH, variant, tier, filename)
+
+
 def _parseVersion(version_string: str):
     """
     Parse a "0.6.0"-style version string into a comparable tuple,

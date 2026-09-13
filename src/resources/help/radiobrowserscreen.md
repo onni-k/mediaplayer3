@@ -15,9 +15,12 @@ by language and region.
   station database, or clear the station list. On the Language/
   Region panel, offers setting the selected entry as Radio's own
   default language/country.
-- INFO: search stations by name.
+- YELLOW: search stations by name.
+- GREEN: add the selected station to favorites directly, without
+  opening the OK menu first.
+- EPG / INFO: open this guide.
 - MENU: open the Main Menu.
-- HELP: show this help.
+- HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 
 ## Notes

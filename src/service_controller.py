@@ -65,6 +65,8 @@
 
 from __future__ import annotations
 
+import time
+
 from typing import Optional
 
 from .compatibility import compatibility
@@ -212,6 +214,87 @@ class ServiceController:
         # below succeeds.
         #
         self._capturePreviousService()
+
+        # Round 123, per direct request ("onko edellisen kappaleen
+        # lopetuksessa jotain, jolla voidaan huolehtia... ettei
+        # korjausta edes tarvitsisi" -- rounds 121/122's own recovery
+        # mechanism only ever worked once it called self.stop() before
+        # replaying; simply calling play() again on a stuck service
+        # never recovered on its own). _startService() below calls
+        # navigation.playService() directly, Enigma2's own "replace
+        # whatever's currently playing" mechanism -- normally
+        # sufficient on its own (this is how ordinary channel-to-
+        # channel switching already works), but this project's own
+        # code already documents "a known category of race condition
+        # on GStreamer-based Enigma2 audio playback" (Build 0008), and
+        # round 122's own confirmed fix (an explicit stop() before the
+        # next play() actually recovers a stuck pipeline, whereas
+        # playService() replacing it directly did not) is exactly that
+        # category. Stopping our own outgoing track first, whenever
+        # there is one, applies the same proven-effective sequence to
+        # every normal transition too, not just this project's own
+        # error-recovery path -- an attempt at preventing the
+        # underlying failure rather than only recovering from it.
+        # Never touches a service MediaPlayer3 doesn't own itself
+        # (_stopService()'s own self._current_service guard, unchanged).
+        if self._current_service is not None:
+
+            self._stopService()
+
+            # Round 137, per direct request/hypothesis: rather than
+            # always blindly sleeping the same fixed 200ms (round
+            # 124's own fix), actually check whether Enigma2's own
+            # navigation layer confirms nothing is playing yet, and
+            # only wait as long as that takes -- retrying the stop
+            # call itself if it doesn't, per the exact sequence
+            # requested ("kysy tila... jos ei ole, niin pysaytetaan
+            # ensin ja kysytaan tila uudestaan").
+            #
+            # An important, honest caveat, found by reading Enigma2's
+            # own real eServiceMP3::stop() C++ source directly before
+            # implementing this: the state this can actually observe
+            # from Python (navigation.getCurrentService() -- there is
+            # no direct Python binding for GStreamer's own internal
+            # pipeline state) is set to "stopped" SYNCHRONOUSLY, the
+            # instant stop() is called, before the underlying GStreamer
+            # pipeline has necessarily released its own hardware
+            # resources -- Enigma2's own C++ code faces the exact same
+            # limit (a linked real commit's own comment: "the get state
+            # on stop might block forever, so use 5 seconds timeout").
+            # So confirming "stopped" here narrows the window but
+            # doesn't prove the underlying race from round 124 is
+            # gone -- the same small residual safety pause still runs
+            # afterward regardless of how the polling above resolved,
+            # for exactly that reason.
+            navigation = compatibility.getNavigationInstance()
+
+            if navigation is not None:
+
+                for attempt in range(10):
+
+                    try:
+                        still_active = navigation.getCurrentService() is not None
+
+                    except Exception as error:
+
+                        self._log(f"Error while polling navigation state: {error}")
+
+                        break
+
+                    if not still_active:
+
+                        break
+
+                    try:
+                        navigation.stopService()
+
+                    except Exception as error:
+
+                        self._log(f"Error while re-issuing stop during poll: {error}")
+
+                    time.sleep(0.03)
+
+            time.sleep(0.2)
 
         if not self._createServiceReference(filename, use_exteplayer3=use_exteplayer3):
             self._log("Playback aborted: unable to create service reference.")

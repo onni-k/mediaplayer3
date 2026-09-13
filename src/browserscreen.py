@@ -127,12 +127,14 @@ from typing import List, Optional
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
+from Components.Sources.StaticText import StaticText
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
@@ -140,16 +142,16 @@ from Screens.VirtualKeyBoard import VirtualKeyBoard
 from .compatibility import compatibility
 from .config import cfg, config_manager
 from .constants import PLAYLIST_FILE_EXTENSIONS, SUPPORTED_AUDIO_EXTENSIONS
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import ensure_trailing_slash, SKIN_PATH
+from .paths import ensure_trailing_slash
 from .coverart_manager import coverart_manager
 from .lrclib_manager import lrclib_manager
 from .playlist_manager import playlist_manager
-from .skin import to_opaque_skin_color
+from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 COLUMNS = ("directories", "files", "playlist")
 
@@ -158,7 +160,7 @@ COLUMNS = ("directories", "files", "playlist")
 # light palette values, per the same "reuse Music Library's images
 # and colours" request already used for RadioBrowserScreen (round
 # 54).
-BROWSER_SKIN_VARIANTS = ("light", "dark")
+BROWSER_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 BROWSER_DEFAULT_SKIN_VARIANT = "light"
 
@@ -185,6 +187,59 @@ BROWSER_SKIN_PALETTES = {
         "selected_row_bg": "#2B2F39",
         "selected_row_fg": "#C7AC4E",
     },
+}
+
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi" -- test_skin's own colours on
+# every OTHER window should match MainScreen's): round 112's own
+# crash-fix aliased this to Dark's own palette (a plain blue/white
+# theme) since test_skin's own PNGs started as Dark copies -- but
+# MainScreen's own test_skin has since become a warm amber/brass
+# vintage-radio look (round 113 onward) that this alias was never
+# updated to follow. Colours only, matching the direct request's own
+# scope -- these screens' own background images/icons are untouched,
+# so panel_background_color/list_background_color are kept close to
+# Dark's own tone, just warmed slightly toward brown for consistency
+# with the new amber text sitting on them. Text/accent colours copied
+# directly from MainScreen's own test_skin palette (panel_text_color,
+# header_inactive_fg, header_active_fg, hint_fg all identical values)
+# so a user moving between screens sees one consistent amber, not a
+# slightly-different shade per screen.
+BROWSER_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: an independent copy (not a
+# reference) of test_skin's own palette above -- see mainscreen.py's
+# own round 155 comment for the full reasoning.
+BROWSER_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
 }
 
 
@@ -220,15 +275,17 @@ def _defaultPlayPlaylistName() -> str:
     name instead (the existing "Files"/"Tiedostot" translation,
     reused rather than inventing a new string) -- only this single
     dedicated playlist is ever touched by quick-play, never anything
-    the user named themselves. A function (not a module-level
-    constant) since _() needs localization_manager already
-    initialized, which may not be true yet at import time.
+    the user named themselves. Kept as a function (not a module-level
+    constant) for consistency with how every other default-with-
+    translation elsewhere in this codebase is expressed, even though
+    round 140's own localization.py rewrite means _() itself no
+    longer needs any prior initialization step to be safe to call.
     """
 
     return _("Files")
 
 
-class BrowserScreen(Screen):
+class BrowserScreen(Screen, HelpableScreen):
     """
     Local file browsing and playlist building
     (BUILD_0010_PLAN.md "Local File Browser").
@@ -273,6 +330,32 @@ class BrowserScreen(Screen):
 
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
+
+        # Round 151, per direct request/device photos: two real,
+        # pre-existing mismatches only became obvious once test_skin's
+        # own colours genuinely diverged from Dark's (round 149) --
+        # scrollbarBackgroundColor was hardcoded light grey (#E0E0E0)
+        # for every variant, never part of any palette at all, so it
+        # never matched Dark's own dark tones either; and the "info"
+        # status widget's own opaque panel_background_color fill,
+        # fine while it matched Light/Dark's own background image body
+        # colour exactly, no longer matches test_skin's own warm brown
+        # image at all -- letting a visible seam show at that widget's
+        # own edges, the same class of bug round 150 already fixed for
+        # LyricsFullscreenScreen. Both scoped to test_skin only, same
+        # as round 150's own approach -- Light/Dark keep their
+        # existing appearance unchanged.
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            scrollbar_bg = "#3A2E1A"
+
+            info_background_attr = 'transparent="1"'
+
+        else:
+
+            scrollbar_bg = "#E0E0E0"
+
+            info_background_attr = f'backgroundColor="{panel_background_color}"'
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
@@ -354,7 +437,7 @@ class BrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="files_list"
@@ -363,7 +446,7 @@ class BrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="playlist_list"
@@ -372,14 +455,14 @@ class BrowserScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
                     {rect(60, 702, 1550, 90)}
                     {font(24)}
                     foregroundColor="{palette['info_label_fg']}"
-                    backgroundColor="{panel_background_color}"/>
+                    {info_background_attr}/>
 
             <widget name="hint_text_leftright"
                     {rect(67, 874, 207, 63)}
@@ -468,6 +551,14 @@ class BrowserScreen(Screen):
 
         Screen.__init__(self, session)
 
+        # Round 131: registers this screen with Enigma2's own native
+        # help mechanism (see the HelpableActionMap construction
+        # further down) -- required alongside HelpableScreen's own
+        # base-class mixin above; a missing call here is a documented
+        # real-world way to leave a screen's own HELP button inactive
+        # even with HelpableActionMaps present.
+        HelpableScreen.__init__(self)
+
         self.session = session
 
         self._playback = playback_controller
@@ -553,10 +644,26 @@ class BrowserScreen(Screen):
         self["hint_text_updown"] = Label(_("UP/DOWN: Move"))
         self["hint_text_ok"] = Label(_("OK: Actions"))
         self["hint_text_play"] = Label(_("PLAY: Play"))
-        self["hint_text_info"] = Label(_("INFO: Select Playlist"))
+        self["hint_text_info"] = Label(_("GREEN: Add/Select"))
         self["hint_text_help"] = Label(_("HELP: Help"))
         self["hint_text_menu"] = Label(_("MENU: Menu"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
+
+        # Round 134, per direct programmer feedback (see
+        # playlistscreen.py's own round 134 comment for the full
+        # reasoning): the correct StaticText()/key_red component and
+        # naming for colour-button hints, created here for round 133's
+        # own GREEN/RED additions. No skin <widget source="key_green"
+        # .../> entry yet -- this screen's own hint bar has the same
+        # kind of tight remaining width playlistscreen.py's own does,
+        # and GREEN's own text would need to change dynamically with
+        # focus (Playlist column: "Select Playlist"; Directories/
+        # Files: "Add to Playlist") once it does get a skin position,
+        # which the existing hint_text_info Label already handles with
+        # a static "GREEN: Add/Select" compromise -- left as-is for
+        # now rather than duplicating that logic here too.
+        self["key_green"] = StaticText(_("Add/Select"))
+        self["key_red"] = StaticText(_("Remove"))
 
         self._reloadDirectoryColumn()
 
@@ -569,6 +676,22 @@ class BrowserScreen(Screen):
             "up": self.moveUp,
             "down": self.moveDown,
             "menu": self.menuPressed,
+            # Round 132/133, per direct request: EPG/INFO used to open
+            # the playlist picker directly (round 132: moved to GREEN,
+            # freeing EPG/INFO for help); round 133 gave GREEN a
+            # second, context-dependent job (add to playlist in
+            # Directories/Files, still selectPlaylistPressed() in the
+            # Playlist column itself -- see greenPressed()'s own
+            # docstring), and added RED for the inverse (remove from
+            # playlist).
+            "green": self.greenPressed,
+            "red": self.redPressed,
+            # Round 146, per direct request (colour-button audit):
+            # YELLOW/BLUE move the Playlist column's own selected
+            # track up/down -- direct shortcuts to _playlistItemMenu()'s
+            # own existing "Move up"/"Move down" choices.
+            "yellow": self.yellowPressed,
+            "blue": self.bluePressed,
         }
 
         for action_name in compatibility.getChannelUpKeyActionNames():
@@ -578,29 +701,81 @@ class BrowserScreen(Screen):
             actions[action_name] = self.pageDown
 
         for action_name in compatibility.getInfoKeyActionNames():
-            actions[action_name] = self.selectPlaylistPressed
+            actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
+
+            # Round 131: "displayHelp" specifically excluded -- see
+            # mainscreen.py's own round 130 comment on this exact
+            # exclusion for the full reasoning: it's the action name
+            # Enigma2's own native help mechanism listens for
+            # internally, and binding it here too would silently beat
+            # that mechanism to it every time.
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
 
         for action_name in compatibility.getPvrKeyActionNames():
             actions[action_name] = self.exitPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "DirectionActions",
-                "MediaPlayerActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarActions",
-                "InfobarBouquetActions",
-                "InfobarEPGActions",
-                "HelpActions",
-            ],
-            actions,
-            -1,
-        )
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "DirectionActions",
+            "MediaPlayerActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarActions",
+            "InfobarBouquetActions",
+            "InfobarEPGActions",
+            "HelpActions",
+        ]
+
+        help_text_by_handler = {
+            self.okPressed: _("open the actions menu"),
+            self.exitPressed: _("go back"),
+            self.playPressed: _("play the selected file"),
+            self.focusPrevious: _("move to the previous column"),
+            self.focusNext: _("move to the next column"),
+            self.moveUp: _("move up"),
+            self.moveDown: _("move down"),
+            self.menuPressed: _("open the menu"),
+            self.pageUp: _("page up"),
+            self.pageDown: _("page down"),
+            self.greenPressed: _("add to playlist (or select playlist in the Playlist column)"),
+            self.redPressed: _("remove from playlist"),
+            self.yellowPressed: _("move the selected playlist track up"),
+            self.bluePressed: _("move the selected playlist track down"),
+            self.infoPressed: _("show information about this screen"),
+        }
+
+        # Round 131: see mainscreen.py's own round 130 comment for the
+        # full reasoning behind this try/except -- HelpableActionMap's
+        # own multi-context list support isn't universal across the
+        # Enigma2 builds this project targets, so this never risks any
+        # actual key binding, only the native help text if unsupported.
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[BrowserScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._updateDisplay()
 
@@ -852,8 +1027,7 @@ class BrowserScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolveBrowserResolutionTier(self._screen_width),
             f"browser_{focus_state}_active.png",
@@ -1183,17 +1357,39 @@ class BrowserScreen(Screen):
             # directory picker from SettingsScreen (round 99), where
             # attempting to play anything would have nothing to play
             # through.
-            playback_choices = (
-                [(_("Play"), "play"), (_("Open directory"), "open"), (_("Add entire directory to playlist"), "add")]
-                if self._playback is not None
-                else [(_("Open directory"), "open")]
-            )
+            #
+            # Round 147, per direct request/device confirmation
+            # ("jos hakemistossa ei ole soitettavia kappaleita, niin
+            # saisi ensimmäisenä vaihtoehtona olla avaa hakemisto"):
+            # round 30's own comment above already described this
+            # exact "Play leads when there are playable files,
+            # otherwise Open directory leads" intent, but the code
+            # underneath it never actually implemented that
+            # distinction -- the first branch unconditionally put
+            # "Play" first whenever self._playback was available,
+            # regardless of self._files_in_preview, and the second
+            # "if self._files_in_preview" block below just re-assigned
+            # the exact same list again, a no-op duplicate that never
+            # touched the genuinely broken case (playback available,
+            # but no files directly in this directory). Fixed here:
+            # self._files_in_preview now genuinely decides the order.
+            if self._playback is None:
 
-            if self._files_in_preview and self._playback is not None:
+                playback_choices = [(_("Open directory"), "open")]
+
+            elif self._files_in_preview:
 
                 playback_choices = [
                     (_("Play"), "play"),
                     (_("Open directory"), "open"),
+                    (_("Add entire directory to playlist"), "add"),
+                ]
+
+            else:
+
+                playback_choices = [
+                    (_("Open directory"), "open"),
+                    (_("Play"), "play"),
                     (_("Add entire directory to playlist"), "add"),
                 ]
 
@@ -1691,6 +1887,181 @@ class BrowserScreen(Screen):
 
     # ------------------------------------------------------------------
 
+    def greenPressed(self) -> None:
+        """
+        Round 133, per direct request ("Mainscreen, browser,(hakemisto
+        ja tiedosto)... vihreä lisää soittolistaan"): GREEN's own
+        direct shortcut to this screen's own existing "Add" menu
+        options -- adds the currently focused directory (Directories
+        column) or file (Files column) to the current/target playlist,
+        prompting for one first if none is set yet (same
+        _requireCurrentPlaylist() flow the OK menu's own "add" choices
+        already use).
+
+        In the Playlist column itself, "add to playlist" has no
+        meaning (there's nothing outside a playlist to add from) --
+        GREEN keeps its own round 132 behaviour there instead
+        (selectPlaylistPressed(), choosing which playlist this column
+        displays), so the one key still does the single most useful
+        thing for whichever column is actually focused.
+        """
+
+        if self._focus == "playlist":
+
+            self.selectPlaylistPressed()
+
+            return
+
+        if self._focus == "directories":
+
+            target = self._selectedDirectoryPath()
+
+            if target is None:
+
+                return
+
+            self._requireCurrentPlaylist(lambda name: self._addDirectoryToPlaylist(name, target))
+
+        elif self._focus == "files":
+
+            index = self["files_list"].getSelectedIndex()
+
+            if not (0 <= index < len(self._files_in_preview)):
+
+                return
+
+            filepath = self._files_in_preview[index]
+
+            self._requireCurrentPlaylist(
+                lambda name: self._afterAdd(name, 1 if playlist_manager.addTrack(name, filepath) else 0)
+            )
+
+    # ------------------------------------------------------------------
+
+    def redPressed(self) -> None:
+        """
+        Round 133, per direct request ("punainen poista soittolistasta"):
+        RED's own direct shortcut to remove the currently focused
+        directory's own tracks (Directories column, via
+        playlist_manager.removeTracksInDirectory()) or the currently
+        focused file's own single entry (Files column, via
+        playlist_manager.removeTrackByPath()) from the current/target
+        playlist -- the inverse of greenPressed() above, targeting the
+        exact same playlist concept. A no-op in the Playlist column
+        itself, which already has its own dedicated remove action.
+        """
+
+        if self._focus == "directories":
+
+            target = self._selectedDirectoryPath()
+
+            if target is None:
+
+                return
+
+            self._requireCurrentPlaylist(
+                lambda name: self._afterRemove(name, playlist_manager.removeTracksInDirectory(name, target))
+            )
+
+        elif self._focus == "files":
+
+            index = self["files_list"].getSelectedIndex()
+
+            if not (0 <= index < len(self._files_in_preview)):
+
+                return
+
+            filepath = self._files_in_preview[index]
+
+            self._requireCurrentPlaylist(
+                lambda name: self._afterRemove(name, 1 if playlist_manager.removeTrackByPath(name, filepath) else 0)
+            )
+
+    # ------------------------------------------------------------------
+
+    def yellowPressed(self) -> None:
+        """
+        Round 146, per direct request (colour-button audit): direct
+        shortcut to the Playlist column's own existing "Move up" menu
+        choice (_playlistItemMenu()) -- moves the currently selected
+        track one position earlier in the current playlist. A no-op
+        outside the Playlist column, and when nothing is actually
+        selected there.
+        """
+
+        self._moveSelectedPlaylistTrack(-1)
+
+    # ------------------------------------------------------------------
+
+    def bluePressed(self) -> None:
+        """
+        Round 146, per direct request: the same shortcut as
+        yellowPressed() above, for "Move down" instead.
+        """
+
+        self._moveSelectedPlaylistTrack(1)
+
+    # ------------------------------------------------------------------
+
+    def _moveSelectedPlaylistTrack(self, direction: int) -> None:
+
+        if self._focus != "playlist" or not self._current_playlist_name:
+
+            return
+
+        index = self["playlist_list"].getSelectedIndex()
+
+        if not (0 <= index < len(self._playlist_tracks)):
+
+            return
+
+        playlist_manager.moveTrack(self._current_playlist_name, index, direction)
+
+        self._playlist_tracks = playlist_manager.loadPlaylist(self._current_playlist_name)
+
+        self._updateDisplay()
+
+    # ------------------------------------------------------------------
+
+    def _afterRemove(self, playlist_name: str, count: int) -> None:
+
+        self._log(f"Removed {count} track(s) from playlist: {playlist_name}")
+
+        if count <= 0:
+
+            self.session.open(
+                MessageBox,
+                _("Not found in playlist: %s") % playlist_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        elif count == 1:
+
+            self.session.open(
+                MessageBox,
+                _("Removed from playlist: %s") % playlist_name,
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            self.session.open(
+                MessageBox,
+                _("Removed %d tracks from playlist: %s") % (count, playlist_name),
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        if self._current_playlist_name == playlist_name:
+
+            self._playlist_tracks = playlist_manager.loadPlaylist(playlist_name)
+
+            self._updateDisplay()
+
+    # ------------------------------------------------------------------
+
     def _playFileAsPlaylist(self, filepath: str) -> None:
         """
         Build 0010, device test round 5 -- Files column's "Play"
@@ -1893,13 +2264,13 @@ class BrowserScreen(Screen):
     # Event Handlers
     # ------------------------------------------------------------------
 
-    def helpPressed(self) -> None:
+    def infoPressed(self) -> None:
 
-        logger.verbose("[BrowserScreen] HELP pressed.")
+        logger.verbose("[BrowserScreen] INFO pressed.")
 
-        title, content = help_manager.getHelp("browserscreen")
+        title, content = guide_manager.getGuide("browserscreen")
 
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 

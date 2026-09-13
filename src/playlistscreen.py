@@ -140,34 +140,35 @@ import os
 
 from enigma import ePicLoad, eTimer
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
+from Components.Sources.StaticText import StaticText
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
 from Screens.ChoiceBox import ChoiceBox
+from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
 from .compatibility import compatibility
 from .config import config_manager
-from .help_manager import help_manager
-from .help_screen import HelpScreen
+from .guide_manager import guide_manager
+from .guide_screen import GuideScreen
 from .internetradio_manager import internetradio_manager
 from .localization import _
 from .logger import logger
 from .mainmenu import MainMenu
-from .paths import SKIN_PATH
 from .playlist_manager import playlist_manager
-from .skin import to_opaque_skin_color
+from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 # Device test round 58 -- background-image variant/tier system, a
 # copy of MusicLibraryScreen's own (round 39/46), matching the same
 # "reuse Music Library's images and colours" pattern already used for
 # RadioBrowserScreen/BrowserScreen/PodcastScreen (rounds 54-56). Two
 # columns instead of three this time, per direct request.
-PLAYLIST_SKIN_VARIANTS = ("light", "dark")
+PLAYLIST_SKIN_VARIANTS = ("light", "dark", "test_skin", "vintage_radio")
 
 PLAYLIST_DEFAULT_SKIN_VARIANT = "light"
 
@@ -194,6 +195,45 @@ PLAYLIST_SKIN_PALETTES = {
         "selected_row_bg": "#2B2F39",
         "selected_row_fg": "#C7AC4E",
     },
+}
+
+# Round 112, per direct request (a real device crash: KeyError
+# 'test_skin' -- round 110 added "test_skin" to this screen's own
+# SKIN_VARIANTS whitelist, letting it become the active variant,
+# but never added a matching entry HERE, in the separate dict that
+# actually supplies its colour palette) -- test_skin starts out
+# visually identical to Dark (matches its own bundled template,
+# which starts as an exact copy of Dark's PNGs too), and stays in
+# sync with any future change to Dark's own palette automatically,
+# since this is a reference to the same dict, not a copy of it.
+
+# Round 149, per direct request ("test_skinin muiden ikkunoiden
+# väriteema mainscreenin mukaiseksi"): see browserscreen.py's own
+# round 149 comment for the full reasoning.
+PLAYLIST_SKIN_PALETTES["test_skin"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
+}
+
+# Round 155, per direct request: independent copy, see mainscreen.py's
+# own round 155 comment for the full reasoning.
+PLAYLIST_SKIN_PALETTES["vintage_radio"] = {
+    "panel_background_color": "#1C1610",
+    "list_background_color": "#161108",
+    "panel_text_color": "#E8A24C",
+    "header_inactive_fg": "#C08A45",
+    "header_active_fg": "#FFC978",
+    "hint_fg": "#FFC978",
+    "info_label_fg": "#FFC978",
+    "selected_row_bg": "#C08A45",
+    "selected_row_fg": "#1A1206",
 }
 
 
@@ -249,7 +289,7 @@ def _formatPlaylistDuration(total_seconds: int) -> str:
 
 
 
-class PlaylistScreen(Screen):
+class PlaylistScreen(Screen, HelpableScreen):
     """
     Dual-panel playlist management (Build 0007).
     """
@@ -290,6 +330,21 @@ class PlaylistScreen(Screen):
 
         panel_background_color = to_opaque_skin_color(palette["panel_background_color"])
         panel_text_color = palette["panel_text_color"]
+
+        # Round 151, per direct request: see browserscreen.py's own
+        # round 151 comment for the full reasoning -- same fix, same
+        # scope (test_skin only).
+        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+            scrollbar_bg = "#3A2E1A"
+
+            info_background_attr = 'transparent="1"'
+
+        else:
+
+            scrollbar_bg = "#E0E0E0"
+
+            info_background_attr = f'backgroundColor="{panel_background_color}"'
 
         def rect(x, y, w, h):
             return f'position="{int(x * sx)},{int(y * sy)}" size="{int(w * sx)},{int(h * sy)}"'
@@ -357,7 +412,7 @@ class PlaylistScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="tracks"
@@ -366,7 +421,7 @@ class PlaylistScreen(Screen):
                     foregroundColor="{panel_text_color}"
                     backgroundColorSelected="{palette['selected_row_bg']}"
                     foregroundColorSelected="{palette['selected_row_fg']}"
-                    scrollbarBackgroundColor="#E0E0E0"
+                    scrollbarBackgroundColor="{scrollbar_bg}"
                     scrollbarMode="showOnDemand"/>
 
             <widget name="info"
@@ -375,7 +430,7 @@ class PlaylistScreen(Screen):
                     halign="center"
                     valign="center"
                     foregroundColor="{palette['info_label_fg']}"
-                    backgroundColor="{panel_background_color}"/>
+                    {info_background_attr}/>
 
             <widget name="hint_text_leftright"
                     {rect(82, 874, 299, 63)}
@@ -426,6 +481,8 @@ class PlaylistScreen(Screen):
         self.skin = self._buildSkin(width, height)
 
         Screen.__init__(self, session)
+
+        HelpableScreen.__init__(self)
 
         self.session = session
 
@@ -494,6 +551,32 @@ class PlaylistScreen(Screen):
         self["hint_text_menu"] = Label(_("MENU: Menu"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
 
+        # Round 134, per direct programmer feedback ("For colour
+        # buttons use StaticText() and use the standard names, i.e.
+        # 'key_red', 'key_green', 'key_yellow', 'key_blue'"): the
+        # correct Enigma2 component type/naming for colour-button
+        # hints, confirmed against real stock Enigma2 and enigma2-
+        # plugins source (e.g. HdmiCEC's own setup screen, Emission's
+        # own EmissionOverview.py) -- Label()+a made-up widget name
+        # (this project's own earlier pattern, e.g. hint_text_yellow
+        # elsewhere in this codebase) works but isn't what any other
+        # Enigma2 screen or skin actually expects. Created here so the
+        # correct component exists from round 133's own red/green/
+        # yellow additions onward; deliberately NOT given a skin
+        # <widget source="key_red".../> entry yet -- this screen's own
+        # hint bar (5 existing slots) has only ~200px of its own
+        # 1672px design width left unused, not enough room for three
+        # more full-width hints without redesigning the background
+        # artwork and widget geometry the way MainScreen's own hint
+        # bar needed (rounds 113-129) -- a well-scoped follow-up, not
+        # attempted here. An Enigma2 Source component created without
+        # a matching skin entry is simply invisible, never an error
+        # (the same tolerant behaviour this project's own hint_text_*
+        # widgets already rely on).
+        self["key_red"] = StaticText(_("Clear"))
+        self["key_green"] = StaticText(_("New"))
+        self["key_yellow"] = StaticText(_("Rename"))
+
         actions = {
             "ok": self.okPressed,
             "cancel": self.exitPressed,
@@ -502,8 +585,33 @@ class PlaylistScreen(Screen):
             "up": self.moveUp,
             "down": self.moveDown,
             "menu": self.menuPressed,
+            # Round 133, per direct request ("Soittolistalla punainen
+            # voi tyhjentää soittolistan ja vihreä luo uuden, Keltainen
+            # voi nimetä uudelleen" -- RED clears, GREEN creates a new
+            # one, YELLOW renames): direct colour-key shortcuts for
+            # three actions that already existed behind the OK/Options
+            # menu (rename, create) or needed a genuinely new
+            # capability (clear -- see playlist_manager.clearPlaylist()'s
+            # own docstring for why this is deliberately distinct from
+            # the existing "Delete" menu option, which removes the
+            # playlist entry itself, not just its own tracks).
+            #
+            # Round 147, per direct request: RED is now context-
+            # dependent (delete playlist / remove track -- see
+            # redPressed()'s own docstring); YELLOW/BLUE became Move
+            # Up/Move Down, matching BrowserScreen's own Playlist
+            # column shortcuts, since Rename is reachable from the OK
+            # menu alone and no longer needs a colour key of its own.
+            "red": self.redPressed,
+            "green": self.createNewPlaylistPressed,
+            "yellow": self.yellowPressed,
+            "blue": self.bluePressed,
         }
 
+        # Round 132, per direct request: EPG/INFO used to show
+        # information already visible in this screen's own hint bar
+        # (redundant); now opens this screen's own help content
+        # instead, matching every other screen.
         for action_name in compatibility.getInfoKeyActionNames():
             actions[action_name] = self.infoPressed
 
@@ -514,21 +622,61 @@ class PlaylistScreen(Screen):
             actions[action_name] = self.pageDown
 
         for action_name in compatibility.getHelpKeyActionNames():
-            actions[action_name] = self.helpPressed
 
-        self["actions"] = ActionMap(
-            [
-                "OkCancelActions",
-                "DirectionActions",
-                "MediaPlayerActions",
-                "MenuActions",
-                "InfoActions",
-                "InfobarEPGActions",
-                "HelpActions",
-            ],
-            actions,
-            -1,
-        )
+            # Round 156, per direct request/device log: "displayHelpLong"
+            # is excluded the same way as "displayHelp" -- a real device
+            # log showed both registered on the same HelpActions context
+            # for the same physical HELP key on some images, so leaving
+            # it bound here let it win that key over the native handler.
+            # See mainscreen.py's own round 156 comment for the full story.
+            if action_name in ("displayHelp", "displayHelpLong"):
+
+                continue
+
+            actions[action_name] = self.infoPressed
+
+        contexts = [
+            "OkCancelActions",
+            "ColorActions",
+            "DirectionActions",
+            "MediaPlayerActions",
+            "MenuActions",
+            "InfoActions",
+            "InfobarEPGActions",
+            "HelpActions",
+        ]
+
+        help_text_by_handler = {
+            self.okPressed: _("open the actions menu"),
+            self.exitPressed: _("go back"),
+            self.focusLeft: _("move to the left panel"),
+            self.focusRight: _("move to the right panel"),
+            self.moveUp: _("move up"),
+            self.moveDown: _("move down"),
+            self.menuPressed: _("open the menu"),
+            self.pageUp: _("page up"),
+            self.pageDown: _("page down"),
+            self.infoPressed: _("show information about this screen"),
+            self.redPressed: _("delete the selected playlist, or remove the selected track"),
+            self.createNewPlaylistPressed: _("create a new playlist"),
+            self.yellowPressed: _("move the selected track up"),
+            self.bluePressed: _("move the selected track down"),
+        }
+
+        try:
+
+            helpable_actions = {
+                action_name: (handler, help_text_by_handler.get(handler, ""))
+                for action_name, handler in actions.items()
+            }
+
+            self["actions"] = HelpableActionMap(self, contexts, helpable_actions, -1)
+
+        except Exception as error:
+
+            logger.warning(f"[PlaylistScreen] HelpableActionMap unavailable, falling back to plain ActionMap: {error}")
+
+            self["actions"] = ActionMap(contexts, actions, -1)
 
         self._reloadPlaylists()
 
@@ -730,8 +878,7 @@ class PlaylistScreen(Screen):
 
             return
 
-        image_path = os.path.join(
-            SKIN_PATH,
+        image_path = resolve_skin_asset_path(
             self._skin_variant,
             _resolvePlaylistResolutionTier(self._screen_width),
             f"playlist_{focus_state}_active.png",
@@ -984,46 +1131,20 @@ class PlaylistScreen(Screen):
 
     def infoPressed(self) -> None:
         """
-        Build 0007, device test round 5 -- PlaylistScreen previously
-        had no INFO handling at all, showing Enigma2's "unhandled
-        key" indicator (confirmed on OpenATV). Shows Information for
-        whichever panel/entry currently has focus -- the same
-        Information a track/playlist's own context menu already
-        offers, just reachable directly.
+        Round 139 -- renamed from helpPressed(); opens GuideScreen
+        with PlaylistScreen's own context-sensitive information
+        document. This also replaces round 132's own dead infoPressed()
+        (which showed a track/playlist's own context-menu Information
+        instead -- unreachable since round 132 moved EPG/INFO to
+        open help content here; removed as part of this rename rather
+        than left in place any longer).
         """
 
         logger.verbose("[Playlist] INFO pressed.")
 
-        if self._focus == "playlists":
+        title, content = guide_manager.getGuide("playlistscreen")
 
-            if self._current_playlist:
-
-                self._showPlaylistInformation()
-
-            return
-
-        if not self._current_tracks:
-            return
-
-        index = self["tracks"].getSelectedIndex()
-
-        if 0 <= index < len(self._current_tracks):
-
-            self._trackMenuChosen(("Information", "information"), index, self._current_tracks[index])
-
-    # ------------------------------------------------------------------
-
-    def helpPressed(self) -> None:
-        """
-        Build 0008 -- opens HelpScreen with PlaylistScreen's own
-        context-sensitive help document.
-        """
-
-        logger.verbose("[Playlist] HELP pressed.")
-
-        title, content = help_manager.getHelp("playlistscreen")
-
-        self.session.open(HelpScreen, title, content)
+        self.session.open(GuideScreen, title, content)
 
     # ------------------------------------------------------------------
 
@@ -1052,6 +1173,7 @@ class PlaylistScreen(Screen):
                 (_("Play"), "play"),
                 (_("Rename"), "rename"),
                 (_("Delete"), "delete"),
+                (_("Clear"), "clear"),
                 (_("Export"), "export"),
                 (_("Information"), "information"),
                 (_("Create New"), "create"),
@@ -1085,6 +1207,21 @@ class PlaylistScreen(Screen):
         elif action == "delete":
 
             self._confirmDeletePlaylist()
+
+        elif action == "clear":
+
+            # Round 147: "Clear" (emptying this local playlist's own
+            # tracks while keeping the playlist itself, distinct from
+            # "Delete" above) moved here from round 133's own RED
+            # colour-key shortcut -- see redPressed()'s own docstring.
+            # Local-only, matching "Export"'s own existing local-only
+            # restriction in this same choice list.
+            self.session.openWithCallback(
+                self._clearPlaylistConfirmed,
+                MessageBox,
+                f"{_('Clear')} \"{self._current_playlist}\"?",
+                MessageBox.TYPE_YESNO,
+            )
 
         elif action == "export":
 
@@ -1121,6 +1258,8 @@ class PlaylistScreen(Screen):
             choices = [
                 (_("Play"), "play"),
                 (_("Remove from Playlist"), "remove"),
+                (_("Move Up"), "move_up"),
+                (_("Move Down"), "move_down"),
                 (_("Information"), "information"),
                 (_("Cancel"), "cancel"),
             ]
@@ -1164,25 +1303,38 @@ class PlaylistScreen(Screen):
 
         elif action == "remove":
 
+            self._confirmRemoveTrack(index)
+
+        elif action == "move_up":
+
+            # Round 146, per direct follow-up request ("soittolistan-
+            # ässä siirrä ylös/alas koskemaan myös radion suosikki-
+            # listoja, nyt vaikuttaa vain paikallisiin tiedostoihin"):
+            # previously excluded radio entries entirely (`and not
+            # is_radio`), since internetradio_manager had no reorder
+            # capability of its own at all until this round's own
+            # moveFavorite() was added. Both branches now use the
+            # exact same swap-based approach, just against a different
+            # manager/list identifier.
             if is_radio:
 
-                internetradio_manager.removeFavorite(entry.get("stationuuid"), self._current_playlist)
+                internetradio_manager.moveFavorite(self._current_playlist, index, -1)
 
             else:
 
-                playlist_manager.removeTrack(self._current_playlist, index)
+                playlist_manager.moveTrack(self._current_playlist, index, -1)
 
             self._reloadTracks()
 
-        elif action == "move_up" and not is_radio:
+        elif action == "move_down":
 
-            playlist_manager.moveTrack(self._current_playlist, index, -1)
+            if is_radio:
 
-            self._reloadTracks()
+                internetradio_manager.moveFavorite(self._current_playlist, index, 1)
 
-        elif action == "move_down" and not is_radio:
+            else:
 
-            playlist_manager.moveTrack(self._current_playlist, index, 1)
+                playlist_manager.moveTrack(self._current_playlist, index, 1)
 
             self._reloadTracks()
 
@@ -1315,6 +1467,120 @@ class PlaylistScreen(Screen):
 
     # ------------------------------------------------------------------
 
+    def createNewPlaylistPressed(self) -> None:
+        """
+        Round 133: GREEN's own direct shortcut to "Create playlist" ->
+        "Empty Playlist" -- the ChoiceBox this normally goes through
+        (_openCreationMenu()) only ever offers that one real choice
+        besides Cancel, so this skips straight to the name prompt
+        rather than making the user confirm a single-option menu.
+        """
+
+        self._promptText(_("New playlist name"), "", self._createPlaylist)
+
+    # ------------------------------------------------------------------
+
+    def yellowPressed(self) -> None:
+        """
+        Round 147, per direct request: replaces round 133's own
+        renamePlaylistPressed() shortcut -- Rename stays reachable via
+        the OK menu only now ("nimeä uudelleen riittää kun on ok-napin
+        takana käytettävissä"), freeing YELLOW for the same "Move Up"
+        shortcut BrowserScreen's own Playlist column already has.
+        Works for both local tracks and radio favourite entries.
+        """
+
+        self._moveSelectedTrack(-1)
+
+    # ------------------------------------------------------------------
+
+    def bluePressed(self) -> None:
+        """
+        Round 147: the same shortcut as yellowPressed() above, for
+        "Move Down" instead -- replaces round 146's own single-track
+        remove shortcut, which moved to RED (see redPressed()'s own
+        docstring for the full reasoning).
+        """
+
+        self._moveSelectedTrack(1)
+
+    # ------------------------------------------------------------------
+
+    def _moveSelectedTrack(self, direction: int) -> None:
+
+        if self._focus == "playlists" or not self._current_tracks:
+
+            return
+
+        index = self["tracks"].getSelectedIndex()
+
+        if not (0 <= index < len(self._current_tracks)):
+
+            return
+
+        if self._current_entry_type == "radio":
+
+            internetradio_manager.moveFavorite(self._current_playlist, index, direction)
+
+        else:
+
+            playlist_manager.moveTrack(self._current_playlist, index, direction)
+
+        self._reloadTracks()
+
+    # ------------------------------------------------------------------
+
+    def redPressed(self) -> None:
+        """
+        Round 147, per direct request ("muutetaan soittolistan
+        punaisen poista toiminto sen mukaan ollaanko soittolista- vai
+        kappale/kanava sarakkeessa"): RED is now context-dependent --
+        deletes the whole selected playlist (Playlists column, via the
+        existing _confirmDeletePlaylist(), unchanged) or removes just
+        the selected track/station (Tracks column, via the new
+        _confirmRemoveTrack(), which round 146's own bluePressed()
+        used to do without any confirmation at all -- now confirmed
+        the same way, per the same direct request). Replaces round
+        133's own clearPlaylistPressed() -- "Clear" (emptying a local
+        playlist's own tracks while keeping the playlist itself) is
+        still available, just moved into the playlist-level menu
+        itself (_playlistMenuChosen()'s own new "clear" choice) rather
+        than kept on a colour key, matching the same "menu is enough"
+        reasoning yellowPressed() above already applies to Rename.
+        """
+
+        if self._focus == "playlists":
+
+            if not self._current_playlist:
+
+                return
+
+            self._confirmDeletePlaylist()
+
+            return
+
+        if not self._current_tracks:
+
+            return
+
+        index = self["tracks"].getSelectedIndex()
+
+        self._confirmRemoveTrack(index)
+
+    # ------------------------------------------------------------------
+
+    def _clearPlaylistConfirmed(self, confirmed) -> None:
+
+        if not confirmed or not self._current_playlist:
+
+            return
+
+        playlist_manager.clearPlaylist(self._current_playlist)
+
+        self._reloadPlaylists()
+
+    # ------------------------------------------------------------------
+
     def _createPlaylist(self, name) -> None:
         """
         "Create New" always creates a LOCAL playlist -- radio favorite
@@ -1386,6 +1652,53 @@ class PlaylistScreen(Screen):
             playlist_manager.deletePlaylist(self._current_playlist)
 
         self._reloadPlaylists()
+
+    # ------------------------------------------------------------------
+
+    def _confirmRemoveTrack(self, index: int) -> None:
+        """
+        Round 147, per direct request ("lisätään myös kysely haluatko
+        poistaa" -- add a confirmation dialog too): removing a single
+        track/station used to happen immediately, with no confirmation
+        at all, from both the track menu's own "Remove from Playlist"
+        choice and round 146's own direct BLUE shortcut. Both now go
+        through this shared method instead, matching
+        _confirmDeletePlaylist()'s own existing pattern for the
+        whole-playlist case.
+        """
+
+        if not (0 <= index < len(self._current_tracks)):
+            return
+
+        entry = self._current_tracks[index]
+
+        name = entry.get("name") if self._current_entry_type == "radio" else entry.get("title", entry.get("file_name", "?"))
+
+        self.session.openWithCallback(
+            lambda confirmed: self._removeTrackConfirmed(confirmed, index),
+            MessageBox,
+            f"{_('Remove')} \"{name}\"?",
+            MessageBox.TYPE_YESNO,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _removeTrackConfirmed(self, confirmed, index: int) -> None:
+
+        if not confirmed or not (0 <= index < len(self._current_tracks)):
+            return
+
+        entry = self._current_tracks[index]
+
+        if self._current_entry_type == "radio":
+
+            internetradio_manager.removeFavorite(entry.get("stationuuid"), self._current_playlist)
+
+        else:
+
+            playlist_manager.removeTrack(self._current_playlist, index)
+
+        self._reloadTracks()
 
     # ------------------------------------------------------------------
 

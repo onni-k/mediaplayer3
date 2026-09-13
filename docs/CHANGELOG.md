@@ -1564,6 +1564,79 @@ playback controller at all (used by Settings' own directory fields).
   rather than relying on the receiver's own image to provide one --
   deferred to a future release rather than attempted as a quick fix.
 
+### 1.1.000 (2026-09-13)
+
+Public release. The sections below group roughly 50 internal test
+builds since 1.0.0 into the outcomes that actually matter; the full
+round-by-round record (every device photo, every log line, every
+false start) lives in the project's own internal notes for anyone
+who wants that level of detail.
+
+**Test Skin and Vintage Radio.** Test Skin is a new, writable skin
+slot -- drop your own background images into it and MediaPlayer3
+picks them up automatically, with a bundled starting template and a
+full reference document describing what each screen needs. Vintage
+Radio is a permanent, independent skin choice alongside Light and
+Dark, built around a warm amber-on-wood-and-brass look developed
+through many rounds of real device photos -- available on its own now
+without needing Test Skin to get it. Both skins' own colour scheme,
+hint bar, and scrollbar styling now carry consistently across every
+screen in the app, including the fullscreen lyrics view.
+
+**Buttons now follow standard Enigma2 conventions.** HELP opens the
+receiver's own native remote-control button guide on every screen,
+the same as any other Enigma2 plugin (on receivers whose Enigma2
+build supports this; older ones keep this app's own previous
+behaviour automatically, with no loss of functionality either way).
+EPG/INFO opens this app's own contextual Information screen
+consistently everywhere. A number of actions that used to require
+opening a menu first are now direct colour-button shortcuts instead
+-- adding to a playlist, adding a radio station to favorites,
+subscribing to a podcast, updating the music library, reordering or
+removing playlist tracks, and showing lyrics fullscreen, depending on
+the screen. The Information guide's own translation setup was also
+simplified to match how other Enigma2 plugins handle it, and now
+follows your receiver's own system language automatically rather than
+offering a separate, independent language choice.
+
+**Finnish translations.** Both of MediaPlayer3's own help systems --
+the contextual Information screens and the receiver's own native
+button guide -- are now available in Finnish as well as English,
+with English shown automatically for any screen or language without
+its own translation yet.
+
+**Playback reliability.** Fixed a real, occasionally-occurring bug
+where a track could appear to be playing (progress bar advancing
+normally) with no actual sound, requiring a manual Stop then Play to
+recover -- the app now detects this automatically and recovers on its
+own. Track transitions are also more robust against a related timing
+issue between stopping one track and starting the next.
+
+**Data no longer silently lost on some reboots.** Playlists,
+favorites, and the Internet Radio station list could all fail to
+survive a reboot on some receivers, depending on how quickly the
+external hard drive finished mounting after startup. The app now
+waits a little longer for the drive to become ready before deciding
+where to store its own data, rather than falling back to a temporary
+location that doesn't survive a restart.
+
+**Other changes.** The Radio station limit can now be set as high as
+100,000 (previously capped at 20,000), with a note about the memory
+cost of very large values on some receivers. "About", "Playback
+Information" and "Developer Tools" were removed from the Main Menu --
+all showed information already visible elsewhere, or now logged
+automatically instead. The on-screen Information guide for every
+screen was corrected to accurately describe what each button
+currently does, after several rounds of button changes had left a
+few of them describing an earlier layout.
+
+**Known issue**: on OpenATV 8.0.0-beta specifically, the HELP button
+opens this app's own Information screen instead of the receiver's
+own native button guide. Confirmed to be a limitation of that
+specific OpenATV version itself, not of this plugin -- the same thing
+happens with HELP in other apps and plugins on the same image, and
+there's no way for an individual plugin to work around it.
+
 ---
 
 
@@ -1630,6 +1703,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0010 | 1.0.0-beta2 | Three-column browsing everywhere, File Browser redesign, RadioBrowser local database, bundled API keys; full background-image Light/Dark skin redesign across all eight screens; automatic system-language detection; main menu integration |
 | 0010 | 1.0.0-beta3 | Finland Radio EPG caching (fixed a real stuttering/lag bug), configurable radio station limits with real pagination, GStreamer position fixes (premature track end, frozen elapsed/remaining display), PodcastScreen layout fixes, CH+/CH- page-jump fixed and rolled out across five screens, HelpScreen display fix and help-document review |
 | 0010 | 1.0.0 | LRCLIB lyrics + MusicBrainz cover art downloads with automatic retry; lyrics display overhaul (fixed-position current line, font-size tiers, live fullscreen view); a project-wide title-hiding-behind-background bug found and fixed on all eight screens; MediaPlayer3 branding + clock; a real Settings freeze fixed, plus a multi-round virtual-keyboard/hint-bar fix; Radio's own default language/country settable from Internet Radio itself; a real "unlimited for own language" bug fixed; Swedish/German/Spanish translations; unified MainScreen OK menu; known issue: Bold-font text may not render on OpenPLi |
+| 0010 | 1.1.0 | Test Skin (a writable, user-customizable skin) and Vintage Radio (a new permanent skin choice) added, both sharing a consistent colour scheme, hint bar and scrollbar styling across every screen; standard Enigma2 button conventions adopted throughout (native HELP guide, consistent EPG/INFO behaviour, colour-button shortcuts, simplified translation setup following the receiver's own system language); Finnish translations for both help systems; a real silent-playback bug found and fixed; playlists/favorites/radio database no longer silently lost on some reboots; Radio station limit raised to 100,000; known issue: HELP opens this app's own Information screen instead of the native guide on OpenATV 8.0.0-beta specifically, confirmed a platform limitation |
 
 ---
 

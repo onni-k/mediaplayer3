@@ -1,0 +1,8 @@
+{
+    "name": "Test Skin",
+    "version": "1.0",
+    "compatible": "0.6.0",
+    "author": "MediaPlayer3 Project",
+    "description": "Starting point for trying out a new background-image skin without touching the plugin's own installed files -- copied into .mediaplayer3/test_skin/ the first time the program runs. Starts as an exact copy of Dark; replace the PNGs (and this file) with your own. See SKIN_ELEMENTS.md in the same folder for every element's position, size, font and colour.",
+    "font_family": "Bold"
+}

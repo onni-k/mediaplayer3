@@ -287,6 +287,35 @@ class PlaybackController:
     POSITION_SANITY_TOLERANCE_SECONDS = 5
     POSITION_DRIFT_TOLERANCE_RATIO = 0.03
 
+    # Round 121, per direct request (a real device log: sustained
+    # GStreamer decode errors left a track "playing" -- progress bar
+    # advancing via the wall-clock estimate -- with no actual audio,
+    # until the user noticed and manually stopped/replayed it). Ticks
+    # run about once per second (this class's own docstring), so this
+    # is roughly how many seconds of a completely unreadable position
+    # -- not just an implausible one, an outright missing one -- are
+    # tolerated before treating it as a broken pipeline rather than a
+    # brief startup/seek settling window. Deliberately generous: a
+    # normal track reports SOME elapsed value within a second or two
+    # of starting, so this only ever fires for a genuinely stuck case.
+    #
+    # Round 138, per direct request/device log: real logs from this
+    # exact recovery path (round 137's own polling change did NOT
+    # touch this constant, since it was a completely different part of
+    # the sequence -- the detection wait BEFORE recovery starts, not
+    # the stop-to-play transition round 137 targeted) showed the
+    # detection itself taking a genuinely noticeable ~7-8 seconds
+    # before recovery fires, then repeating every 17-37 seconds
+    # throughout the same session. Lowered to 5 (still 2.5x-5x above
+    # the "a second or two" normal settling window this constant's own
+    # comment above describes, so this shouldn't introduce false
+    # positives) per the direct request to make the delay "ei
+    # juurikaan edes huomaisi" (barely noticeable) rather than
+    # eliminating the underlying GStreamer failures themselves, which
+    # this round does not attempt -- see this round's own Claude_notes
+    # entry for why a real root-cause fix wasn't attempted here.
+    STUCK_PLAYBACK_RECOVERY_TICKS = 5
+
     # ------------------------------------------------------------------
     # Initialization
     # ------------------------------------------------------------------
@@ -330,6 +359,22 @@ class PlaybackController:
         # elapsed reading (see tick()'s own docstring for why this is
         # needed).
         self._track_start_wall_time = None
+
+        # Round 121, per direct request (a real device log: sustained
+        # GStreamer decode errors -- "Could not determine type of
+        # stream", "Internal data stream error" -- right at a track's
+        # own PAUSED->PLAYING transition, meaning the pipeline never
+        # actually produced audio for that track at all, yet
+        # getPlaybackPosition() kept failing silently rather than
+        # surfacing an error this class could react to, so tick()'s
+        # own "estimated position" fallback -- built for brief,
+        # transient GStreamer glitches -- made the UI look like normal
+        # playback (progress bar advancing) for the WHOLE track,
+        # indefinitely, until the user noticed no sound and manually
+        # stopped and replayed it). Counts consecutive ticks with no
+        # GStreamer-reported elapsed at all while nominally playing;
+        # reset the moment a real reading comes back.
+        self._consecutive_unknown_elapsed_ticks = 0
 
         # Build 0008, device test round 4 -- net seek adjustment
         # applied since the track started, used together with
@@ -418,6 +463,7 @@ class PlaybackController:
         self._seek_offset_seconds = 0
         self._paused_seconds_total = 0
         self._pause_wall_time = None
+        self._consecutive_unknown_elapsed_ticks = 0
 
         # Clear the previous track's cached position/duration
         # immediately -- confirmed on a real device: without this,
@@ -509,6 +555,7 @@ class PlaybackController:
         self._seek_offset_seconds = 0
         self._paused_seconds_total = 0
         self._pause_wall_time = None
+        self._consecutive_unknown_elapsed_ticks = 0
 
         self._position = None
         self._duration = None
@@ -1187,6 +1234,7 @@ class PlaybackController:
         self._track_start_wall_time = time.time() - target_position
         self._seek_offset_seconds = 0
         self._paused_seconds_total = 0
+        self._consecutive_unknown_elapsed_ticks = 0
         self._position = target_position
 
     # ------------------------------------------------------------------
@@ -1253,6 +1301,50 @@ class PlaybackController:
             return
 
         elapsed, duration = self._service.getPlaybackPosition()
+
+        # Round 121: detects and recovers from the scenario above --
+        # see this attribute's own __init__ comment for the full
+        # device-log evidence. Checked before anything else uses
+        # `elapsed` this tick, so a recovery this tick short-circuits
+        # the rest of the method entirely (nothing downstream should
+        # act on a reading from a pipeline already judged broken).
+        if elapsed is None:
+
+            self._consecutive_unknown_elapsed_ticks += 1
+
+        else:
+
+            self._consecutive_unknown_elapsed_ticks = 0
+
+        if self._consecutive_unknown_elapsed_ticks >= self.STUCK_PLAYBACK_RECOVERY_TICKS:
+
+            # Round 122, per direct request (a real device log: the
+            # round 121 recovery kept firing every 8 ticks, forever,
+            # never actually recovering -- only a manual Stop then
+            # Play worked). Root cause: play() (called via
+            # _playIndex() below) only ever calls self._service.play()
+            # -- it never calls self._service.stop() first, unlike the
+            # user's own manual fix. If the underlying service/
+            # pipeline object itself is the thing left broken, asking
+            # it to "play" again without ever stopping it first can
+            # reuse the exact same broken state, explaining why this
+            # kept looping instead of recovering. Calling self.stop()
+            # first (the same call the Stop button itself makes)
+            # before replaying now matches the user's own successful
+            # manual sequence exactly, not just its intent.
+            logger.info(
+                "[Playback] No GStreamer position for %d consecutive ticks -- "
+                "treating as a stuck/broken pipeline; stopping and replaying the current track.",
+                self._consecutive_unknown_elapsed_ticks,
+            )
+
+            self._consecutive_unknown_elapsed_ticks = 0
+
+            self.stop()
+
+            self._playIndex(self._queue_index)
+
+            return
 
         estimated_position = None
 
