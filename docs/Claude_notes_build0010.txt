@@ -12552,3 +12552,108 @@ Both .zip and .ipk built and delivered together. This is 1.1.000
 with the autotag workflow added -- no functional/runtime change to
 the plugin itself, so the version number is not bumped again for
 this round.
+
+---
+
+## Round 159 (2026-09-15) -- GitHub repository content audit and cleanup
+
+The user reported difficulty getting the workflow file pushed (GitHub
+blocks workflow file pushes without a specific elevated permission),
+eventually resolved with GitHub Copilot's help, and asked for a check
+of the resulting repository content against what was actually meant
+to be sent.
+
+### Method
+
+No access to the actual GitHub repository itself -- compared the
+user's own uploaded snapshot of its current content directly against
+the last package this project actually delivered (Plugin_build_0010_99.zip,
+round 158's own final output), using a full recursive diff rather
+than spot-checking individual files.
+
+### A critical bug found: the autotag workflow would have tagged the wrong version
+
+src/__init__.py in the uploaded snapshot read `__version__ = "0.1.0"`
+-- not "1.1.000" -- and project.py had reverted to a hardcoded
+`VERSION = "1.1.000"` rather than round 158's own `from . import
+__version__ as VERSION`. Had this been pushed and triggered, the
+autotag workflow would have created a tag "v0.1.0", completely
+disconnected from the actual 1.1.000 release everywhere else
+(mediaplayer3.bb, README.md, and project.py's own now-independent
+VERSION value) -- and every future version bump would have kept
+drifting further from whatever __init__.py's own separately-tracked
+value happened to be, exactly the failure mode round 158's own single-
+source-of-truth design was meant to prevent in the first place. Likely
+introduced when GitHub Copilot regenerated or reworked these files
+while resolving the workflow-permission issue, from an older or
+template version rather than the actual delivered content.
+
+### Nine stale, already-deleted files found still present
+
+The repository still contained the pre-deletion versions of four
+Python files removed in earlier rounds (developer_screen.py,
+playbackinfo_screen.py -- both round 136; help_manager.py,
+help_screen.py -- both renamed to guide_manager.py/guide_screen.py in
+round 139) plus their own four now-orphaned help documents
+(developerscreen.md, and information.md/player.md/playlist.md, the
+three round 145 merged into the single mainscreen.md) -- confirmed
+these were genuinely the old content, not just similarly-named new
+files, by reading each one's own actual text. This strongly suggests
+an earlier push added new files without removing ones that had been
+deleted in the same rounds, rather than reflecting a true git-tracked
+history of deletions.
+
+### Ten stray translation files found under src/resources/locale/
+
+Both compiled .mo files AND a second, separate copy of the .po
+sources were sitting under src/resources/locale/<lang>/LC_MESSAGES/
+for all five languages -- confirmed by diffing the Finnish copy
+against po/fi.po directly that it was also stale (missing round 153's
+own station-limit warning text and all 61 of round 155's own native-
+help translations entirely). Round 135's own design puts .po sources
+only under po/ at the repo root and never commits compiled .mo files
+at all; both of these violated that directly. Also explains the
+missing .gitignore below -- nothing was in place to stop this.
+
+### Missing .gitignore
+
+The file that should have prevented the .mo half of the above
+mistake was absent from the uploaded snapshot entirely. Restored it,
+and strengthened it further: added a second pattern excluding stray
+.po files under src/resources/locale/ too, specifically because that
+exact mistake had just been found in practice, not merely as a
+hypothetical.
+
+### Rebuilt from the correct baseline rather than patching the snapshot
+
+Extracted the round 158 delivered zip as a clean, known-correct
+baseline and applied only the one genuinely new, legitimate addition
+found in the uploaded snapshot (six screenshot images under docs/
+images/, clearly intended for the README) on top of it, rather than
+trying to patch the flawed snapshot in place -- lower risk of missing
+a second copy of the same mistake elsewhere, since the baseline was
+already confirmed correct end to end in round 158's own testing.
+
+### Left for the user's own decision, not assumed either way
+
+HANDOFF_2026-08-31.md/2026-09-01.md/2026-09-04.md (this project's own
+internal working notes -- program status, direct quotes of programmer
+feedback, in-progress technical reasoning) were absent from the
+uploaded snapshot. Could be a deliberate exclusion (reasonable for a
+public repository going into OpenViX) or an accidental drop during
+the same upload process that produced the other gaps above --
+flagged to the user rather than guessed at either way.
+
+### Testing
+
+Confirmed by direct file inspection (not just filename comparison)
+that each of the nine "stale" files found was genuinely pre-deletion
+content, and that the stray po files were genuinely stale versions,
+before concluding either was a mistake to fix rather than a
+legitimate difference. Confirmed the rebuilt package's own __init__.py/
+project.py read correctly (1.1.000, imported rather than duplicated)
+and that Claude_notes/​.gitignore/.github/workflows/autotag.yml are
+all present and correct in the rebuilt package. Did not have the
+ability to verify the actual live GitHub repository directly, or to
+push a correction to it -- this round's own output is a corrected zip
+for the user to apply themselves.
