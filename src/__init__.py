@@ -33,7 +33,7 @@ All runtime initialisation is handled by plugin.py.
 # VERSION constant imports this value rather than defining its own
 # copy, so there is only one place to update when releasing a new
 # version, not two that could drift out of sync.
-__version__ = "1.1.000"
+__version__ = "1.2.000"
 
 __all__ = ["__version__"]
 

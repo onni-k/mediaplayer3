@@ -14,7 +14,7 @@ preferences.
   menu to confirm it.
 - YELLOW: clear Internet Radio history.
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: save the current configuration.
 - HELP: show the remote control's own button guide.
 - EXIT: save and return to the previous screen.
 

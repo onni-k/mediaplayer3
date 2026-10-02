@@ -59,11 +59,9 @@ nykyinen korostettuna.
   kaikilla kaukosäätimillä tai imageilla).
 - PVR: avaa saman valitsimen kuin OK (Internetradio / Paikallinen
   musiikki / Musiikkikirjasto / Soittolistat / Podcastit).
-- RADIO: vaihda radion ja paikallisen toiston välillä, tai avaa
-  radioasemien haku.
 - SININEN: vaihtaa paneelia Soitin-tilan ja Tiedot-tilan välillä.
 - EPG / INFO: avaa tämän ohjeen.
-- MENU: avaa päävalikko.
+- MENU: avaa asetukset.
 - HELP: näytä kaukosäätimen näppäinopas.
 - EXIT: pysäytä toisto ja palaa suoraan lähetykseen.
 

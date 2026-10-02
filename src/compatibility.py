@@ -452,6 +452,37 @@ class Compatibility:
 
     # ------------------------------------------------------------------
 
+    def hasSqlite3(self) -> bool:
+        """
+        Round 200, per direct request (a local SQLite-backed station
+        database, to replace round 198's own memory-bounded-but-still-
+        slow-to-scan JSONL streaming format for
+        InternetRadioManager's local RadioBrowser database) --
+        sqlite3 is part of the Python standard library, but it is an
+        OPTIONAL extension module even there (a Python build can be
+        compiled without it), and this project's own recipe
+        (mediaplayer3.bb) only declares "python3-core enigma2" as its
+        RDEPENDS -- Yocto/OpenEmbedded's own python3-core does not
+        universally guarantee python3-sqlite3 is present, and this
+        can't be confirmed against every real receiver image this
+        project targets. Checked the same way every other optional
+        capability in this class is (hasBoxInfo() etc.) --
+        InternetRadioManager falls back to the round-198 JSONL
+        implementation whenever this is False, so a receiver without
+        it keeps working exactly as it did before round 200, just
+        without the query-speed improvement.
+        """
+
+        try:
+            import sqlite3  # noqa: F401
+
+            return True
+
+        except ImportError:
+            return False
+
+    # ------------------------------------------------------------------
+
     def hasDeveloperMode(self) -> bool:
         """
         Return whether Developer Mode is currently enabled.
@@ -1426,6 +1457,23 @@ class Compatibility:
 
         except Exception:
             return "Unknown"
+
+    # ------------------------------------------------------------------
+
+    # Round 164: hasOpenViXButtonAddons() (rounds 160-163's own
+    # capability check for Components.Addons.ButtonSequence/
+    # ColorButtonsSequence) removed along with the System Skin
+    # implementation that was its only caller -- three full device-
+    # test rounds found neither widget rendered usably regardless of
+    # configuration, and system_skin was rebuilt around enigma_skin.
+    # py's own skin_adapter instead (standard, cross-image Enigma2
+    # APIs, degrading to this project's own fallback colours on their
+    # own rather than needing an all-or-nothing capability gate at
+    # all). The investigation itself -- confirming these are genuine,
+    # OpenViX-only additions, and that getImageName()'s own
+    # "displaybrand" can't tell platforms apart -- remains recorded in
+    # Claude_notes_build0010.txt (rounds 160-164) for anyone
+    # reconsidering this approach later.
 
     # ------------------------------------------------------------------
 

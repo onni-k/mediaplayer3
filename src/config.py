@@ -214,6 +214,13 @@ class ConfigBrowsePath(ConfigSelection):
     Enigma2 (a fixed-choice cycler, not free text), which shouldn't
     trigger a text-entry hint at all.
 
+    Round 196: this single-choice design also had two further, more
+    serious consequences not caught until now -- see setValue()'s own
+    comment below for the real, confirmed root cause of values not
+    surviving an Enigma2 restart, and load()'s own comment for a
+    second, related fix needed once the first one lets a real value
+    reach disk at all.
+
     NOTE: this is a best-effort attempt based on general Enigma2
     knowledge, not confirmed against this project's own real device
     testing -- the exact mechanism behind the hint bar wasn't
@@ -231,16 +238,93 @@ class ConfigBrowsePath(ConfigSelection):
 
     def __init__(self, default: str = ""):
 
+        # Round 196: kept separately from self.default (which
+        # setValue() below now deliberately does NOT touch) so that
+        # this instance always remembers its own original,
+        # compile-time default even after the value has been changed
+        # any number of times at runtime -- see setValue()'s own
+        # comment for why that distinction turned out to matter.
+        self._compile_time_default = default
+
         ConfigSelection.__init__(self, choices=[(default, default)], default=default)
 
     def setValue(self, new_value: str) -> None:
 
-        # Re-runs __init__ with the new single choice rather than
-        # poking at ConfigSelection's own internal attributes
-        # directly -- more robust against exactly which attributes
-        # those are, since __init__ is guaranteed to set up whatever
-        # internal state a freshly-constructed instance needs.
-        ConfigSelection.__init__(self, choices=[(new_value, new_value)], default=new_value)
+        # Round 196, per direct report (still reproduced against
+        # 1.1.037, which already contained the round-196 load() fix
+        # below on its own -- proof that fix alone was not the real
+        # root cause): re-examined against a second uploaded device
+        # log plus the exact call sites that actually invoke this
+        # setter (browserscreen.py's own _setConfigDirectory(), which
+        # calls `target_config.value = ...` immediately followed by
+        # `target_config.save()`).
+        #
+        # The version of this method shipped since round 104 rebuilt
+        # BOTH self.choices AND self.default around new_value on every
+        # call. That made self.value == self.default true immediately
+        # after every single change -- but Components.config's own
+        # ConfigElement.save() (inherited, never overridden here)
+        # exists specifically to skip persisting a value that equals
+        # self.default (nothing to save if it's still the default).
+        # So every real, user-picked change was immediately
+        # self-sabotaged: by the time save() ran, this object's own
+        # default had already been silently moved to match it,
+        # save() concluded nothing had changed, and never wrote
+        # anything to disk at all -- independent of, and prior to,
+        # anything load() does at the next restart. This explains why
+        # the round-196 load() fix alone didn't help: there was never
+        # a real saved value on disk for it to restore in the first
+        # place.
+        #
+        # Fixed by rebuilding choices/value the same way as before
+        # (still the simplest way to get a categorically-typed,
+        # single-effective-choice ConfigSelection, and still exactly
+        # what OK-triggered browsing needs), but leaving self.default
+        # itself alone afterwards, restored to this instance's own
+        # ORIGINAL compile-time default -- so save()'s own
+        # value-vs-default check can actually see a real change again.
+        ConfigSelection.__init__(
+            self,
+            choices=[(new_value, new_value), (self._compile_time_default, self._compile_time_default)],
+            default=new_value,
+        )
+
+        self.default = self._compile_time_default
+
+    def load(self) -> None:
+
+        # Round 196: ConfigSelection's own load() (the method
+        # Enigma2's config-file loading machinery calls to pull a
+        # previously SAVED value back into a freshly-constructed
+        # element) checks the loaded string against self.choices and
+        # falls back to self.default whenever it isn't an exact
+        # member of that list. __init__ above only ever puts this
+        # instance's own compile-time default in self.choices at
+        # construction time -- so, now that setValue() above actually
+        # lets a real, different value reach disk (see its own
+        # comment), that value still needs a way back in past this
+        # check on the NEXT restart, when a brand new instance is
+        # constructed with the same narrow choices list all over
+        # again. Rebuilds choices/value around the saved value here,
+        # the same way setValue() does for the runtime picker-flow
+        # path, rather than letting the inherited load() reject it.
+        #
+        # NOTE: this is a best-effort fix based on general Enigma2
+        # knowledge of Components.config.ConfigSelection's own load()
+        # implementation, not confirmed against this project's own
+        # real device testing -- Components.config isn't available in
+        # this development sandbox to test against directly.
+        sv = self.saved_value
+
+        if sv is not None and sv != self.value:
+            ConfigSelection.__init__(
+                self,
+                choices=[(sv, sv), (self._compile_time_default, self._compile_time_default)],
+                default=sv,
+            )
+            self.default = self._compile_time_default
+        else:
+            ConfigSelection.load(self)
 
     value = property(ConfigSelection.getValue, setValue)
 
@@ -406,6 +490,35 @@ cfg.ui.show_playback_state = ConfigYesNoLocalized(
     default=True
 )
 
+# Round 208, per direct request ("Asetuksiin voidaan lisätä kohdat
+# Näytä ylempi ohjerivi (Oletuksena: Kyllä)"): the two-row hint bar
+# (system_skin/Light/Dark, since round 204/205) stacks a text row
+# (OK/MENU/EPG-INFO/HELP/EXIT) above the genuinely-bound colour-
+# button row. This toggles only that upper text row off -- the
+# colour-button row and its own icons stay exactly as before either
+# way, since that row alone already fully identifies every action
+# without the text row's help. On by default (unchanged look from
+# every prior round unless the user explicitly turns it off).
+#
+# Round 209, per direct device-log report ("kun valitsee älä näytä
+# ylempää ohjeriviä, niin Vintage radio skinillä se kuitenkin näkyy"
+# -- Vintage Radio's own hint bar still showed the text row with this
+# off): corrects this comment's own original claim below -- Vintage
+# Radio's own MainScreen hint bar branch turns out to have the exact
+# same two-tier shape as Light/Dark's (an OK/MENU/EPG-INFO/HELP/EXIT
+# text row sitting above a genuinely separate RED/GREEN/YELLOW/BLUE
+# icon+label row, not a single combined row), so it's now wired into
+# this setting too (mainscreen.py's own round 209 comment). Test
+# Skin's own MainScreen hint bar, by contrast, genuinely is a single
+# row with no separate colour-button row at all -- there's truly no
+# "upper row" to hide there, so it alone still ignores this setting.
+# The other 6 screens never gave Vintage Radio (or Test Skin) a
+# two-row treatment of their own to begin with -- both share those
+# screens' plain single-row fallback layout, unaffected either way.
+cfg.ui.show_hint_text_row = ConfigYesNoLocalized(
+    default=True
+)
+
 # ------------------------------------------------------------------------------
 # Appearance (Build 0006 -- SKIN_MANAGER_SPEC.md / THEME_SPEC.md)
 # ------------------------------------------------------------------------------
@@ -428,6 +541,23 @@ cfg.appearance.skin = ConfigSelection(
         # palette dicts in every screen. Editing Test Skin further
         # from here on has no effect on this one, and vice versa.
         ("vintage_radio", "Vintage Radio"),
+        # Round 164 added "System Skin" here -- an experimental skin
+        # whose hint bar colours adapted to the active Enigma2 skin,
+        # via enigma_skin.py's own skin_adapter. Round 208, per direct
+        # request ("kun molemmat toimii, niin voidaan poistaa system
+        # skin" -- once Light's and Dark's own two-row hint bar,
+        # adopted from System Skin in rounds 204-207, were both
+        # confirmed working on a real device): removed as a selectable
+        # choice. Anyone whose saved appearance.skin is still literally
+        # "system_skin" from an older build falls straight through to
+        # Light automatically the moment it's no longer a recognised
+        # choice here -- every screen's own _resolve*SkinVariant()
+        # already has this exact fallback built in (see e.g.
+        # browserscreen.py's own _resolveBrowserSkinVariant()), so no
+        # separate migration step is needed. enigma_skin.py's own
+        # skin_adapter mechanism itself is left in place, unused for
+        # now -- nothing currently reads it, but removing it isn't
+        # part of what was asked for this round.
     ],
 )
 
@@ -548,6 +678,25 @@ cfg.radio.history_size = ConfigInteger(
 # launch, not via a global hardware key from outside the plugin.
 cfg.radio.resume_on_start = ConfigYesNoLocalized(
     default=False
+)
+
+# Round 208, per direct request ("soita edellinen radiokanava
+# automaattisesti (Oletuksena: Kyllä). Näin voi vaikuttaa että kun
+# valitsee internetradion, niin lähteekö soittamaan edellistä kanavaa
+# vai meneekä kanavien hakulistaan" -- lets the user control whether
+# choosing Internet Radio from the source-selection menu (GREEN/PVR/
+# the startup chooser's own "Internet Radio" entry -- MainScreen's
+# own _startRadioMode()) auto-plays the most recent history/favourite
+# station, or opens RadioBrowserScreen's own channel search/browse
+# list straight away instead). Distinct from radio.resume_on_start
+# above, which only ever fires once, automatically, the moment
+# MediaPlayer3 itself launches -- this instead governs every later
+# explicit "Internet Radio" selection during the same session. On by
+# default, preserving _startRadioMode()'s own existing behaviour
+# (history -> General favourite -> search) exactly as before unless
+# the user explicitly turns it off.
+cfg.radio.auto_resume_on_select = ConfigYesNoLocalized(
+    default=True
 )
 
 # Build 0009, device test round 11 -- use ExtEplayer3 (FFmpeg-based)
@@ -721,6 +870,7 @@ _ENTRIES: Dict[str, Any] = {
     "ui.show_elapsed_time": cfg.ui.show_elapsed_time,
     "ui.show_remaining_time": cfg.ui.show_remaining_time,
     "ui.show_playback_state": cfg.ui.show_playback_state,
+    "ui.show_hint_text_row": cfg.ui.show_hint_text_row,
 
     "appearance.skin": cfg.appearance.skin,
     "appearance.theme": cfg.appearance.theme,
@@ -733,6 +883,7 @@ _ENTRIES: Dict[str, Any] = {
     "radio.navigation_mode": cfg.radio.navigation_mode,
     "radio.history_size": cfg.radio.history_size,
     "radio.resume_on_start": cfg.radio.resume_on_start,
+    "radio.auto_resume_on_select": cfg.radio.auto_resume_on_select,
     "radio.use_exteplayer3": cfg.radio.use_exteplayer3,
     "radio.database_auto_update": cfg.radio.database_auto_update,
     "radio.database_update_interval_days": cfg.radio.database_update_interval_days,

@@ -146,6 +146,7 @@ from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.MenuList import MenuList
 from Components.Pixmap import Pixmap
+from Components.Sources.StaticText import StaticText
 from Screens.ChoiceBox import ChoiceBox
 from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
@@ -158,10 +159,10 @@ from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_p
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .internetradio_manager import APP_LANGUAGE_TO_RADIOBROWSER_NAME, internetradio_manager
+from .paths import BUTTON_ICON_PATH
 from .skin import resolve_skin_asset_path, to_opaque_skin_color
 from .localization import _, getCurrentLanguage
 from .logger import logger
-from .mainmenu import MainMenu
 
 # Build 0010, device test round 16 -- user request: "Internetradion
 # kohdalla riittää, että vaihtaa järjestyksen keskimmäiseen kieli ja
@@ -184,6 +185,24 @@ PAGE_STEP = 15
 # station passed through; short enough to still feel responsive once
 # the user does stop somewhere.
 CODEC_LOG_DEBOUNCE_MS = 700
+
+# Round 199, per direct report + a real device log showing exactly
+# this: browsing the Region/Language column used to fire a full
+# _runSearchWithStatus() (round 198's own streaming local-database
+# search, still a real, measurable amount of work against a 59000+-
+# line stations.jsonl -- see search()'s own comment) synchronously on
+# EVERY single selection change, with no debounce at all -- unlike
+# the Stations column's own CODEC_LOG_DEBOUNCE_MS above. Pressing
+# UP/DOWN repeatedly to browse the list therefore fired one search per
+# keypress, each one blocking the UI for however long that scan took,
+# stacking up into exactly the "selaaminen on hidasta" (browsing is
+# slow) symptom reported. Same restart-based debounce pattern as
+# CODEC_LOG_DEBOUNCE_MS: only search once the selection has actually
+# settled for this long, so scrolling quickly through Region/Language
+# fires at most one search, for whichever entry the user stopped on --
+# not one per entry passed through. 1000ms per direct request ("n. 1
+# s viive").
+REGION_LANGUAGE_SEARCH_DEBOUNCE_MS = 1000
 
 # Device test round 29 -- user request: "Kun tulee takaisin toiminolla
 # soittimesta radiobrowseriin, niin siina voisi sailya edellinen haku-
@@ -361,6 +380,195 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         def font(size):
             return f'font="Bold;{max(10, int(size * sx))}"'
 
+        # Round 192, per direct request: see browserscreen.py's own
+        # round 192 comment for the full reasoning -- same two-row
+        # system_skin hint bar, adapted to this screen's own genuinely-
+        # bound colour keys (only GREEN/YELLOW -- RED/BLUE aren't
+        # bound here, confirmed by grepping this screen's own actions
+        # dict, so no red/blue buttonTemplatePanel() call is made).
+        # Round 204, per direct request ("Seuraavaksi voidaan
+        # muuttaa system skin sellaisenaan ligt skiniin ja tehda
+        # siita myos tumma versio dark-skiniin" -- adopt system_
+        # skin's own two-row hint bar as Light's new default
+        # layout, and build an equivalent for Dark too): light and
+        # dark now route into this same branch. Their own
+        # resources/skins/{light,dark}/{hd,sd}/*.png background
+        # files were regenerated this round to match -- the exact
+        # same geometric transformation already used to build
+        # system_skin's own images from Light's (round 193),
+        # verified against system_skin's own shipped files and
+        # applied losslessly (a byte-identical flat run in each
+        # content panel's own background was trimmed, not any
+        # visible content). system_skin itself is intentionally
+        # left in this condition too, not yet removed: the user
+        # asked for it to be removed only once both Light's and
+        # Dark's new two-row layouts are confirmed working on a
+        # real device.
+        if self._skin_variant in ("light", "dark"):
+
+            hint_color = palette["hint_fg"]
+
+            # Round 208, per direct request ("Nayta ylempi ohjerivi
+            # (Oletuksena: Kylla)" -- let the user hide the upper
+            # text row above the colour-button row): mirrors
+            # mainscreen.py's own round 208 addition exactly -- see
+            # its comment there for the full reasoning. The colour-
+            # button row itself is untouched either way.
+            show_hint_text = config_manager.get("ui.show_hint_text_row", True)
+
+            def buttonTemplatePanel(color_name, x, y, width=280):
+
+                icon_size = 30
+                text_offset = 38
+                return (
+                    f'<panel position="{int(x * sx)},{int(y * sy)}" '
+                    f'size="{int(width * sx)},{int(40 * sy)}">'
+                    f'<panel position="0,0" '
+                    f'size="{int(icon_size * sx)},{int(icon_size * sy)}">'
+                    f'<panel name="__ButtonGraphic{color_name.capitalize()}__"/>'
+                    f"</panel>"
+                    f'<widget source="key_{color_name}" render="Label" '
+                    f'position="{int(text_offset * sx)},0" '
+                    f'size="{int((width - text_offset) * sx)},{int(40 * sy)}" '
+                    f'font="Bold;{max(10, int(19 * sx))}" '
+                    f'valign="center" halign="left" '
+                    f'foregroundColor="{hint_color}" transparent="1"/>'
+                    f"</panel>"
+                )
+
+            def bundledIcon(name, x_px, y):
+
+                path = os.path.join(BUTTON_ICON_PATH, f"key_{name}.png")
+                return (
+                    f'<widget name="hint_icon_{name}" '
+                    f'position="{int(x_px)},{int(y * sy)}" '
+                    f'size="35,25" '
+                    f'pixmap="{path}" alphatest="blend" transparent="1"/>'
+                )
+
+            column_x = [96, 437, 779, 1120]
+            x_ok, x_menu, x_info, x_help = column_x
+
+            icon_w, icon_h = 35, 25
+            icon_gap = 6
+            cluster_width = icon_w * 5 + icon_gap * 4
+            right_margin = 40
+            x_icon_ok = max(0, width - right_margin - cluster_width)
+            x_icon_menu = x_icon_ok + icon_w + icon_gap
+            x_icon_info = x_icon_menu + icon_w + icon_gap
+            x_icon_help = x_icon_info + icon_w + icon_gap
+            x_icon_exit = x_icon_help + icon_w + icon_gap
+
+            x_exit = (x_icon_ok / sx) if sx else x_icon_ok
+
+            hint_text_row_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(x_ok, 846, 210, 35)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(x_menu, 846, 300, 35)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(x_info, 846, 300, 35)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(x_help, 846, 210, 35)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(x_exit, 846, 190, 35)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+            """ if show_hint_text else ""
+
+            hint_bar_xml = f"""
+            {hint_text_row_xml}
+
+            {buttonTemplatePanel("green", x_menu, 881)}
+
+            {buttonTemplatePanel("yellow", x_info, 881)}
+
+            {bundledIcon("ok", x_icon_ok, 881)}
+
+            {bundledIcon("menu", x_icon_menu, 881)}
+
+            {bundledIcon("info", x_icon_info, 881)}
+
+            {bundledIcon("help", x_icon_help, 881)}
+
+            {bundledIcon("exit", x_icon_exit, 881)}
+            """
+
+        else:
+
+            hint_bar_xml = f"""
+            <widget name="hint_text_leftright"
+                    {rect(74, 874, 249, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(373, 874, 200, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_chpage"
+                    {rect(623, 874, 159, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(832, 874, 141, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(1023, 874, 128, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(1201, 874, 163, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1414, 874, 155, 63)}
+                    font="Bold;{max(10, int(20 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """
+
         return f"""
         <screen name="MediaPlayer3RadioBrowserScreen"
                 position="0,0"
@@ -470,54 +678,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
                     backgroundColor="#B00000"
                     foregroundColor="#FFFFFF"/>
 
-            <widget name="hint_text_leftright"
-                    {rect(74, 874, 249, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_updown"
-                    {rect(373, 874, 200, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_chpage"
-                    {rect(623, 874, 159, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_ok"
-                    {rect(832, 874, 141, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_info"
-                    {rect(1023, 874, 128, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_menu"
-                    {rect(1201, 874, 163, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_exit"
-                    {rect(1414, 874, 155, 63)}
-                    font="Bold;{max(10, int(20 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
+            {hint_bar_xml}
 
         </screen>
         """
@@ -614,8 +775,31 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         self["hint_text_chpage"] = Label(_("CH+/CH-: Page"))
         self["hint_text_ok"] = Label(_("OK: Options"))
         self["hint_text_info"] = Label(_("INFO: Information"))
-        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        # Round 190: "MENU: Settings" -- menuPressed() now opens
+        # SettingsScreen directly, Main Menu is gone.
+        self["hint_text_menu"] = Label(_("MENU: Settings"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
+
+        # Round 192, per direct request: see browserscreen.py's own
+        # round 192 comment -- these feed system_skin's own new
+        # colour-button row (_buildSkin()'s new system_skin branch).
+        # RED/BLUE have no matching key_<color> source here since
+        # neither is genuinely bound on this screen (confirmed by
+        # grepping this file's own actions dict) -- only GREEN/
+        # YELLOW's colour panels are built in that branch.
+        self["key_green"] = StaticText(_("Add to Favorites"))
+        self["key_yellow"] = StaticText(_("Search"))
+
+        # Round 192: see browserscreen.py's own round 192 comment --
+        # mainscreen.py's own round 167 precedent (a skin.SkinError
+        # crash) requires a matching self["hint_icon_<name>"]
+        # component for each of system_skin's own new bundledIcon()
+        # widgets.
+        self["hint_icon_ok"] = Pixmap()
+        self["hint_icon_menu"] = Pixmap()
+        self["hint_icon_info"] = Pixmap()
+        self["hint_icon_help"] = Pixmap()
+        self["hint_icon_exit"] = Pixmap()
 
         actions = {
             "ok": self.okPressed,
@@ -679,7 +863,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
             self.focusNext: _("move to the next column"),
             self.moveUp: _("move up"),
             self.moveDown: _("move down"),
-            self.menuPressed: _("open the menu"),
+            self.menuPressed: _("open settings"),
             self.pageUp: _("page up"),
             self.pageDown: _("page down"),
             self.searchByName: _("search by name"),
@@ -741,6 +925,13 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         self._codec_log_timer = eTimer()
 
         self._codec_log_timer.callback.append(self._logSelectedStationCodec)
+
+        # Round 199 -- see REGION_LANGUAGE_SEARCH_DEBOUNCE_MS's own
+        # comment above. Same restart-on-every-selection-change pattern
+        # as _codec_log_timer just above.
+        self._region_language_search_timer = eTimer()
+
+        self._region_language_search_timer.callback.append(self._runSearchWithStatus)
 
         self._initial_load_timer.start(10, True)
 
@@ -1152,7 +1343,16 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
             _last_language_name = self._selectedLanguage()
 
-            self._runSearchWithStatus()
+            # Round 199 -- restart, not just start: an eTimer already
+            # running when start() is called again keeps counting from
+            # the new call, the same debounce behaviour
+            # CODEC_LOG_DEBOUNCE_MS already relies on above. Only
+            # actually searches once the Region/Language selection has
+            # settled on one entry for REGION_LANGUAGE_SEARCH_DEBOUNCE_MS
+            # -- browsing quickly through the column no longer fires a
+            # search (each one a real, measurable scan of the local
+            # station database) per keypress.
+            self._region_language_search_timer.start(REGION_LANGUAGE_SEARCH_DEBOUNCE_MS, True)
 
     # ------------------------------------------------------------------
 
@@ -1546,8 +1746,21 @@ class RadioBrowserScreen(Screen, HelpableScreen):
             (_("Station Information"), "information"),
             (_("Update stations"), "update_database"),
             (_("Clear station list"), "clear_database"),
-            (_("Cancel"), "cancel"),
         ]
+
+        # Round 201, per direct user request following a device log
+        # showing "SQLite not available on this receiver": offered only
+        # when this receiver's Python build actually lacks sqlite3 --
+        # compatibility.hasSqlite3() is cached for the process lifetime
+        # (see internetradio_manager.installSqliteSupport()'s own
+        # comment), so a receiver that already has it never sees this
+        # entry at all, and one that installs it here still sees it
+        # until Enigma2 is restarted.
+        if not compatibility.hasSqlite3():
+
+            choices.append((_("Install SQLite support (faster search)"), "install_sqlite"))
+
+        choices.append((_("Cancel"), "cancel"))
 
         self.session.openWithCallback(
             lambda choice: self._stationMenuChosen(choice, station),
@@ -1635,6 +1848,24 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
             self._default_country = entry_name
 
+        # Round 196, per direct report (radio default country/language
+        # not surviving an Enigma2 restart): config_manager.set() above
+        # only ever updates the in-memory value -- unlike
+        # browserscreen.py's own _setConfigDirectory() (used for
+        # startup_directory/scan_directory), nothing here previously
+        # called config_manager.save() afterwards, so this value was
+        # only ever actually written to disk if the user happened to
+        # separately visit SettingsScreen and press MENU/EXIT there
+        # (the only other place that calls it) before the next
+        # restart. Saving immediately here, matching
+        # _setConfigDirectory()'s own already-established pattern,
+        # removes that dependency on an unrelated screen's own exit
+        # path -- on top of, and independent from, the ConfigBrowsePath
+        # setValue() fix in config.py that was needed regardless, since
+        # a save() call was never enough by itself to persist a value
+        # whose own default had already been silently moved to match it.
+        config_manager.save()
+
         self._log(f"Radio default {widget_name} set to: {entry_name}")
 
         # Re-promotes the just-configured default to position 2 (right
@@ -1694,6 +1925,75 @@ class RadioBrowserScreen(Screen, HelpableScreen):
                 _("Clear the local station database?"),
                 MessageBox.TYPE_YESNO,
             )
+
+        elif action == "install_sqlite":
+
+            self._offerInstallSqlite()
+
+    # ------------------------------------------------------------------
+
+    def _offerInstallSqlite(self) -> None:
+        """
+        Round 201. Companion to the ipk's own opkg dependency
+        (mediaplayer3.bb/ipkbuild/control/control, both now declaring
+        python3-sqlite3) for anyone already running a build from
+        before that was added -- see internetradio_manager.
+        installSqliteSupport()'s own comment for the full rationale.
+        """
+
+        self.session.openWithCallback(
+            self._installSqliteChoiceMade,
+            MessageBox,
+            _("Install SQLite support now? This downloads a small package "
+              "(python3-sqlite3) using opkg and requires an internet "
+              "connection. A full receiver restart (not just closing this "
+              "plugin) is needed afterwards for it to take effect."),
+            MessageBox.TYPE_YESNO,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _installSqliteChoiceMade(self, confirmed) -> None:
+
+        if not confirmed:
+            return
+
+        self["status"].setText(_("Installing SQLite support, please wait..."))
+
+        self._sqlite_install_timer = eTimer()
+
+        self._sqlite_install_timer.callback.append(self._performSqliteInstall)
+
+        self._sqlite_install_timer.start(10, True)
+
+    # ------------------------------------------------------------------
+
+    def _performSqliteInstall(self) -> None:
+
+        success, message = internetradio_manager.installSqliteSupport()
+
+        if success:
+
+            self.session.open(
+                MessageBox,
+                _("SQLite support installed. Restart your receiver (not just "
+                  "this plugin) for faster station search to take effect."),
+                MessageBox.TYPE_INFO,
+            )
+
+        else:
+
+            self.session.open(
+                MessageBox,
+                _("Installing SQLite support failed:\n%s") % message,
+                MessageBox.TYPE_WARNING,
+            )
+
+        self["status"].setText("")
+
+        self._reloadFilters()
+
+        self._runSearchWithStatus()
 
     # ------------------------------------------------------------------
 
@@ -1847,19 +2147,21 @@ class RadioBrowserScreen(Screen, HelpableScreen):
     # ------------------------------------------------------------------
 
     def menuPressed(self) -> None:
+        """
+        Round 190, per direct request (Main Menu removed entirely --
+        see mainscreen.py's own round 190 comment on menuPressed()):
+        opens SettingsScreen directly instead of Main Menu, then
+        simply returns here on close. Imported locally, not at module
+        level, because settingsscreen.py itself already imports
+        RadioBrowserScreen (for its own unrelated feature) -- a
+        module-level import here would be a circular import.
+        """
 
         logger.verbose("[RadioBrowser] MENU pressed.")
 
-        self.session.openWithCallback(self._mainMenuCallback, MainMenu)
+        from .settingsscreen import SettingsScreen
 
-    # ------------------------------------------------------------------
-
-    def _mainMenuCallback(self, action_id=None) -> None:
-
-        if action_id in (None, "exit", "radio"):
-            return
-
-        self.close(action_id)
+        self.session.open(SettingsScreen)
 
     # ------------------------------------------------------------------
 

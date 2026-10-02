@@ -146,8 +146,7 @@ from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .localization import _
 from .logger import logger
-from .mainmenu import MainMenu
-from .paths import ensure_trailing_slash
+from .paths import ensure_trailing_slash, BUTTON_ICON_PATH
 from .coverart_manager import coverart_manager
 from .lrclib_manager import lrclib_manager
 from .playlist_manager import playlist_manager
@@ -363,6 +362,223 @@ class BrowserScreen(Screen, HelpableScreen):
         def font(size):
             return f'font="Bold;{max(10, int(size * sx))}"'
 
+        # Round 192, per direct request ("Seuraavaksi voidaan muuttaa
+        # system skinin taustakuva myös internetradion, paikallisen
+        # musiikin, musiikkikirjaston, soittolistojen ja podcastien
+        # osalta, että saadaan kaikkiin alaosaan 2-rivinen ohje" --
+        # give this screen the same two-row hint bar MainScreen's own
+        # system_skin already has, confirmed via a follow-up question
+        # to mean the FULL MainScreen-style treatment: this screen's
+        # own genuinely-bound colour buttons in a row of their own,
+        # under an OK/MENU/EPG-INFO/HELP/EXIT bundled-icon cluster,
+        # not just this screen's existing single-row hints split
+        # across two lines). Mirrors mainscreen.py's own system_skin
+        # branch almost exactly -- same buttonTemplatePanel()/
+        # bundledIcon() helpers, same bundled 35x25 icon files, same
+        # real-screen-pixel icon cluster anchored to the right edge
+        # (see mainscreen.py's own rounds 184-187 for why) -- adapted
+        # to this screen's own DESIGN_WIDTH/HEIGHT (1672x941, not
+        # MainScreen's 1808x1024): column_x/row y values below are
+        # this screen's own, not copied numbers, but the SAME
+        # structure. No content-panel shortening was needed here
+        # (unlike MainScreen's own round 170) -- this screen's lowest
+        # panel ("info", ending at y=792) already sits comfortably
+        # above the new two-row bar's own start (y=846), which
+        # MainScreen's single full-height panel never did.
+        # Round 204, per direct request ("Seuraavaksi voidaan
+        # muuttaa system skin sellaisenaan ligt skiniin ja tehda
+        # siita myos tumma versio dark-skiniin" -- adopt system_
+        # skin's own two-row hint bar as Light's new default
+        # layout, and build an equivalent for Dark too): light and
+        # dark now route into this same branch. Their own
+        # resources/skins/{light,dark}/{hd,sd}/*.png background
+        # files were regenerated this round to match -- the exact
+        # same geometric transformation already used to build
+        # system_skin's own images from Light's (round 193),
+        # verified against system_skin's own shipped files and
+        # applied losslessly (a byte-identical flat run in each
+        # content panel's own background was trimmed, not any
+        # visible content). system_skin itself is intentionally
+        # left in this condition too, not yet removed: the user
+        # asked for it to be removed only once both Light's and
+        # Dark's new two-row layouts are confirmed working on a
+        # real device.
+        if self._skin_variant in ("light", "dark"):
+
+            hint_color = palette["hint_fg"]
+
+            # Round 208, per direct request ("Nayta ylempi ohjerivi
+            # (Oletuksena: Kylla)" -- let the user hide the upper
+            # text row above the colour-button row): mirrors
+            # mainscreen.py's own round 208 addition exactly -- see
+            # its comment there for the full reasoning. The colour-
+            # button row itself is untouched either way.
+            show_hint_text = config_manager.get("ui.show_hint_text_row", True)
+
+            def buttonTemplatePanel(color_name, x, y, width=280):
+
+                icon_size = 30
+                text_offset = 38
+                return (
+                    f'<panel position="{int(x * sx)},{int(y * sy)}" '
+                    f'size="{int(width * sx)},{int(40 * sy)}">'
+                    f'<panel position="0,0" '
+                    f'size="{int(icon_size * sx)},{int(icon_size * sy)}">'
+                    f'<panel name="__ButtonGraphic{color_name.capitalize()}__"/>'
+                    f"</panel>"
+                    f'<widget source="key_{color_name}" render="Label" '
+                    f'position="{int(text_offset * sx)},0" '
+                    f'size="{int((width - text_offset) * sx)},{int(40 * sy)}" '
+                    f'font="Bold;{max(10, int(19 * sx))}" '
+                    f'valign="center" halign="left" '
+                    f'foregroundColor="{hint_color}" transparent="1"/>'
+                    f"</panel>"
+                )
+
+            def bundledIcon(name, x_px, y):
+
+                path = os.path.join(BUTTON_ICON_PATH, f"key_{name}.png")
+                return (
+                    f'<widget name="hint_icon_{name}" '
+                    f'position="{int(x_px)},{int(y * sy)}" '
+                    f'size="35,25" '
+                    f'pixmap="{path}" alphatest="blend" transparent="1"/>'
+                )
+
+            column_x = [96, 437, 779, 1120]
+            x_ok, x_menu, x_info, x_help = column_x
+
+            icon_w, icon_h = 35, 25
+            icon_gap = 6
+            cluster_width = icon_w * 5 + icon_gap * 4
+            right_margin = 40
+            x_icon_ok = max(0, width - right_margin - cluster_width)
+            x_icon_menu = x_icon_ok + icon_w + icon_gap
+            x_icon_info = x_icon_menu + icon_w + icon_gap
+            x_icon_help = x_icon_info + icon_w + icon_gap
+            x_icon_exit = x_icon_help + icon_w + icon_gap
+
+            x_exit = (x_icon_ok / sx) if sx else x_icon_ok
+
+            hint_text_row_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(x_ok, 846, 210, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(x_menu, 846, 300, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(x_info, 846, 300, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(x_help, 846, 210, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(x_exit, 846, 190, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+            """ if show_hint_text else ""
+
+            hint_bar_xml = f"""
+            {hint_text_row_xml}
+
+            {buttonTemplatePanel("red", x_ok, 881)}
+
+            {buttonTemplatePanel("green", x_menu, 881)}
+
+            {buttonTemplatePanel("yellow", x_info, 881)}
+
+            {buttonTemplatePanel("blue", x_help, 881, width=260)}
+
+            {bundledIcon("ok", x_icon_ok, 881)}
+
+            {bundledIcon("menu", x_icon_menu, 881)}
+
+            {bundledIcon("info", x_icon_info, 881)}
+
+            {bundledIcon("help", x_icon_help, 881)}
+
+            {bundledIcon("exit", x_icon_exit, 881)}
+            """
+
+        else:
+
+            hint_bar_xml = f"""
+            <widget name="hint_text_leftright"
+                    {rect(67, 874, 207, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_updown"
+                    {rect(313, 874, 170, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_ok"
+                    {rect(522, 874, 135, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_play"
+                    {rect(696, 874, 108, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(843, 874, 227, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(1109, 874, 106, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(1254, 874, 138, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1431, 874, 132, 63)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """
+
         return f"""
         <screen name="MediaPlayer3BrowserScreen"
                 position="0,0"
@@ -464,61 +680,7 @@ class BrowserScreen(Screen, HelpableScreen):
                     foregroundColor="{palette['info_label_fg']}"
                     {info_background_attr}/>
 
-            <widget name="hint_text_leftright"
-                    {rect(67, 874, 207, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_updown"
-                    {rect(313, 874, 170, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_ok"
-                    {rect(522, 874, 135, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_play"
-                    {rect(696, 874, 108, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_info"
-                    {rect(843, 874, 227, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_help"
-                    {rect(1109, 874, 106, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_menu"
-                    {rect(1254, 874, 138, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_exit"
-                    {rect(1431, 874, 132, 63)}
-                    font="Bold;{max(10, int(17 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
+            {hint_bar_xml}
 
         </screen>
         """
@@ -646,7 +808,9 @@ class BrowserScreen(Screen, HelpableScreen):
         self["hint_text_play"] = Label(_("PLAY: Play"))
         self["hint_text_info"] = Label(_("GREEN: Add/Select"))
         self["hint_text_help"] = Label(_("HELP: Help"))
-        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        # Round 190: "MENU: Settings" -- menuPressed() now opens
+        # SettingsScreen directly, Main Menu is gone.
+        self["hint_text_menu"] = Label(_("MENU: Settings"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
 
         # Round 134, per direct programmer feedback (see
@@ -664,6 +828,31 @@ class BrowserScreen(Screen, HelpableScreen):
         # now rather than duplicating that logic here too.
         self["key_green"] = StaticText(_("Add/Select"))
         self["key_red"] = StaticText(_("Remove"))
+
+        # Round 192, per direct request (extending system_skin's own
+        # two-row hint bar -- see _buildSkin()'s new system_skin
+        # branch -- to this screen): YELLOW/BLUE's own colour-button
+        # panels there need the same "key_<color>" StaticText source
+        # every other colour button already uses. Text matches
+        # yellowPressed()/bluePressed()'s own existing "move up"/
+        # "move down" help description below.
+        self["key_yellow"] = StaticText(_("Move Up"))
+        self["key_blue"] = StaticText(_("Move Down"))
+
+        # Round 192: mainscreen.py's own round 167 precedent ("a skin
+        # defining a widget Python never created fails outright" --
+        # skin.SkinError, a real confirmed crash) applies here too --
+        # system_skin's own new bundledIcon()-generated <widget
+        # name="hint_icon_<name>"> elements (_buildSkin()'s new
+        # system_skin branch) each need a matching Python-side
+        # self["hint_icon_<name>"] component, harmless on every other
+        # variant, whose own skin XML never references these five
+        # names at all.
+        self["hint_icon_ok"] = Pixmap()
+        self["hint_icon_menu"] = Pixmap()
+        self["hint_icon_info"] = Pixmap()
+        self["hint_icon_help"] = Pixmap()
+        self["hint_icon_exit"] = Pixmap()
 
         self._reloadDirectoryColumn()
 
@@ -747,7 +936,7 @@ class BrowserScreen(Screen, HelpableScreen):
             self.focusNext: _("move to the next column"),
             self.moveUp: _("move up"),
             self.moveDown: _("move down"),
-            self.menuPressed: _("open the menu"),
+            self.menuPressed: _("open settings"),
             self.pageUp: _("page up"),
             self.pageDown: _("page down"),
             self.greenPressed: _("add to playlist (or select playlist in the Playlist column)"),
@@ -2275,21 +2464,28 @@ class BrowserScreen(Screen, HelpableScreen):
     # ------------------------------------------------------------------
 
     def menuPressed(self) -> None:
+        """
+        Round 190, per direct request (Main Menu removed entirely --
+        see mainscreen.py's own round 190 comment on menuPressed()):
+        opens SettingsScreen directly instead of Main Menu, then
+        simply returns here on close -- BrowserScreen's own MENU had
+        never actually been wired to navigate anywhere else anyway
+        (the old _mainMenuCallback() below closed this screen with
+        the chosen action_id, but this screen's own caller,
+        mainscreen.py's _browserClosed(), only ever recognised
+        "played"/("played", name) and silently dropped anything
+        else -- confirmed by reading it directly this round). Imported
+        locally, not at module level, because settingsscreen.py
+        itself already imports BrowserScreen (for its own directory-
+        picker feature) -- a module-level import here would be a
+        circular import.
+        """
 
         logger.verbose("[BrowserScreen] MENU pressed.")
 
-        self.session.openWithCallback(self._mainMenuCallback, MainMenu)
+        from .settingsscreen import SettingsScreen
 
-    # ------------------------------------------------------------------
-
-    def _mainMenuCallback(self, action_id=None) -> None:
-
-        if action_id in (None, "exit", "browser"):
-            return
-
-        self._log("Returning to MainScreen.")
-
-        self.close(action_id)
+        self.session.open(SettingsScreen)
 
     # ------------------------------------------------------------------
 

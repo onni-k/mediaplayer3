@@ -37,7 +37,7 @@ Directories | Files | Playlist.
   (Directories/Files columns).
 - YELLOW / BLUE: move the selected Playlist column track up/down.
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: open Settings.
 - HELP: show the remote control's own button guide.
 - EXIT: return to Main Screen.
 

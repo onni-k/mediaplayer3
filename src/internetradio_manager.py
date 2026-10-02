@@ -104,6 +104,7 @@ assumption that the base domain round-robins on its own was wrong.
 
 from __future__ import annotations
 
+import heapq
 import json
 import os
 import random
@@ -193,12 +194,48 @@ class InternetRadioManager:
         # first rather than a random one every time.
         self._servers: List[str] = []
 
-        # Build 0010 -- local station database cache (see
-        # _loadStationDatabase()). None means "not yet loaded from
-        # disk this process"; [] means "loaded, and genuinely empty".
-        self._stations_db: Optional[List[Dict[str, Any]]] = None
+        # Round 198, per direct report + a real device log (a
+        # MemoryError while json.load()-ing the full local station
+        # database -- 59733+ stations -- back into memory in one go,
+        # forcing a re-download every single plugin restart since the
+        # cached-empty result from that failed load was never retried):
+        # this project used to cache the ENTIRE parsed station list in
+        # memory (self._stations_db). That's what actually caused the
+        # OOM in the first place -- every search/getCountries/
+        # getLanguages/getStationDatabaseInfo() call needed the whole
+        # multi-tens-of-thousands-of-dicts list resident at once, even
+        # though any single call only ever *uses* a small filtered/
+        # aggregated subset of it. Replaced with a much smaller,
+        # metadata-only cache (count + last_updated, see
+        # _loadStationDatabaseMeta() below) -- the actual station data
+        # now lives only on disk (as stations.jsonl, one JSON object
+        # per line, see _stationsJsonlPath()) and is streamed line by
+        # line on demand by search()/_aggregateFieldStreaming(),
+        # keeping only matches (bounded by radio.search_limit via
+        # heapq.nsmallest(), not the whole file) in memory at any one
+        # time. See updateStationDatabase()'s own comment for the
+        # on-disk format change and migration notes.
+        self._stations_meta_loaded = False
+
+        self._stations_count = 0
 
         self._stations_db_updated: Optional[float] = None
+
+        # Round 200, per direct report + user-supplied example code:
+        # round 198's own streaming JSONL format fixed the OOM but
+        # still had to linearly scan+parse every line for every single
+        # query, which is real, measurable CPU time on a receiver's
+        # own weak CPU (confirmed directly from a device log: 6-8
+        # seconds per search against a 59000+-station database). Adds
+        # an indexed SQLite-backed store (radio_database.py) as the
+        # preferred backend whenever compatibility.hasSqlite3() is
+        # True, falling back to the still-fully-intact round-198 JSONL
+        # implementation otherwise -- see _getRadioDb()/
+        # _usingSqlite() below and every method's own "sqlite path /
+        # JSONL fallback" branch.
+        self._radio_db = None
+
+        self._radio_db_init_attempted = False
 
         self._log("Created")
 
@@ -491,18 +528,56 @@ class InternetRadioManager:
 
         self._log("Search started.")
 
-        self._loadStationDatabase()
+        # Round 200: prefers the indexed SQLite backend when
+        # available (radio_database.py) -- falls back to round 198's
+        # own streaming JSONL implementation otherwise. Both share the
+        # exact same "no filter narrows it AND limit=0" MemoryError
+        # risk and the same graceful-degradation handling for it (see
+        # each backend's own comment on that).
+        db = self._getRadioDb()
 
-        if self._stations_db:
+        if db is not None:
 
-            filtered = self._filterStations(self._stations_db, name, country, language, tag)
+            local_count = db.getInfo()["count"]
 
-            # Device test round 68 -- limit=0 means "no limit" (a new
-            # user-facing setting, radio.search_limit, can be set to
-            # 0 for exactly this), which needed its own explicit
-            # check here: Python's own list[:0] slice returns an
-            # EMPTY list, the opposite of what "0 = unlimited" needs.
-            results = filtered if limit == 0 else filtered[:limit]
+        else:
+
+            self._loadStationDatabaseMeta()
+
+            local_count = self._stations_count
+
+        if local_count:
+
+            try:
+                if db is not None:
+                    results = db.search(name, country, language, tag, limit)
+
+                else:
+                    results = self._searchLocalDatabase(name, country, language, tag, limit)
+
+            except MemoryError:
+
+                # Round 198/200: only the "no filter at all AND
+                # radio.search_limit=0 (unlimited)" combination can
+                # still exhaust memory here -- every other combination
+                # is bounded (by SQLite's own LIMIT/WHERE, or by
+                # heapq.nsmallest() against the JSONL fallback) to at
+                # most `limit` station dicts in memory at once,
+                # regardless of how large the underlying database is.
+                # This is a deliberate, already-documented trade-off
+                # the user opts into by setting search_limit to 0 --
+                # degrade this one search gracefully rather than crash
+                # the screen; doesn't mean the local database itself
+                # is empty, so this does NOT touch the cached count
+                # (no re-download offered for what's really just one
+                # oversized query).
+                self._log(
+                    "Search failed (out of memory collecting every local "
+                    "station with no filter and no limit -- try setting "
+                    "the Radio station limit setting instead of 0)."
+                )
+
+                return []
 
             self._log(f"Search completed (local database): {len(results)} station(s).")
 
@@ -542,23 +617,109 @@ class InternetRadioManager:
 
     # ------------------------------------------------------------------
 
-    def _filterStations(
+    @staticmethod
+    def _stationMatches(
+        station: Dict[str, Any],
+        name_q: str,
+        country_q: str,
+        language_q: str,
+        tag_q: str,
+    ) -> bool:
+        """
+        Matching semantics shared by _iterMatchingStations() and (in
+        spirit) the live RadioBrowser fallback: case-insensitive
+        substring match on name/tag (RadioBrowser's own "fuzzy"
+        behaviour for these), exact case-insensitive match on
+        country/language (RadioBrowser stores these as fixed
+        vocabulary values, not free text).
+        """
+
+        if name_q and name_q not in str(station.get("name", "")).lower():
+            return False
+
+        if country_q and country_q != str(station.get("country", "")).lower():
+            return False
+
+        if language_q and language_q != str(station.get("language", "")).lower():
+            return False
+
+        if tag_q and tag_q not in str(station.get("tags", "")).lower():
+            return False
+
+        return True
+
+    # ------------------------------------------------------------------
+
+    def _iterMatchingStations(
         self,
-        stations: List[Dict[str, Any]],
+        name_q: str,
+        country_q: str,
+        language_q: str,
+        tag_q: str,
+    ):
+        """
+        Round 198: streams stations.jsonl one line at a time, yielding
+        only the ones matching the given (already lower-cased,
+        already stripped) filter values -- never materializes the
+        full on-disk station list in memory. A malformed/partial line
+        (should only ever happen from an interrupted write, since
+        updateStationDatabase() below always writes via a temp file +
+        atomic rename) is skipped rather than aborting the whole scan.
+        """
+
+        path = self._stationsJsonlPath()
+
+        try:
+            with open(path, encoding="utf-8") as handle:
+
+                for line in handle:
+
+                    line = line.strip()
+
+                    if not line:
+                        continue
+
+                    try:
+                        station = json.loads(line)
+
+                    except ValueError:
+                        continue
+
+                    if isinstance(station, dict) and self._stationMatches(
+                        station, name_q, country_q, language_q, tag_q
+                    ):
+                        yield station
+
+        except OSError as error:
+
+            logger.verbose(f"[Radio] Unable to read {path}: {error}")
+
+            return
+
+    # ------------------------------------------------------------------
+
+    def _searchLocalDatabase(
+        self,
         name: Optional[str],
         country: Optional[str],
         language: Optional[str],
         tag: Optional[str],
+        limit: int,
     ) -> List[Dict[str, Any]]:
         """
-        In-memory filter over a station list, matching search()'s own
-        parameter semantics as closely as practical against a static
-        local copy: case-insensitive substring match on name/tag
-        (RadioBrowser's own "fuzzy" behaviour for these), exact
-        case-insensitive match on country/language (RadioBrowser
-        stores these as fixed vocabulary values, not free text).
-        Results are name-sorted, matching the live API's own
-        "order": "name" search parameter.
+        Round 198: the streaming replacement for the old
+        _filterStations()'s own in-memory "collect everything, then
+        sort, then slice" approach -- see the round-198 comment on
+        self._stations_meta_loaded (this class's own __init__) for why
+        that had to change. Results are name-sorted, matching the live
+        API's own "order": "name" search parameter, exactly like the
+        method it replaces.
+
+        Device test round 68 -- limit=0 still means "no limit" here,
+        same as before; that one specific combination (see search()'s
+        own MemoryError handling) is the only case that still needs to
+        hold every match in memory at once, since there's no bounded
+        "top N" to ask heapq.nsmallest() for.
         """
 
         name_q = (name or "").strip().lower()
@@ -566,27 +727,27 @@ class InternetRadioManager:
         language_q = (language or "").strip().lower()
         tag_q = (tag or "").strip().lower()
 
-        def matches(station: Dict[str, Any]) -> bool:
+        matches = self._iterMatchingStations(name_q, country_q, language_q, tag_q)
 
-            if name_q and name_q not in str(station.get("name", "")).lower():
-                return False
+        def sort_key(station: Dict[str, Any]) -> str:
+            return str(station.get("name", "")).lower()
 
-            if country_q and country_q != str(station.get("country", "")).lower():
-                return False
+        if limit == 0:
 
-            if language_q and language_q != str(station.get("language", "")).lower():
-                return False
+            results = sorted(matches, key=sort_key)
 
-            if tag_q and tag_q not in str(station.get("tags", "")).lower():
-                return False
+        else:
 
-            return True
+            # heapq.nsmallest() consumes `matches` lazily, one station
+            # at a time, and only ever keeps `limit` of them in memory
+            # at once (the standard bounded-top-N-via-heap algorithm) --
+            # it never needs the full match set materialized first,
+            # which is exactly the property that keeps an unfiltered
+            # or lightly-filtered search from re-creating the original
+            # OOM even against a 59000+-station database.
+            results = heapq.nsmallest(limit, matches, key=sort_key)
 
-        filtered = [station for station in stations if matches(station)]
-
-        filtered.sort(key=lambda station: str(station.get("name", "")).lower())
-
-        return filtered
+        return results
 
     # ------------------------------------------------------------------
 
@@ -599,11 +760,20 @@ class InternetRadioManager:
         RadioBrowser request otherwise.
         """
 
-        self._loadStationDatabase()
+        db = self._getRadioDb()
 
-        if self._stations_db:
+        if db is not None:
 
-            return self._aggregateField("country")
+            if db.getInfo()["count"]:
+                return db.getCountries()
+
+            return self._apiGet("json/countries") or []
+
+        self._loadStationDatabaseMeta()
+
+        if self._stations_count:
+
+            return self._aggregateFieldStreaming("country")
 
         return self._apiGet("json/countries") or []
 
@@ -616,17 +786,26 @@ class InternetRadioManager:
         first reasoning.
         """
 
-        self._loadStationDatabase()
+        db = self._getRadioDb()
 
-        if self._stations_db:
+        if db is not None:
 
-            return self._aggregateField("language")
+            if db.getInfo()["count"]:
+                return db.getLanguages()
+
+            return self._apiGet("json/languages") or []
+
+        self._loadStationDatabaseMeta()
+
+        if self._stations_count:
+
+            return self._aggregateFieldStreaming("language")
 
         return self._apiGet("json/languages") or []
 
     # ------------------------------------------------------------------
 
-    def _aggregateField(self, field: str) -> List[Dict[str, Any]]:
+    def _aggregateFieldStreaming(self, field: str) -> List[Dict[str, Any]]:
         """
         Build {"name": ..., "stationcount": ...} entries by counting
         distinct, non-empty values of `field` across the local station
@@ -634,11 +813,17 @@ class InternetRadioManager:
         and json/languages endpoints return, so callers (RadioBrowser
         Screen's _reloadFilters()) don't need to know which source
         the data actually came from.
+
+        Round 198: streams stations.jsonl one line at a time (see
+        _iterMatchingStations()'s own comment) rather than iterating
+        an in-memory list of every station -- only the much smaller
+        `counts` dict (one entry per distinct country/language, not
+        per station) is ever held in memory.
         """
 
         counts: Dict[str, int] = {}
 
-        for station in self._stations_db:
+        for station in self._iterMatchingStations("", "", "", ""):
 
             value = str(station.get(field, "")).strip()
 
@@ -697,34 +882,228 @@ class InternetRadioManager:
     DATABASE_DOWNLOAD_PAGE_SIZE = 5000
 
     def _stationsDbPath(self) -> str:
+        # Round 198: this is now only the LEGACY path -- a pre-198
+        # install's single-JSON-array database, which the current code
+        # never writes or reads from any more (see
+        # _stationsJsonlPath()/_stationsMetaPath() below). Kept only
+        # so updateStationDatabase() can best-effort clean up a stale
+        # copy left over from before this version, and so an old file
+        # sitting there is at least recognisable by name if ever
+        # investigated by hand.
         return os.path.join(storage_manager.getRadioPath(), "stations.json")
+
+    def _stationsJsonlPath(self) -> str:
+        # Round 198: one JSON object per line (not a single JSON
+        # array) -- see this class's own __init__ comment on
+        # self._stations_meta_loaded for why, and
+        # _iterMatchingStations() for how this is actually read.
+        return os.path.join(storage_manager.getRadioPath(), "stations.jsonl")
+
+    def _stationsMetaPath(self) -> str:
+        # Round 198: a tiny separate file (just {"last_updated":
+        # ..., "count": ...}) so getStationDatabaseInfo() -- called
+        # every time RadioBrowserScreen/SettingsScreen open -- never
+        # needs to touch the (potentially huge) stations.jsonl file at
+        # all. Still used as the JSONL-fallback path's own metadata
+        # store (see _getRadioDb()'s own comment for when that
+        # fallback applies).
+        return os.path.join(storage_manager.getRadioPath(), "stations_meta.json")
+
+    def _stationsSqlitePath(self) -> str:
+        # Round 200.
+        return os.path.join(storage_manager.getRadioPath(), "stations.db")
 
     # ------------------------------------------------------------------
 
-    def _loadStationDatabase(self) -> None:
+    def _getRadioDb(self):
         """
-        Load the local station database into memory, once per process
-        lifetime (like _getServers()'s own mirror-list caching) --
-        re-read only after updateStationDatabase()/clearStationDatabase()
-        explicitly invalidate the cache.
+        Round 200: returns a ready-to-use RadioStationDatabase, or
+        None if compatibility.hasSqlite3() is False (this receiver's
+        Python build has no sqlite3 module -- every caller falls back
+        to the round-198 JSONL implementation in that case). Created
+        lazily, once per process lifetime, on first actual need
+        (not eagerly in __init__, so a receiver that never opens
+        RadioBrowserScreen never even touches sqlite3).
+
+        On first creation, if stations.db doesn't exist yet but a
+        round-198 stations.jsonl does (upgrading from a build between
+        198 and 199), migrates it in directly rather than forcing a
+        fresh RadioBrowser re-download the user already has a
+        perfectly good local copy of -- see
+        RadioStationDatabase.migrateFromJsonl()'s own comment.
         """
 
-        if self._stations_db is not None:
+        if self._radio_db_init_attempted:
+            return self._radio_db
+
+        self._radio_db_init_attempted = True
+
+        if not compatibility.hasSqlite3():
+
+            self._log("SQLite not available on this receiver -- using the JSONL local database instead.")
+
+            return None
+
+        from .radio_database import RadioStationDatabase
+
+        db_path = self._stationsSqlitePath()
+
+        jsonl_path = self._stationsJsonlPath()
+
+        needs_migration = not os.path.exists(db_path) and os.path.exists(jsonl_path)
+
+        try:
+            db = RadioStationDatabase(db_path)
+
+        except Exception as error:
+
+            # Round 200: never let a corrupt/unwritable sqlite file
+            # take the whole plugin down -- degrade to the JSONL
+            # fallback exactly like "sqlite3 not available" above.
+            self._log(f"Unable to open the local SQLite station database (falling back to JSONL): {error}")
+
+            return None
+
+        if needs_migration:
+
+            meta = self._loadJSON(self._stationsMetaPath(), default=None)
+
+            last_updated = meta.get("last_updated") if isinstance(meta, dict) else None
+
+            self._log("Migrating the existing local station database (JSONL) to SQLite...")
+
+            migrated = db.migrateFromJsonl(jsonl_path, last_updated)
+
+            self._log(f"Migration to SQLite complete: {migrated} station(s).")
+
+        self._radio_db = db
+
+        return self._radio_db
+
+    # ------------------------------------------------------------------
+
+    def installSqliteSupport(self):
+        """
+        Round 201, per direct user request after a device log showed
+        "SQLite not available on this receiver" (compatibility.
+        hasSqlite3() is False): rather than only relying on the ipk's
+        own opkg dependency declaration (mediaplayer3.bb's RDEPENDS,
+        ipkbuild/control/control's Depends: -- see those files' own
+        round-201 comments) to pull python3-sqlite3 in automatically
+        at install time, this lets a user who is already running an
+        older build that predates that dependency (like the one that
+        produced the log above) install it directly from
+        RadioBrowserScreen's own station menu, without needing to
+        reinstall the whole plugin.
+
+        Runs a plain "opkg install python3-sqlite3", the exact same
+        package name confirmed (via a real, published installer
+        script -- MultiStalker Pro's -- for this same Enigma2 image
+        family) to be the correct, resolvable one on OpenViX/OpenATV/
+        OpenBH/OpenPLi's own feeds. A generous timeout is used since
+        this is a real network operation (downloading the package
+        from the receiver's configured feed), not a local check like
+        ffprobe_helper.isAvailable()'s own subprocess call.
+
+        Returns (success: bool, message: str) -- message is either the
+        combined stdout/stderr from opkg (truncated to a reasonable
+        length for display in a MessageBox) on failure, or a short
+        confirmation on success. Deliberately does NOT re-check
+        compatibility.hasSqlite3() or clear self._radio_db_init_attempted
+        afterwards: that flag, and Python's own set of already-imported
+        modules, are cached for the whole Enigma2 process lifetime (see
+        this class's own module-level singleton instantiation at the
+        bottom of this file) -- a freshly opkg-installed sqlite3 module
+        will not actually become usable until Enigma2 itself is fully
+        restarted, not just the plugin closed and reopened. The caller
+        (RadioBrowserScreen) is responsible for telling the user this
+        explicitly.
+        """
+
+        import subprocess
+
+        command = ["opkg", "install", "python3-sqlite3"]
+
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=120,
+            )
+
+        except FileNotFoundError:
+
+            message = "opkg not found on this system."
+
+            self._log(f"installSqliteSupport() failed: {message}")
+
+            return False, message
+
+        except subprocess.TimeoutExpired:
+
+            message = "Timed out waiting for opkg (check your network connection)."
+
+            self._log(f"installSqliteSupport() failed: {message}")
+
+            return False, message
+
+        except OSError as error:
+
+            message = f"Unable to run opkg: {error}"
+
+            self._log(f"installSqliteSupport() failed: {message}")
+
+            return False, message
+
+        output = (result.stdout or b"").decode("utf-8", errors="replace").strip()
+
+        if len(output) > 500:
+            output = output[:500] + "..."
+
+        if result.returncode == 0:
+
+            self._log(f"installSqliteSupport() succeeded: {output}")
+
+            return True, output
+
+        self._log(f"installSqliteSupport() failed (exit code {result.returncode}): {output}")
+
+        return False, output or f"opkg exited with code {result.returncode}."
+
+    # ------------------------------------------------------------------
+
+    def _loadStationDatabaseMeta(self) -> None:
+        """
+        Round 198 (replaces the old _loadStationDatabase(), which used
+        to json.load() the ENTIRE station list into memory just to
+        answer "is there a database, and how big is it" -- see this
+        class's own __init__ comment for the full reasoning): loads
+        only the small metadata file, once per process lifetime (like
+        _getServers()'s own mirror-list caching) -- re-read only after
+        updateStationDatabase()/clearStationDatabase() explicitly
+        invalidate the cache. The actual station data is never touched
+        here at all.
+        """
+
+        if self._stations_meta_loaded:
             return
 
-        data = self._loadJSON(self._stationsDbPath(), default=None)
+        data = self._loadJSON(self._stationsMetaPath(), default=None)
 
-        if not isinstance(data, dict) or not isinstance(data.get("stations"), list):
+        if not isinstance(data, dict) or not isinstance(data.get("count"), int):
 
-            self._stations_db = []
+            self._stations_count = 0
 
             self._stations_db_updated = None
 
-            return
+        else:
 
-        self._stations_db = data["stations"]
+            self._stations_count = data["count"]
 
-        self._stations_db_updated = data.get("last_updated")
+            self._stations_db_updated = data.get("last_updated")
+
+        self._stations_meta_loaded = True
 
     # ------------------------------------------------------------------
 
@@ -736,9 +1115,14 @@ class InternetRadioManager:
         without needing to know the storage format themselves.
         """
 
-        self._loadStationDatabase()
+        db = self._getRadioDb()
 
-        return {"count": len(self._stations_db), "last_updated": self._stations_db_updated}
+        if db is not None:
+            return db.getInfo()
+
+        self._loadStationDatabaseMeta()
+
+        return {"count": self._stations_count, "last_updated": self._stations_db_updated}
 
     # ------------------------------------------------------------------
 
@@ -929,37 +1313,112 @@ class InternetRadioManager:
 
             return False
 
-        payload = {"last_updated": time.time(), "stations": valid}
+        last_updated = time.time()
 
-        db_path = self._stationsDbPath()
+        # Round 200: writes via the indexed SQLite backend when
+        # available, falling back to round 198's own JSONL+metadata
+        # format otherwise -- see _getRadioDb()'s own comment.
+        db = self._getRadioDb()
 
-        tmp_path = db_path + ".tmp"
-
-        try:
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
-            with open(tmp_path, "w", encoding="utf-8") as handle:
-
-                json.dump(payload, handle, ensure_ascii=False)
-
-            os.replace(tmp_path, db_path)
-
-        except OSError as error:
-
-            self._log(f"Station database update failed (write error, keeping existing database): {error}")
+        if db is not None:
 
             try:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+                db.replaceAll(valid, last_updated)
 
-            except OSError:
-                pass
+            except Exception as error:
 
-            return False
+                self._log(f"Station database update failed (SQLite write error, keeping existing database): {error}")
 
-        self._stations_db = valid
+                return False
 
-        self._stations_db_updated = payload["last_updated"]
+            # Best-effort cleanup of a pre-200 install's own JSONL+
+            # metadata files, now redundant with the SQLite database
+            # this update just (re)wrote -- never fatal to the update
+            # itself.
+            for stale_path in (self._stationsJsonlPath(), self._stationsMetaPath()):
+
+                try:
+                    if os.path.exists(stale_path):
+                        os.remove(stale_path)
+
+                except OSError:
+                    pass
+
+        else:
+
+            # Round 198: writes the station data as JSONL (one JSON
+            # object per line) plus a tiny separate metadata file,
+            # instead of one single big JSON array -- see this class's
+            # own __init__ comment for why. `valid` (already fully
+            # built in memory at this point, from the just-completed
+            # download) is written out line by line rather than via a
+            # single json.dump() of the whole list -- no real memory
+            # difference for THIS step (valid is already fully
+            # resident either way), but it means every FUTURE read of
+            # this data (search/getCountries/getLanguages/
+            # getStationDatabaseInfo(), likely from a different,
+            # memory-constrained process run) can stream it instead of
+            # loading it all back at once.
+            jsonl_path = self._stationsJsonlPath()
+
+            meta_path = self._stationsMetaPath()
+
+            tmp_jsonl_path = jsonl_path + ".tmp"
+
+            tmp_meta_path = meta_path + ".tmp"
+
+            try:
+                os.makedirs(os.path.dirname(jsonl_path), exist_ok=True)
+
+                with open(tmp_jsonl_path, "w", encoding="utf-8") as handle:
+
+                    for station in valid:
+
+                        handle.write(json.dumps(station, ensure_ascii=False))
+
+                        handle.write("\n")
+
+                with open(tmp_meta_path, "w", encoding="utf-8") as handle:
+
+                    json.dump({"last_updated": last_updated, "count": len(valid)}, handle, ensure_ascii=False)
+
+                os.replace(tmp_jsonl_path, jsonl_path)
+
+                os.replace(tmp_meta_path, meta_path)
+
+            except OSError as error:
+
+                self._log(f"Station database update failed (write error, keeping existing database): {error}")
+
+                for stale_tmp_path in (tmp_jsonl_path, tmp_meta_path):
+
+                    try:
+                        if os.path.exists(stale_tmp_path):
+                            os.remove(stale_tmp_path)
+
+                    except OSError:
+                        pass
+
+                return False
+
+            self._stations_count = len(valid)
+
+            self._stations_db_updated = last_updated
+
+            self._stations_meta_loaded = True
+
+        # Best-effort cleanup of a pre-198 install's own legacy
+        # single-JSON-array database, now unused (and, if left in
+        # place, just dead weight taking up storage) -- never fatal to
+        # the update itself if this fails or the file was never there.
+        try:
+            legacy_path = self._stationsDbPath()
+
+            if os.path.exists(legacy_path):
+                os.remove(legacy_path)
+
+        except OSError:
+            pass
 
         self._log(f"Station database updated: {len(valid)} station(s).")
 
@@ -1084,11 +1543,36 @@ class InternetRadioManager:
         Remove Favorites as a side effect of database updates.").
         """
 
-        db_path = self._stationsDbPath()
+        # Round 200: clears the SQLite backend's own rows (via its own
+        # API, never by deleting stations.db out from under its own
+        # already-open connection) when available, in addition to the
+        # file-based cleanup below.
+        db = self._getRadioDb()
 
+        if db is not None:
+
+            try:
+                db.clear()
+
+            except Exception as error:
+
+                self._log(f"Unable to clear station database: {error}")
+
+                return False
+
+        # Round 198: removes all three possible on-disk forms -- the
+        # current stations.jsonl/stations_meta.json pair, plus any
+        # stale legacy stations.json left over from a pre-198 install
+        # (updateStationDatabase() also cleans this up on a successful
+        # update, but a Clear before ever running an update again
+        # should not leave it behind either). Missing files are not an
+        # error -- there's nothing to remove for a database that's
+        # already empty/never downloaded.
         try:
-            if os.path.exists(db_path):
-                os.remove(db_path)
+            for path in (self._stationsJsonlPath(), self._stationsMetaPath(), self._stationsDbPath()):
+
+                if os.path.exists(path):
+                    os.remove(path)
 
         except OSError as error:
 
@@ -1096,9 +1580,11 @@ class InternetRadioManager:
 
             return False
 
-        self._stations_db = []
+        self._stations_count = 0
 
         self._stations_db_updated = None
+
+        self._stations_meta_loaded = True
 
         self._log("Station database cleared.")
 

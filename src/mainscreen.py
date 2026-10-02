@@ -428,6 +428,7 @@ from enigma import ePicLoad, eTimer, getDesktop, gFont
 
 from .browserscreen import BrowserScreen
 from .compatibility import compatibility
+from .enigma_skin import skin_adapter
 from . import finland_radio_epg_registry
 from .guide_manager import guide_manager
 from .coverart_fullscreen_screen import CoverArtFullscreenScreen
@@ -443,10 +444,9 @@ from .browserscreen import _defaultPlayPlaylistName
 from .playlist_manager import playlist_manager
 from .localization import _
 from .logger import logger
-from .mainmenu import MainMenu
 from .musiclibraryscreen import MusicLibraryScreen
 from .podcastscreen import PodcastScreen
-from .paths import CACHE_PATH, RESOURCE_PATH
+from .paths import BUTTON_ICON_PATH, CACHE_PATH, RESOURCE_PATH
 from .playback_controller import PlaybackController
 from .playlistscreen import PlaylistScreen
 from .radiobrowserscreen import RadioBrowserScreen
@@ -556,6 +556,18 @@ MAINSCREEN_SKIN_PALETTES["vintage_radio"] = {
     "hint_fg": "#FFC978",
 }
 
+# Round 208, per direct request ("kun molemmat toimii, niin voidaan
+# poistaa system skin" -- once Light's and Dark's own two-row hint
+# bar, adopted from system_skin in rounds 204-207, were both confirmed
+# working on a real device): system_skin itself is removed here --
+# its former palette entry (a genuinely independent copy of Light's
+# own, not a reference) used to live at this point in the file.
+# _resolveMainScreenSkinVariant()'s own existing fallback (below)
+# already sends anyone whose saved appearance.skin is still literally
+# "system_skin" from an older build straight to Light automatically,
+# the moment it's no longer a recognised value in
+# MAINSCREEN_SKIN_VARIANTS -- no separate migration step needed.
+
 
 def _resolveMainScreenSkinVariant() -> str:
 
@@ -621,8 +633,38 @@ class MainScreen(Screen, HelpableScreen):
     # round's changes touch nearly every widget's position anyway
     # (per the user's own layout feedback), so there's no longer a
     # reason to keep the mismatched design space.
+    #
+    # Round 203, per direct report/screenshot: a thin light-coloured
+    # band was visible along the screen's own edges, especially on
+    # dark themes. Root cause: mainscreen_player_active.png/
+    # mainscreen_info_active.png's own native pixel size (1808x1024,
+    # aspect 1.7656) was never actually 16:9 (1.7778) -- unlike every
+    # OTHER screen's own background images (1672x941, aspect 1.7768,
+    # within 0.06% of 16:9 and so never visibly off), it was 0.68% off,
+    # nearly an order of magnitude worse. _decodeBackgroundImage()'s
+    # own setPara() call (scale_mode=1, aspect-ratio-preserving --
+    # confirmed against a real working reference implementation back
+    # in Build 0005 device test round 5, see this file's own comment
+    # there, and left untouched here rather than guessed at) fits the
+    # image inside the real screen's own box WITHOUT distorting it,
+    # so on a real 16:9 screen this mismatch left a real, visible
+    # pillarbox gap on one axis -- exactly the reported band. Fixed at
+    # the source instead of by guessing at scale_mode semantics: every
+    # mainscreen_player_active.png/mainscreen_info_active.png (all 5
+    # skin variants, hd+sd, 20 files) was resized to a true 16:9
+    # height (1808x1017 for hd, 1084x610 for sd -- see docs/
+    # Claude_notes_build0010.txt's own round 203 entry for the resize
+    # script/verification) instead of stretched live, so every icon
+    # and rounded corner baked into these images stays exactly as
+    # round-shaped as it already was, not skewed into a very slightly
+    # flattened ellipse. DESIGN_HEIGHT below is updated to match
+    # (1017, not 1024) so the OTHER, Python-drawn widgets positioned
+    # against this same design space keep lining up with the
+    # background image's own now-corrected content -- both now share
+    # the exact same 16:9 aspect ratio, so ePicLoad's own aspect-
+    # preserving fit needs no padding on a real 16:9 screen any more.
     DESIGN_WIDTH = 1808
-    DESIGN_HEIGHT = 1024
+    DESIGN_HEIGHT = 1017
 
     # Round 93, per direct request: fixed per-row heights/font sizes/
     # boldness for the Lyrics page's own multi-widget display, one
@@ -840,8 +882,18 @@ class MainScreen(Screen, HelpableScreen):
             # the header rather than floating above the card's own
             # visible boundary. Stays well clear of the middle card's
             # own real bottom edge (478).
-            pl_title_rect, pl_list_rect = (88, 484, 774, 64), (36, 534, 841, 400)
-            in_title_rect, in_content_rect = (983, 484, 774, 64), (931, 534, 841, 400)
+            #
+            # Round 206, per direct device-photo report ("Soittolista
+            # ja Tiedot -tekstit voisi olla vähän ylempänä, että eivät
+            # ole ihan otsikkoalueen alareunassa" -- the titles could
+            # sit a bit higher, so they're not right at the header
+            # area's own bottom edge): nudged up a further 4px (484 ->
+            # 480) -- a small, conservative move, since round 129's own
+            # 478 constraint (the middle status card's real bottom
+            # edge) leaves only 6px of headroom here before a new
+            # overlap would start.
+            pl_title_rect, pl_list_rect = (88, 480, 774, 64), (36, 534, 841, 400)
+            in_title_rect, in_content_rect = (983, 480, 774, 64), (931, 534, 841, 400)
 
         # Round 113, per direct request ("Ylärivin tekstit vähän
         # alemmaksi"): the header row (Player title / MediaPlayer3
@@ -1073,7 +1125,119 @@ class MainScreen(Screen, HelpableScreen):
         # already does for Light/Dark. OK/MENU/HELP keep their own
         # round 142 positions (already clear of the badge); BLUE/
         # EPG-INFO/EXIT shifted right per the direct request.
-        if self._skin_variant in ("test_skin", "vintage_radio"):
+
+        # Round 170, per direct request/device photo: system_skin's
+        # own Soittolista/Tiedot panels were still using Light/Dark's
+        # own full-height default (pl_list_rect/in_content_rect,
+        # ending at y=934) despite round 169's own taller hint-bar
+        # pill now starting at y=912 -- the two overlapped visibly,
+        # the panel's own light-grey background painting over the
+        # pill's own top edge. system_skin was never added to the
+        # block above deliberately (it reuses Light's own cover/meta/
+        # media/etc geometry exactly, none of which needed touching),
+        # so this is a separate, narrowly-scoped override covering
+        # only the one thing that actually needed to change here: the
+        # same x/y/width Light already uses, just short enough to
+        # clear the new pill (height 400 -> 378, ending at 912 exactly
+        # rather than a few pixels short/over).
+        # Round 205, per direct request ("Seuraavaksi voidaan
+        # muuttaa mainscreenit molempiin. Light onnistuu suoraan
+        # kopioinnilla, mutta dark taytyy muuttaa" -- extend round
+        # 204's own light/dark adoption of system_skin's two-row
+        # hint bar to MainScreen too, the one screen round 204
+        # deliberately left out): light and dark now route into
+        # this same override. Their own mainscreen_player_active.png/
+        # mainscreen_info_active.png (both tiers) were regenerated
+        # this round to match -- for light, a direct copy of
+        # system_skin's own images (same palette, verified pixel-
+        # identical); for dark, the content panel above was
+        # shortened by the same amount (rows deleted from a
+        # verified byte-identical flat run), and the existing
+        # single pill's own baked-in icons were erased and its
+        # flat interior grown back out to the same new height --
+        # all using only Dark's own already-correct pill artwork
+        # (border/shadow untouched), no cross-variant recolouring
+        # needed.
+        if self._skin_variant in ("light", "dark"):
+
+            # Round 206, per direct device-photo report ("sisältöalue
+            # menee vähän liian alas ja jää muutaman pikselin
+            # korkuisena alueena näkyviin laatikoiden alapuolelle" --
+            # the content area goes a bit too low, leaving a few-pixel
+            # strip visible below the boxes): round 170's own 378 was
+            # tuned against system_skin's OWN pill position at the
+            # time (ending at 912, 8px past where the panel's own
+            # background border/pill actually begins). Round 204/205's
+            # own direct pixel measurement of the new Light/Dark/
+            # system_skin two-row images found that boundary at 904
+            # (hd) -- this box now ends at 534+368=902, 2px clear of
+            # it, rather than 8px into it.
+            pl_list_rect = (pl_list_rect[0], pl_list_rect[1], pl_list_rect[2], 368)
+            in_content_rect = (in_content_rect[0], in_content_rect[1], in_content_rect[2], 368)
+
+            # Round 195, per direct device report ("Mainscreenissa
+            # sanoitukset ja sanoitusten taustaväli menee liian alas
+            # laatikon ulkopuolelle" -- the lyrics and their own
+            # background go too far down, outside the box): round 170's
+            # own height cut (400 -> 378, just above) was only ever
+            # checked against the pill's own top edge, never against
+            # MainScreen.LYRICS_WINDOW_ROWS' own real total height
+            # (392, per that constant's own round-119 comment) -- 392
+            # doesn't fit inside 378 at all, a 14px overflow that was
+            # always there, simply never visible until real lyrics
+            # with real timing actually filled every row. Light/Dark's
+            # own 400 has genuine room for 392 (the existing 8px
+            # margin); system_skin's own shorter 378 never did. Rather
+            # than resize the box again and reopen round 170's own
+            # pill-collision fix, this scales the row heights down the
+            # same way test_skin_lyrics_rows already does just below,
+            # in the same 5-normal/prev/current/next/5-normal shape,
+            # sized to fit comfortably inside 378 with a real margin
+            # (364 total, a 14px margin, matching this project's own
+            # established convention rather than filling the box
+            # exactly).
+            system_skin_lyrics_rows = (
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+                (32, 22, False),
+                (40, 28, True),
+                (32, 22, False),
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+                (26, 18, False),
+            )
+
+        else:
+
+            system_skin_lyrics_rows = None
+
+        # Round 209, per direct device-log report ("kun valitsee älä
+        # näytä ylempää ohjeriviä, niin Vintage radio skinillä se
+        # kuitenkin näkyy" -- turning the round 208 setting off still
+        # left the text row showing under Vintage Radio): round 208's
+        # own show_hint_text read only lived inside the light/dark
+        # branch further below, so Vintage Radio's own separate hint-
+        # bar branch (which, read closely, turns out to have the exact
+        # same two-tier shape as light/dark's -- an OK/MENU/EPG-INFO/
+        # HELP/EXIT text row at y=862 sitting above a genuinely
+        # separate RED/GREEN/YELLOW/BLUE icon+label row at y~918-926,
+        # not a single combined row as first assumed when the round
+        # 208 config.py comment was written) never saw it at all.
+        # Moved up here so every branch below can use the same value.
+        # Test Skin's own hint bar, by contrast, genuinely is a single
+        # row (one y=875 line, no separate colour-button row below it
+        # at all) -- there is no "upper" row there to hide, so it's
+        # correctly left out of this and continues to ignore the
+        # setting entirely, per this file's own existing comment in
+        # config.py.
+        show_hint_text = config_manager.get("ui.show_hint_text_row", True)
+
+        if self._skin_variant == "test_skin":
 
             hint_bar_xml = f"""
             <widget name="hint_text_ok"
@@ -1117,6 +1281,552 @@ class MainScreen(Screen, HelpableScreen):
                     valign="center"
                     foregroundColor="{palette['hint_fg']}"
                     transparent="1"/>
+            """
+
+        elif self._skin_variant == "vintage_radio":
+
+            # Round 173, per direct request/device photo: the icon's
+            # own widget box (34px) was too small for the real icon
+            # file's own actual dimensions, clipping it to just its
+            # own top-left corner rather than showing the whole
+            # image -- Enigma2's Pixmap widgets don't scale their own
+            # source image to fit the declared box, they draw it at
+            # native size and clip whatever doesn't fit. Raised to a
+            # fixed 56px, comfortably larger than any typical Enigma2
+            # button icon's own real size, rather than guessing at the
+            # exact dimensions of this specific file without direct
+            # access to the device to measure it.
+            #
+            # Also restored real text next to each icon -- an earlier
+            # attempt this same round mistakenly hid the colour row's
+            # own text widgets entirely (1x1, invisible) instead of
+            # only dropping the redundant colour-name PREFIX ("RED:"
+            # etc) the icon itself now conveys. The underlying Label
+            # objects (__init__, this file's own round 173 comment)
+            # now hold the shorter "Remove"/"Add"/"Lyrics"/"Player/
+            # Info" text specifically for vintage_radio, so simply
+            # giving them a real position here (icon width + 8px to
+            # its right, matching system_skin's own icon+text layout)
+            # is enough -- no further text-content change needed here.
+            icon_size_vr = 56
+
+            def fixedColorIcon(name, x, y):
+
+                path = skin_adapter.fixedButtonbarImage(name, fallback=None)
+
+                if not path:
+                    return ""
+
+                return (
+                    f'<widget name="hint_icon_{name}" '
+                    f'{rect(x, y, icon_size_vr, icon_size_vr)} '
+                    f'pixmap="{path}" alphatest="blend" transparent="1"/>'
+                )
+
+            # Round 174, per direct request/device photo: icons sat
+            # visibly higher than the text's own baseline despite
+            # being mathematically centred on the same line as the
+            # text box -- text rendering typically reserves extra
+            # space below the baseline for descenders, making a
+            # geometrically-centred icon look higher by comparison.
+            # Nudged down by a fixed 14px to compensate.
+            icon_y_vr = 918 + (42 - icon_size_vr) // 2 + 14
+            # Round 175, per direct request/device photo: text moved
+            # down (918 -> 926, closer to the icon's own vertical
+            # centre) and left (gap to the icon reduced from 8px to
+            # 2px) for a tighter, better-aligned icon+text pairing.
+            text_y_vr = 926
+
+            # Round 209: this text row (y=862) is omitted the same way
+            # light/dark's own is (see this file's own round 209
+            # comment near show_hint_text's definition) -- the RED/
+            # GREEN/YELLOW/BLUE icon+label row below it (y~918-926)
+            # already identifies every colour action on its own and is
+            # left untouched either way.
+            hint_text_row_xml_vr = f"""
+            <widget name="hint_text_ok"
+                    {rect(210, 862, 170, 40)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(640, 862, 200, 40)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(990, 862, 300, 40)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(1285, 862, 170, 40)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1490, 862, 195, 40)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """ if show_hint_text else ""
+
+            hint_bar_xml = f"""
+            {hint_text_row_xml_vr}
+
+            {fixedColorIcon("red", 210, icon_y_vr)}
+            <widget name="hint_color_red"
+                    {rect(210 + icon_size_vr + 2, text_y_vr, 220, 42)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="#FF4444"
+                    transparent="1"/>
+
+            {fixedColorIcon("green", 640, icon_y_vr)}
+            <widget name="hint_color_green"
+                    {rect(640 + icon_size_vr + 2, text_y_vr, 220, 42)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="#44DD44"
+                    transparent="1"/>
+
+            {fixedColorIcon("yellow", 990, icon_y_vr)}
+            <widget name="hint_color_yellow"
+                    {rect(990 + icon_size_vr + 2, text_y_vr, 220, 42)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="#DDDD44"
+                    transparent="1"/>
+
+            {fixedColorIcon("blue", 1490, icon_y_vr)}
+            <widget name="hint_text_blue"
+                    {rect(1490 + icon_size_vr + 2, text_y_vr, 260, 42)}
+                    font="Bold;{max(10, int(23 * sx))}"
+                    valign="center"
+                    foregroundColor="#4488FF"
+                    transparent="1"/>
+            """
+
+        elif self._skin_variant in ("light", "dark"):
+
+            # Round 164, per direct request: replaces rounds 160-163's
+            # own OpenViX-only Components.Addons.ButtonSequence/
+            # ColorButtonsSequence "addon" widgets entirely, after
+            # three full device-test rounds left both genuinely
+            # unresolved (ButtonSequence rendered nothing under any
+            # tested configuration; ColorButtonsSequence only ever
+            # rendered two of its own four connection entries,
+            # regardless of their order in that attribute). Uses
+            # plain, standard Label widgets instead -- the exact same
+            # mechanism Light/Dark's own hint bar below already uses,
+            # proven working -- coloured via enigma_skin.py's own
+            # skin_adapter, which reads the active Enigma2 skin's own
+            # colours using standard, cross-image APIs (Components.
+            # Skin.skinVariables, Tools.Directories.resolveFilename)
+            # rather than an OpenViX-only mechanism, falling back to
+            # this project's own fixed colours cleanly wherever the
+            # active skin doesn't provide something in particular.
+            #
+            # Two rows, per the user's own explicit priority
+            # ("väripainikkeet ensin alhaalla, sen jälkeen muut" --
+            # colour buttons shown first, at the bottom): RED/GREEN/
+            # YELLOW/BLUE (all four confirmed genuinely bound on
+            # MainScreen -- redPressed/greenPressed/
+            # _showLyricsFullscreen/activePanelPressed) sit in the
+            # lowest row, at the exact same y/height Light/Dark's own
+            # single row already uses below; OK/MENU/EPG-INFO/HELP/
+            # EXIT sit in a second row directly above it. hint_text_
+            # blue moves into the colour row here rather than sitting
+            # with OK/MENU/INFO/EXIT the way it does for Light/Dark,
+            # since it's a colour-button action, not a generic one.
+            #
+            # No capability gate is needed before this branch runs
+            # (unlike round 160's own hasOpenViXButtonAddons() check)
+            # -- every enigma_skin.py lookup already degrades to this
+            # project's own fallback value on its own, so this works
+            # unconditionally on any Enigma2 image.
+
+            # Round 177: the former red_color/green_color/yellow_color/
+            # blue_color constants (used to force each colour button's
+            # own TEXT to that colour, since the old hand-drawn Label
+            # widgets had no icon distinguishing them otherwise) are
+            # gone -- __ButtonTextRed__ etc (skin_default.xml) render
+            # with the active skin's own standard button-text colour
+            # instead, matching every other Enigma2 screen's own
+            # colour row (icon carries the colour meaning, not the
+            # text), and the original reference screenshot this round
+            # started from.
+            hint_color = skin_adapter.color("highlight", default=palette["hint_fg"])
+
+            # Round 208, per direct request ("Näytä ylempi ohjerivi
+            # (Oletuksena: Kyllä)" -- let the user hide the OK/MENU/
+            # EPG-INFO/HELP/EXIT text row above the colour-button row):
+            # show_hint_text (read once, now up near test_skin/
+            # vintage_radio's own branches above -- see this file's own
+            # round 209 comment there) decides below whether the five
+            # hint_text_* widgets are included in this branch's own
+            # hint_bar_xml at all. The colour-button row itself
+            # (buttonTemplatePanel/bundledIcon) is untouched either
+            # way -- it already fully identifies every action on its
+            # own, which is exactly why hiding only the text row above
+            # it is safe.
+
+            # Round 166, per direct request/device photo: real colour-
+            # button icons (buttons/red.png etc, confirmed present at
+            # /usr/share/enigma2/ViX-Common/buttons/ on the user's own
+            # device) placed in front of each colour's own text.
+            # skin_adapter.buttonbarImage()'s own existing candidate
+            # list already tries exactly "buttons/<colour>.png" via
+            # resolveFilename(SCOPE_SKIN_IMAGE, ...) -- no change
+            # needed in enigma_skin.py itself, only this new usage of
+            # it. Baked directly into a plain (non-addon) pixmap=
+            # attribute, resolved to an absolute path before this XML
+            # string is built, the same proven mechanism every other
+            # image in this project's own generated skins already
+            # uses -- not the addon mechanism rounds 160-163 could
+            # never get to render anything. fallback=None means the
+            # icon widget is simply left out (0x0, invisible) rather
+            # than shown broken when the active skin has nothing at
+            # this path; the text alone still carries the meaning.
+            #
+            # Round 177, per direct device confirmation: replaced by
+            # Enigma2's own core-shipped __ButtonRed__/__ButtonGreen__/
+            # __ButtonYellow__/__ButtonBlue__ skin panels (skin_default.xml,
+            # confirmed resolvable and renderable from a MediaPlayer3
+            # screen via the round 176 isolated probe screen, now
+            # removed). Each is a self-contained icon+text pair driven
+            # entirely by a "key_red"/"key_green"/"key_yellow"/
+            # "key_blue" StaticText source (see this file's own
+            # round 177 self["key_yellow"]/self["key_blue"] additions
+            # below) -- Enigma2 resolves the icon itself from whatever
+            # skin is active and sizes/positions it using its own
+            # standard button-icon convention, the same one every
+            # other Enigma2 screen's colour row already uses. This
+            # removes the icon-size/position guessing rounds 166-175
+            # needed for Vintage Radio's own separate, hand-drawn
+            # branch entirely -- there is no icon_size to compute or a
+            # buttonbarImage() lookup to fall back on here any more.
+            #
+            # NOT YET CONFIRMED on a real device: whether the icon's
+            # own size, drawn using Enigma2's own global skin scale
+            # factor ("*f", resolved against whatever the receiver's
+            # actual active skin.xml declares), visually matches this
+            # project's own hand-computed sx/sy-scaled text sitting
+            # right next to it in the same row. The isolated probe
+            # screen confirmed the panel resolves and renders
+            # something real, not that its exact size/alignment here
+            # is correct -- the next device photo is what actually
+            # answers that.
+            def buttonTemplatePanel(color_name, x, y, width=280):
+
+                # Round 179, per direct device report ("buttonbar ei ole
+                # päivittynyt" -- the whole colour row was completely
+                # absent, not merely misaligned): this helper was the one
+                # place in this branch NOT going through rect() -- every
+                # other widget here scales its position/size by sx/sy
+                # (real screen size / DESIGN_WIDTH,DESIGN_HEIGHT -- see
+                # this file's own rect() a few lines above). On the
+                # user's own device the actual window was 1280x720
+                # (sx=~0.71, sy=~0.70) -- unscaled positions like y=959
+                # alone already sit below a 720px-tall window, so every
+                # panel landed off-screen. Position and size below are
+                # scaled by sx/sy the same way rect() does for every
+                # sibling widget, which fixed the missing row.
+                #
+                # Round 180, per direct device report/screenshot ("kaikki
+                # alimman rivin tekstit ovat harmaita" -- every colour
+                # button's own text rendered in a washed-out grey next to
+                # the OK/MENU/EPG-INFO/HELP/EXIT row's own solid
+                # foregroundColor="{hint_color}" text): confirmed from
+                # skin_default.xml itself (uploaded this round) that
+                # __ButtonTextRed__/__ButtonTextGreen__/__ButtonTextYellow__/
+                # __ButtonTextBlue__ (the text half of round 177's own
+                # __ButtonRed__ etc panels) specify no foregroundColor of
+                # their own at all -- they simply inherit whatever muted
+                # default the active device skin happens to use for
+                # generic button text, which is not this project's own
+                # hint_color. __ButtonGraphicRed__ etc (the icon half),
+                # by contrast, is a plain Pixmap widget with no colour to
+                # override -- still exactly the same confirmed-working,
+                # no-size-guessing mechanism round 177 introduced. So
+                # this keeps using the core __ButtonGraphic<Color>__
+                # panel for the icon (unchanged), but now renders the
+                # text itself as this project's own plain Label widget
+                # (same "key_<color>" StaticText source, same mechanism
+                # every other Label in this file already uses) with an
+                # explicit foregroundColor="{hint_color}" -- matching the
+                # OK/MENU/EPG-INFO/HELP/EXIT row above it exactly, rather
+                # than leaving it to the active skin's own unrelated
+                # default.
+                # Round 183, per direct request: colour buttons move to
+                # sit directly under the OK/MENU/EPG-INFO/HELP columns
+                # (see this round's own comment further below) --
+                # width defaults to 280 rather than round 177-182's own
+                # 300, freeing a little extra breathing room now that
+                # neighbouring columns are only ~316-420px apart instead
+                # of the old ~470-480px, given the actual rendered
+                # content (a 30px icon + a short word) never came close
+                # to using the full declared width anyway.
+                icon_size = 30
+                text_offset = 38
+                return (
+                    f'<panel position="{int(x * sx)},{int(y * sy)}" '
+                    f'size="{int(width * sx)},{int(40 * sy)}">'
+                    f'<panel position="0,0" '
+                    f'size="{int(icon_size * sx)},{int(icon_size * sy)}">'
+                    f'<panel name="__ButtonGraphic{color_name.capitalize()}__"/>'
+                    f"</panel>"
+                    f'<widget source="key_{color_name}" render="Label" '
+                    f'position="{int(text_offset * sx)},0" '
+                    f'size="{int((width - text_offset) * sx)},{int(40 * sy)}" '
+                    f'font="Bold;{max(10, int(19 * sx))}" '
+                    f'valign="center" halign="left" '
+                    f'foregroundColor="{hint_color}" transparent="1"/>'
+                    f"</panel>"
+                )
+
+            # Round 180 introduced a single clumped group of four core
+            # icon panels (TEXT/HELP/MENU/INFO) at the row's far right.
+            # Rounds 181-182 tried pairing each icon with a colour
+            # button, then spreading them one-per-hint_text_* column.
+            # Round 183 clarified the actual intent: ALL of OK/MENU/
+            # INFO/HELP/EXIT cluster together under "EXIT", while the
+            # four colour buttons sit under OK/MENU/EPG-INFO/HELP --
+            # confirmed working on device, but round 183's OK/EXIT icons
+            # still came from a per-device lookup (skin_adapter.
+            # buttonbarImage()), which is exactly why EXIT needed a
+            # hyphen-filename fix that round and OK still looked
+            # slightly off (a generic system icon, not designed to sit
+            # in this row).
+            #
+            # Round 184, per direct request ("OK ja exit kuvakkeet
+            # pitaa vaihtaa ... Laitetaan kaikki kuvakkeet ohjelman
+            # mukaan" -- replace OK/EXIT, and ship every icon bundled
+            # with the program instead): all five icons -- OK/MENU/
+            # INFO/HELP/EXIT -- are now this project's own bundled,
+            # pre-made-transparent 35x25 PNGs (resources/buttons/
+            # key_<name>.png, BUTTON_ICON_PATH in paths.py), replacing
+            # BOTH the per-device buttonbarImage() lookup (OK/EXIT) AND
+            # Enigma2's own core __Key*AutoTemplate__ panels (MENU/
+            # INFO/HELP) entirely. This removes every remaining size/
+            # offset guess this buttonbar needed rounds 177-183 (no
+            # more per-panel internal-offset compensation, no more
+            # per-device "does this file even exist" uncertainty) --
+            # the exact same icon renders identically on every device,
+            # matching the user's own explicit reason for this change.
+            # The user supplied the OK/EXIT source images directly
+            # (backgrounds made transparent here the same way the
+            # existing MENU/INFO/HELP crops already were: flood-filled
+            # from the image border so only the true background clears,
+            # leaving the white "OK"/"EXIT" lettering inside the badge
+            # untouched); MENU/INFO/HELP reuse the device's own already-
+            # transparent files as-is.
+            def bundledIcon(name, x_px, y):
+
+                # Round 185, per direct device report ("Ilmeisesti tila ei
+                # riitä 35x25 kokoiselle kuvakkeelle ... kaikista
+                # kuvakkeista jää oikea reuna näkymättä" -- apparently
+                # there isn't room for a 35x25 icon, EVERY icon is
+                # missing its own right edge): this was never a
+                # too-close-to-the-screen-edge problem -- it hit every
+                # single icon individually, not just the last one. The
+                # real cause: this helper used to build its box with
+                # rect(x, y, 35, 25), which -- exactly like every other
+                # widget in this branch -- scales the box's own WIDTH/
+                # HEIGHT by sx/sy too (~0.71x/0.70x on the user's real
+                # 1280x720 device), shrinking a nominal 35x25 box down to
+                # roughly 25x18 real pixels. But the bundled PNGs
+                # themselves (resources/buttons/key_<name>.png) are a
+                # fixed, real 35x25 pixels, and per this file's own
+                # established round 173 precedent, Enigma2 Pixmap widgets
+                # draw their source image at its NATIVE pixel size
+                # regardless of the declared box, clipping whatever
+                # doesn't fit -- so the box itself, not the image, was
+                # cutting off the right/bottom of every icon.
+                #
+                # Fixed by only scaling the icon's own POSITION (so it
+                # still lines up with the rest of the scaled layout,
+                # exactly like every other widget here) while keeping the
+                # box at the bundled PNG's real, unscaled 35x25 size, so
+                # the full image always has room to render. x_px is
+                # therefore already a final, real screen-pixel X
+                # (computed below in real pixel space, not design
+                # space) -- unlike every other helper in this branch, it
+                # is NOT multiplied by sx again here.
+                path = os.path.join(BUTTON_ICON_PATH, f"key_{name}.png")
+                return (
+                    f'<widget name="hint_icon_{name}" '
+                    f'position="{int(x_px)},{int(y * sy)}" '
+                    f'size="35,25" '
+                    f'pixmap="{path}" alphatest="blend" transparent="1"/>'
+                )
+
+            # Round 184, per direct request ("exit-teksti tarvitsee
+            # siirtaa vasemmalle ... tasainen jako kaikille" -- EXIT's
+            # own text needs to move left so the whole icon cluster fits
+            # under it, and the other hint_text_* columns should move
+            # too for an even split): OK/MENU/EPG-INFO/HELP columns are
+            # evenly spaced across the row (369px apart in design space).
+            column_x = [104, 473, 842, 1211]
+            x_ok, x_menu, x_info, x_help = column_x
+
+            # Round 185, per direct device report (see bundledIcon()
+            # above): since each icon now keeps its own real, unscaled
+            # 35x25 pixel size, the whole 5-icon cluster's total width is
+            # also a fixed number of real pixels -- it does NOT shrink or
+            # grow with sx the way every other widget in this row does.
+            # Working out its position in design-space and then letting
+            # rect()-style scaling apply again would silently re-shrink
+            # it exactly like the bug just fixed above. So its position
+            # is computed directly in real screen pixels here, anchored
+            # to the screen's own actual right edge (`width`, the real
+            # pixel width this method was called with) minus a fixed
+            # margin -- this guarantees the whole cluster fits on-screen
+            # regardless of the device's resolution/scale factor, unlike
+            # the previous design-space column (x=1580), which only
+            # happened to fit inside DESIGN_WIDTH=1808 and clipped for
+            # real on this user's actual 1280x720 device.
+            #
+            # Round 186, per direct device report on 1.1.026 ("Kuvakkeiden
+            # välin voisi pienentää takaisin 6px, niin myös exit-kuvake
+            # mahtuu kokonaan alueelle. Muuten on hyvän näköinen" -- the
+            # gap could go back down to 6px, so EXIT fits completely too;
+            # otherwise it looks good): round 185's own 10px gap widened
+            # this cluster back out; the cluster's right edge is anchored
+            # to (width - right_margin) regardless of gap -- it's the
+            # LEFT edge and each icon's own individual position that
+            # shift with gap size, so a tighter gap is what actually
+            # brings EXIT fully clear per the user's own direct
+            # confirmation on the real device. Back to 6px.
+            #
+            # Round 187, per direct device report on 1.1.027 ("Nyt voisi
+            # siirtää koko ryhmää vähän vasemmalle, niin myös exit-kuvake
+            # siirtyy vasemmalle ja on sitten kokonaan laatikon sisällä"
+            # -- the whole group could move a bit further left, so EXIT
+            # moves left too and ends up fully inside the box): the
+            # user's own screenshots show EXIT still sitting right at the
+            # screen's physical edge even with a 16px real-pixel margin,
+            # so right_margin alone was cut too tight on this device --
+            # raised to 40px, shifting the whole cluster (and every icon
+            # in it) 24 real pixels further left, per the user's own
+            # direct request.
+            icon_w, icon_h = 35, 25
+            icon_gap = 6
+            cluster_width = icon_w * 5 + icon_gap * 4
+            right_margin = 40
+            x_icon_ok = max(0, width - right_margin - cluster_width)
+            x_icon_menu = x_icon_ok + icon_w + icon_gap
+            x_icon_info = x_icon_menu + icon_w + icon_gap
+            x_icon_help = x_icon_info + icon_w + icon_gap
+            x_icon_exit = x_icon_help + icon_w + icon_gap
+
+            # hint_text_exit (the label row above the icons) lines up
+            # with the icon cluster's own real start position -- divided
+            # back through sx so rect()'s own scaling (applied identically
+            # to every other widget in this row) reproduces that same
+            # real pixel position, moving EXIT's text left along with the
+            # icons it now sits above ("siirtää Exit-teksti vielä vähän
+            # vasemmalle").
+            x_exit = (x_icon_ok / sx) if sx else x_icon_ok
+
+            # Round 208: the five text-row widgets below are omitted
+            # from hint_bar_xml entirely when show_hint_text is off --
+            # Python still creates self["hint_text_ok"] etc
+            # unconditionally further down (this file's own established
+            # "a skin may omit a widget Python creates" convention,
+            # already relied on just above for hint_text_blue), so
+            # simply leaving them out of the XML string here is safe.
+            hint_text_row_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(x_ok, 921, 230, 38)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(x_menu, 921, 330, 38)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_info"
+                    {rect(x_info, 921, 330, 38)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_help"
+                    {rect(x_help, 921, 230, 38)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(x_exit, 921, 210, 38)}
+                    font="Bold;{max(10, int(19 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+            """ if show_hint_text else ""
+
+            hint_bar_xml = f"""
+            {hint_text_row_xml}
+
+            {buttonTemplatePanel("red", x_ok, 959)}
+
+            {bundledIcon("ok", x_icon_ok, 959)}
+            """
+
+            # Round 177: GREEN/YELLOW/BLUE each replace their own
+            # former colorIcon()+Label pair the exact same way RED
+            # just did above -- self-contained __ButtonGreen__/
+            # __ButtonYellow__/__ButtonBlue__ panels, driven by
+            # "key_green"/"key_yellow"/"key_blue" StaticText sources
+            # (see this file's own round 177 additions further down).
+            # hint_text_blue (the plain Label widget) is no longer
+            # referenced by system_skin's own hint_bar_xml at all --
+            # still created unconditionally in __init__ for the other
+            # variants, simply unused here now, matching this file's
+            # own established "a skin may omit a widget Python
+            # creates" convention.
+            # Round 185: "blue" (the HELP colour button, the column
+            # immediately to the left of the icon cluster) gets a
+            # slightly narrower box than the other three colour buttons
+            # (260 instead of the default 280) -- now that the icon
+            # cluster's own position is computed independently in real
+            # screen pixels (see bundledIcon()/x_icon_ok above) rather
+            # than always starting exactly at the EXIT column, the two
+            # could theoretically sit close enough to overlap by a few
+            # pixels on some resolutions; this box is just an invisible
+            # hit-box (no background), so shrinking it costs nothing
+            # visually while guaranteeing clearance.
+            hint_bar_xml += f"""
+            {buttonTemplatePanel("green", x_menu, 959)}
+
+            {buttonTemplatePanel("yellow", x_info, 959)}
+
+            {buttonTemplatePanel("blue", x_help, 959, width=260)}
+
+            {bundledIcon("menu", x_icon_menu, 959)}
+
+            {bundledIcon("info", x_icon_info, 959)}
+
+            {bundledIcon("help", x_icon_help, 959)}
+
+            {bundledIcon("exit", x_icon_exit, 959)}
             """
 
         else:
@@ -1179,7 +1889,21 @@ class MainScreen(Screen, HelpableScreen):
         # directly, so both are always in agreement, for every variant.
         lyrics_row_y = in_content_rect[1]
 
-        active_lyrics_rows = test_skin_lyrics_rows if test_skin_lyrics_rows is not None else MainScreen.LYRICS_WINDOW_ROWS
+        # Round 195: system_skin_lyrics_rows takes the same precedence
+        # test_skin_lyrics_rows already had -- both are None for every
+        # variant that doesn't set them (Light/Dark), so only one of
+        # the three can ever be non-None for a given build.
+        if test_skin_lyrics_rows is not None:
+
+            active_lyrics_rows = test_skin_lyrics_rows
+
+        elif system_skin_lyrics_rows is not None:
+
+            active_lyrics_rows = system_skin_lyrics_rows
+
+        else:
+
+            active_lyrics_rows = MainScreen.LYRICS_WINDOW_ROWS
 
         # Round 120: stashed the same way self._lyrics_font_family/
         # self._lyrics_font_scale already are above -- _showLyricsWindow()'s
@@ -1814,10 +2538,96 @@ class MainScreen(Screen, HelpableScreen):
         # omit a defined widget from their own XML, so this is safe
         # regardless of which variants actually use it.
         self["hint_text_ok"] = Label(_("OK: Menu"))
-        self["hint_text_blue"] = Label(_("BLUE: Player/Info"))
-        self["hint_text_menu"] = Label(_("MENU: Main Menu"))
+
+        # Round 173, per direct request/device photo: vintage_radio's
+        # own colour row now shows a real icon next to each label
+        # (round 172), so the colour NAME itself ("RED:"/"GREEN:"/
+        # etc) would be redundant there -- but the actual description
+        # ("Remove"/"Add"/etc) still needs to stay, which an earlier
+        # attempt this same round mistakenly dropped entirely along
+        # with the colour name. Since these are the same Python-side
+        # Label objects system_skin's own colour row also uses (with
+        # its own icon+full-"RED: Remove"-text layout, where the
+        # colour name is NOT redundant, since system_skin's own icon
+        # comes from whatever skin happens to be active rather than
+        # always being a red/green/yellow shape), the text itself has
+        # to be conditional on which variant is actually asking for
+        # it, not a single fixed string shared by both.
+        blue_hint_text = (
+            _("Player/Info") if self._skin_variant == "vintage_radio" else _("BLUE: Player/Info")
+        )
+
+        # Round 126: MainScreen's own hint bar -- created unconditionally
+        # like every other widget here, but only actually visible when
+        # the skin variant's own hint_bar_xml defines them (Light/Dark
+        # for now, test_skin from round 141); Enigma2 skins are free to
+        # omit a defined widget from their own XML, so this is safe
+        # regardless of which variants actually use it.
+        self["hint_text_blue"] = Label(blue_hint_text)
+        # Round 190: "MENU: Settings" -- menuPressed() now opens
+        # SettingsScreen directly, Main Menu is gone (see its own
+        # round 190 comment).
+        self["hint_text_menu"] = Label(_("MENU: Settings"))
         self["hint_text_info"] = Label(_("EPG/INFO: Information"))
         self["hint_text_exit"] = Label(_("EXIT: Back"))
+
+        # Round 164, per direct request: system_skin's own colour-
+        # button row (RED/GREEN/YELLOW -- BLUE reuses hint_text_blue
+        # above, repositioned into this same row for system_skin
+        # specifically) needs three genuinely new widget names none
+        # of the other variants define in their own hint_bar_xml.
+        # Created unconditionally here, matching this file's own
+        # established convention above (a skin is free to omit a
+        # widget Python creates; only the reverse -- a skin defining
+        # one Python never created -- would fail) -- Light/Dark/Test
+        # Skin's own skin XML simply never references these three, so
+        # they stay harmlessly unused there.
+        # Round 189, per direct request ("vihreälle toiminnoksi
+        # avaa/lisää" -- GREEN's own hint text now reads "Open/Add"
+        # rather than plain "Add", across every skin variant that
+        # shows a colour-specific hint at all): greenPressed() itself
+        # (see this file's own round 189 comment there) now opens the
+        # same menu as OK when there's nothing loaded to add, so the
+        # old "Add"-only label no longer described what the button
+        # actually does in that state.
+        #
+        # Round 201, per direct request: GREEN is now a single-purpose
+        # "Source" button (always opens the same source-selection query
+        # as PVR -- see greenPressed()'s own round 201 comment), and
+        # RED now handles both playlist directions via a first Add/
+        # Remove choice (see redPressed()'s own round 201 comment), so
+        # neither label above still described what its button actually
+        # does.
+        if self._skin_variant == "vintage_radio":
+
+            self["hint_color_red"] = Label(_("Playlist"))
+            self["hint_color_green"] = Label(_("Source"))
+            self["hint_color_yellow"] = Label(_("Lyrics"))
+
+        else:
+
+            self["hint_color_red"] = Label(_("RED: Playlist"))
+            self["hint_color_green"] = Label(_("GREEN: Source"))
+            self["hint_color_yellow"] = Label(_("YELLOW: Lyrics"))
+
+        # Round 167, per direct request/device log: a real crash
+        # (skin.SkinError: "Component with name 'hint_icon_red' was
+        # not found in skin of screen") -- round 166's own colorIcon()
+        # helper generates <widget name="hint_icon_red"> etc in the
+        # skin XML whenever skin_adapter.buttonbarImage() finds an
+        # icon, but nothing ever created a matching self["hint_icon_
+        # red"] Python-side component for Enigma2 to associate it
+        # with -- the exact reverse of the "a skin may omit a widget
+        # Python creates" safety this file's own round 126 comment
+        # documents; the other direction (a skin defining a widget
+        # Python never created) fails outright. Created unconditionally
+        # here, matching hint_color_red/green/yellow's own convention
+        # immediately above -- harmless on every other variant, whose
+        # own skin XML never references these four names at all.
+        self["hint_icon_red"] = Pixmap()
+        self["hint_icon_green"] = Pixmap()
+        self["hint_icon_yellow"] = Pixmap()
+        self["hint_icon_blue"] = Pixmap()
 
         # Round 142, per direct request (a real device photo: test_skin's
         # own hint bar text sat directly on top of the reference image's
@@ -1837,13 +2647,51 @@ class MainScreen(Screen, HelpableScreen):
         # playlistscreen.py's own round 134 comment for the full
         # reasoning): the correct StaticText()/key_red component and
         # naming for round 133's own GREEN/RED playlist add/remove
-        # additions. MainScreen's own 5-slot hint bar (OK/BLUE/MENU/
-        # EPG-INFO/EXIT) already fills its own available width -- no
-        # skin <widget source="key_green".../> entry yet, same
-        # well-scoped-follow-up reasoning as the other four screens
-        # this round.
-        self["key_green"] = StaticText(_("Add to Playlist"))
-        self["key_red"] = StaticText(_("Remove from Playlist"))
+        # additions. Left unreferenced by any skin XML until round
+        # 177, which wires all four ("key_yellow"/"key_blue" newly
+        # added alongside) into system_skin's own real colour row
+        # (see _buildSkin()'s own round 177 comment) via Enigma2's
+        # core __ButtonRed__/__ButtonGreen__/__ButtonYellow__/
+        # __ButtonBlue__ skin panels. Text shortened from "Add to
+        # Playlist"/"Remove from Playlist" to plain "Add"/"Remove",
+        # matching Vintage Radio's own round 173 precedent (redundant
+        # once a real colour icon sits next to the text) -- these four
+        # component names are still created unconditionally for every
+        # skin variant, same as every other hint_* widget in this
+        # file; only system_skin's own generated skin XML actually
+        # references them.
+        # Round 189: "Open/Add" -- matches hint_color_green's own
+        # updated text above, for the same reason (greenPressed() now
+        # opens the menu when nothing is loaded, not just "Add").
+        # Round 201: "Source"/"Playlist" -- matches hint_color_green/
+        # hint_color_red's own updated text above (see this file's own
+        # round 201 comment there).
+        self["key_green"] = StaticText(_("Source"))
+        self["key_red"] = StaticText(_("Playlist"))
+        self["key_yellow"] = StaticText(_("Lyrics"))
+        self["key_blue"] = StaticText(_("Player/Info"))
+
+        # Rounds 180-183 used Components.Sources.Boolean ("key_help"/
+        # "key_menu"/"key_info") to gate Enigma2's own core
+        # __KeyHelpAutoTemplate__ etc panels via ConditionalShowHide.
+        # Round 184 replaced those core panels with this project's own
+        # bundled icon files (_buildSkin()'s own bundledIcon(), paths.py
+        # BUTTON_ICON_PATH) for every one of OK/MENU/INFO/HELP/EXIT, so
+        # these three Boolean sources have no skin XML left to gate --
+        # removed rather than left dangling and unreferenced.
+        #
+        # Round 167's own "a skin defining a widget Python never
+        # created fails outright" precedent (see hint_icon_red etc, a
+        # few lines below) still applies to bundledIcon()'s own plain
+        # <widget name="hint_icon_<name>"> elements, so every one of the
+        # five needs a matching self["hint_icon_<name>"] = Pixmap()
+        # component -- red/green/yellow/blue already exist (below);
+        # ok/menu/info/help/exit created here.
+        self["hint_icon_ok"] = Pixmap()
+        self["hint_icon_menu"] = Pixmap()
+        self["hint_icon_info"] = Pixmap()
+        self["hint_icon_help"] = Pixmap()
+        self["hint_icon_exit"] = Pixmap()
 
         self._statusbar = StatusBar(self["status"])
 
@@ -2002,7 +2850,7 @@ class MainScreen(Screen, HelpableScreen):
             self.playPressed: _("play"),
             self.pausePressed: _("pause"),
             self.stopPressed: _("stop"),
-            self.menuPressed: _("open the main menu"),
+            self.menuPressed: _("open settings"),
             self.pvrPressed: _("open the file browser"),
             self.nextTrackPressed: _("skip to the next track"),
             self.previousTrackPressed: _("skip to the previous track"),
@@ -2015,8 +2863,12 @@ class MainScreen(Screen, HelpableScreen):
             self.infoPressed: _("show information about this screen"),
             self.upPressed: _("previous track/station"),
             self.downPressed: _("next track/station"),
-            self.greenPressed: _("add the current track to a playlist"),
-            self.redPressed: _("remove the current track from a playlist"),
+            # Round 201: greenPressed() is now a single-purpose Source
+            # button (matches PVR); redPressed() now offers both
+            # add-to and remove-from a playlist, via a first choice
+            # (see each one's own docstring).
+            self.greenPressed: _("open the same source-selection menu as PVR"),
+            self.redPressed: _("add the current track to a playlist, or remove it from one"),
             self._showLyricsFullscreen: _("show lyrics fullscreen"),
         }
 
@@ -3762,7 +4614,17 @@ class MainScreen(Screen, HelpableScreen):
         _mediaScreenClosed()/_browserClosed() -- or directly by
         playRadioStation() for radio playback that never opened a
         screen at all. No known origin (nothing has played yet this
-        session) falls back to the Main Menu, always available.
+        session) used to fall back to the now-removed Main Menu.
+
+        Round 190, per direct request (Main Menu removed entirely --
+        see menuPressed()'s own round 190 comment): the "no known
+        origin" fallback now opens the same startup source-chooser
+        _openStartupChooser() already shows for OK on an empty
+        MainScreen (Internet Radio/Local Music/Music Library/
+        Playlists/Podcasts/Cancel) instead -- a closer match for "no
+        known source, what do you want to do" than Settings would be,
+        and reuses an existing, already-correct mechanism rather than
+        introducing a new one.
         """
 
         reopeners = {
@@ -3781,7 +4643,7 @@ class MainScreen(Screen, HelpableScreen):
 
         else:
 
-            self.openMainMenu()
+            self._openStartupChooser()
 
     # ------------------------------------------------------------------
 
@@ -3853,7 +4715,26 @@ class MainScreen(Screen, HelpableScreen):
         Tries, in order: the most recent history entry, the first
         station in the "General" favorite list, and finally
         RadioBrowserScreen itself (to search) if neither has anything.
+
+        Round 208, per direct request ("soita edellinen radiokanava
+        automaattisesti (Oletuksena: Kyllä). Näin voi vaikuttaa että
+        kun valitsee internetradion, niin lähteekö soittamaan
+        edellistä kanavaa vai meneekä kanavien hakulistaan" -- let the
+        user turn this whole history/favourite auto-resume behaviour
+        off): when radio.auto_resume_on_select is off, this always
+        goes straight to RadioBrowserScreen's own channel search/
+        browse list instead, regardless of whether a history or
+        favourite station exists -- distinct from radio.resume_on_start
+        (plugin.py), which only ever fires once, automatically, at
+        MediaPlayer3's own launch; this governs every later explicit
+        "Internet Radio" selection during the same session.
         """
+
+        if not config_manager.get("radio.auto_resume_on_select", True):
+
+            self.openRadioBrowserScreen()
+
+            return
 
         history = internetradio_manager.getHistory()
 
@@ -4250,10 +5131,24 @@ class MainScreen(Screen, HelpableScreen):
     # ------------------------------------------------------------------
 
     def menuPressed(self) -> None:
+        """
+        Round 190, per direct request ("Nyt kun musiikkilähteen voi
+        valita usealla tavalla, niin mainmenu jää tarpeettomaksi ...
+        korvataan menu-nappi viemään suoraan asetukset-sivulle" --
+        now that the music source can be picked several other ways,
+        the Main Menu router screen is unnecessary; MENU should go
+        straight to Settings instead): opens SettingsScreen directly,
+        the same as every other screen in the plugin now does (see
+        each screen's own round 190 comment). MainMenu (mainmenu.py)
+        itself, and every openWithCallback(..., MainMenu) call site,
+        is removed entirely across the whole plugin this round -- see
+        docs/Claude_notes_build0010.txt's own round 190 entry for the
+        full list of call sites this touched.
+        """
 
         logger.verbose("[MainScreen] MENU pressed.")
 
-        self.openMainMenu()
+        self.openSettings()
 
     # ------------------------------------------------------------------
 
@@ -4289,15 +5184,32 @@ class MainScreen(Screen, HelpableScreen):
         soittolistaan"): adds the currently loaded track
         (self._playback.getCurrentFile()) to the current/target
         playlist, prompting for one first if none is set yet.
+
+        Round 189, per direct request ("vihreälle toiminnoksi
+        avaa/lisää, eli jos ei ole soitettavaa, niin se avaa saman
+        valikon kuin ok-nappi ja jos on soitto menossa, niin lisää
+        soittolistaan, kuten nyt" -- GREEN becomes a dual-purpose
+        open/add button: with nothing loaded it opens the exact same
+        menu OK would, and with something loaded it keeps adding to
+        the playlist exactly as before): round 133's own "nothing
+        loaded -> do nothing" branch now delegates to okPressed()
+        instead, reusing its existing per-panel dispatch (startup
+        chooser / unified action menu / play-selected-entry) rather
+        than duplicating any of that logic here.
+
+        Round 201, per direct request ("vihreälle lähde, joka aina
+        saman valikon kuin pvr-nappi" -- GREEN becomes a plain,
+        single-purpose "Source" button): the add-to-playlist half of
+        round 189's own dual purpose moves to RED instead, which now
+        handles both directions (add AND remove, via a first choice)
+        -- see redPressed()'s own round 201 comment. GREEN no longer
+        needs to check whether anything is currently loaded at all:
+        it always opens the exact same source-selection query PVR
+        does (_openStartupChooser(), see pvrPressed()), regardless of
+        whatever is already playing.
         """
 
-        filepath = self._playback.getCurrentFile()
-
-        if not filepath:
-
-            return
-
-        self._requireCurrentPlaylist(lambda name: self._afterPlaylistAdd(name, filepath))
+        self._openStartupChooser()
 
     # ------------------------------------------------------------------
 
@@ -4334,6 +5246,16 @@ class MainScreen(Screen, HelpableScreen):
         soittolistasta"): removes the currently loaded track from the
         current/target playlist -- the inverse of greenPressed() above,
         targeting the exact same playlist concept.
+
+        Round 201, per direct request ("Laitetaan punaiselle
+        lisää/poista soittolistalta kahdella kyselyllä (Lisätään/
+        poistetaan -> Valitse soittolista)"): RED now offers BOTH
+        directions, via a first Add/Remove choice, then the existing
+        playlist picker -- GREEN, which used to add here (round 189),
+        is now a dedicated "Source" button matching PVR instead (see
+        greenPressed()'s own round 201 comment). Still does nothing at
+        all if nothing is currently loaded, same as before -- there's
+        no file to add OR remove either way.
         """
 
         filepath = self._playback.getCurrentFile()
@@ -4342,7 +5264,38 @@ class MainScreen(Screen, HelpableScreen):
 
             return
 
-        self._requireCurrentPlaylist(lambda name: self._afterPlaylistRemove(name, filepath))
+        self.session.openWithCallback(
+            self._playlistAddRemoveChoiceMade,
+            ChoiceBox,
+            title=_("Playlist"),
+            list=[
+                (_("Add to playlist"), "add"),
+                (_("Remove from playlist"), "remove"),
+                (_("Cancel"), "cancel"),
+            ],
+        )
+
+    # ------------------------------------------------------------------
+
+    def _playlistAddRemoveChoiceMade(self, choice) -> None:
+
+        if choice is None or choice[1] == "cancel":
+
+            return
+
+        filepath = self._playback.getCurrentFile()
+
+        if not filepath:
+
+            return
+
+        if choice[1] == "add":
+
+            self._requireCurrentPlaylist(lambda name: self._afterPlaylistAdd(name, filepath))
+
+        else:
+
+            self._requireCurrentPlaylist(lambda name: self._afterPlaylistRemove(name, filepath))
 
     # ------------------------------------------------------------------
 
@@ -5012,52 +5965,6 @@ class MainScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
-    def openMainMenu(self) -> None:
-
-        self._log("Opening Main Menu.")
-
-        self.session.openWithCallback(self._mainMenuCallback, MainMenu)
-
-    # ------------------------------------------------------------------
-
-    def _mainMenuCallback(self, action_id=None) -> None:
-
-        if action_id is None:
-
-            self._updateDisplay()
-
-            return
-
-        if action_id == "browser":
-
-            self.openBrowser()
-
-        elif action_id == "playlists":
-
-            self.openPlaylistScreen()
-
-        elif action_id == "music_library":
-
-            self.openMusicLibraryScreen()
-
-        elif action_id == "radio":
-
-            self.openRadioBrowserScreen()
-
-        elif action_id == "podcast":
-
-            self.openPodcastScreen()
-
-        elif action_id == "settings":
-
-            self.openSettings()
-
-        elif action_id == "exit":
-
-            self._updateDisplay()
-
-    # ------------------------------------------------------------------
-
     def openSettings(self) -> None:
 
         self._log("Opening SettingsScreen.")
@@ -5068,26 +5975,27 @@ class MainScreen(Screen, HelpableScreen):
 
     def _childScreenClosed(self, action_id=None) -> None:
         """
-        Called when BrowserScreen or SettingsScreen closes.
+        Called when SettingsScreen closes.
 
         Round 136: previously also called when PlaybackInfoScreen or
         DeveloperScreen closed -- both removed (see this method's own
         callers' own round 136 comments for the full removal).
 
-        Each of those Screens closes with `None` on a normal EXIT, or
-        with a Main Menu action_id when the user pressed MENU inside
-        them and picked a *different* destination there (they never
-        open that destination themselves -- see e.g.
-        settingsscreen.py._mainMenuCallback()).
+        Round 190, per direct request (Main Menu removed entirely --
+        see menuPressed()'s own round 190 comment): SettingsScreen's
+        own MENU key no longer opens Main Menu either (there is no
+        Main Menu to open any more, and going "to Settings" from
+        Settings makes no sense), so it can now only ever close with
+        `None` (a normal EXIT) -- the old "forward a Main Menu
+        action_id via _mainMenuCallback()" branch this method used to
+        have is gone along with openMainMenu()/_mainMenuCallback()
+        themselves; `action_id` is accepted but always ignored now,
+        kept only so this still works as an ordinary
+        openWithCallback() target regardless of what SettingsScreen
+        actually passes to self.close().
         """
 
         self._log("Returning to MainScreen.")
-
-        if action_id:
-
-            self._mainMenuCallback(action_id)
-
-            return
 
         self._applyUiSettings()
 

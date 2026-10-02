@@ -22,7 +22,7 @@ Episodes (for whichever podcast is currently selected).
 - RED: unsubscribe from the selected podcast (Subscribed Podcasts
   column).
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: open Settings.
 - HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 

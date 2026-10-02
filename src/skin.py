@@ -166,6 +166,21 @@ def resolve_skin_asset_path(variant: str, tier: str, filename: str) -> str:
     missing image or crashing.
     """
 
+    # Round 208, per direct request ("kun molemmat toimii, niin
+    # voidaan poistaa system skin" -- once Light's and Dark's own
+    # two-row hint bar, adopted from system_skin in rounds 204-207,
+    # were both confirmed working on a real device): system_skin
+    # itself, and this function's own special-case branch for it,
+    # are removed here. Any filename this project ever asked for
+    # under "system_skin" used to fall through to Light's own
+    # bundled tree automatically when it had no copy of its own --
+    # every screen's own _resolve*SkinVariant() now sends anyone
+    # whose saved appearance.skin is still literally "system_skin"
+    # from an older build to Light directly (see e.g.
+    # browserscreen.py's own _resolveBrowserSkinVariant()), so no
+    # path through this function is reachable with that variant any
+    # more either.
+
     if variant == "test_skin":
 
         from .storage import storage_manager

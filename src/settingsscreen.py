@@ -195,6 +195,7 @@ from Components.config import getConfigListEntry
 from Components.ConfigList import ConfigListScreen
 from Components.Label import Label
 from Components.Pixmap import Pixmap
+from Components.Sources.StaticText import StaticText
 from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
@@ -207,7 +208,7 @@ from .config import cfg, config_manager
 from .internetradio_manager import internetradio_manager
 from .localization import _
 from .logger import logger
-from .mainmenu import MainMenu
+from .paths import BUTTON_ICON_PATH
 from .radiobrowserscreen import RadioBrowserScreen
 from .skin import resolve_skin_asset_path, skin_manager, to_opaque_skin_color
 
@@ -363,6 +364,196 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         def font(size):
             return f'font="Bold;{max(10, int(size * sx))}"'
 
+        # Round 194, per direct request ("Asetuksissa ei ole vielä
+        # 2-rivistä buttonbar-aluetta, se voidaan vielä lisätä"): this
+        # screen's own existing single-row hint text (OK: Edit /
+        # LEFT/RIGHT: Change / YELLOW: Clear Radio History / MENU: Save
+        # / EXIT: Save & Back -- see __init__'s own self["hint_text_*"]
+        # assignments, unchanged by this branch) is repositioned into
+        # the SAME two-row layout the other five screens got in round
+        # 192: a text row at y=846 followed by a colour-button/icon row
+        # at y=881, mirroring browserscreen.py's own system_skin branch
+        # almost exactly (same buttonTemplatePanel()/bundledIcon()
+        # helpers, same bundled 35x25 icon files, same right-anchored
+        # OK/MENU/INFO/HELP/EXIT icon cluster). Unlike those five
+        # screens, this one keeps its own existing widget names
+        # (hint_text_ok/leftright/yellow/menu/exit) rather than the
+        # generic ok/menu/info/help/exit names, since __init__ already
+        # supplies exactly these five Label sources and no others --
+        # inventing new hint_text_info/hint_text_help widgets here
+        # would need new Python-side registrations for text this screen
+        # has never shown. Only YELLOW (clearRadioHistoryPressed) is a
+        # genuinely-bound colour action on this screen, so it's the
+        # only buttonTemplatePanel() rendered, positioned under its own
+        # text column exactly like every other screen's single
+        # genuinely-bound colour does.
+        # Round 204, per direct request ("Seuraavaksi voidaan
+        # muuttaa system skin sellaisenaan ligt skiniin ja tehda
+        # siita myos tumma versio dark-skiniin" -- adopt system_
+        # skin's own two-row hint bar as Light's new default
+        # layout, and build an equivalent for Dark too): light and
+        # dark now route into this same branch. Their own
+        # resources/skins/{light,dark}/{hd,sd}/*.png background
+        # files were regenerated this round to match -- the exact
+        # same geometric transformation already used to build
+        # system_skin's own images from Light's (round 193),
+        # verified against system_skin's own shipped files and
+        # applied losslessly (a byte-identical flat run in each
+        # content panel's own background was trimmed, not any
+        # visible content). system_skin itself is intentionally
+        # left in this condition too, not yet removed: the user
+        # asked for it to be removed only once both Light's and
+        # Dark's new two-row layouts are confirmed working on a
+        # real device.
+        if self._skin_variant in ("light", "dark"):
+
+            hint_color = palette["hint_fg"]
+
+            # Round 208, per direct request ("Nayta ylempi ohjerivi
+            # (Oletuksena: Kylla)" -- let the user hide the upper
+            # text row above the colour-button row): mirrors
+            # mainscreen.py's own round 208 addition exactly -- see
+            # its comment there for the full reasoning. The colour-
+            # button row itself is untouched either way.
+            show_hint_text = config_manager.get("ui.show_hint_text_row", True)
+
+            def buttonTemplatePanel(color_name, x, y, width=280):
+
+                icon_size = 30
+                text_offset = 38
+                return (
+                    f'<panel position="{int(x * sx)},{int(y * sy)}" '
+                    f'size="{int(width * sx)},{int(40 * sy)}">'
+                    f'<panel position="0,0" '
+                    f'size="{int(icon_size * sx)},{int(icon_size * sy)}">'
+                    f'<panel name="__ButtonGraphic{color_name.capitalize()}__"/>'
+                    f"</panel>"
+                    f'<widget source="key_{color_name}" render="Label" '
+                    f'position="{int(text_offset * sx)},0" '
+                    f'size="{int((width - text_offset) * sx)},{int(40 * sy)}" '
+                    f'font="Bold;{max(10, int(19 * sx))}" '
+                    f'valign="center" halign="left" '
+                    f'foregroundColor="{hint_color}" transparent="1"/>'
+                    f"</panel>"
+                )
+
+            def bundledIcon(name, x_px, y):
+
+                path = os.path.join(BUTTON_ICON_PATH, f"key_{name}.png")
+                return (
+                    f'<widget name="hint_icon_{name}" '
+                    f'position="{int(x_px)},{int(y * sy)}" '
+                    f'size="35,25" '
+                    f'pixmap="{path}" alphatest="blend" transparent="1"/>'
+                )
+
+            column_x = [96, 437, 779, 1120]
+            x_ok, x_leftright, x_yellow, x_menu = column_x
+
+            icon_w, icon_h = 35, 25
+            icon_gap = 6
+            cluster_width = icon_w * 5 + icon_gap * 4
+            right_margin = 40
+            x_icon_ok = max(0, width - right_margin - cluster_width)
+            x_icon_menu = x_icon_ok + icon_w + icon_gap
+            x_icon_info = x_icon_menu + icon_w + icon_gap
+            x_icon_help = x_icon_info + icon_w + icon_gap
+            x_icon_exit = x_icon_help + icon_w + icon_gap
+
+            x_exit = (x_icon_ok / sx) if sx else x_icon_ok
+
+            hint_text_row_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(x_ok, 846, 210, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(x_leftright, 846, 300, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_yellow"
+                    {rect(x_yellow, 846, 300, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(x_menu, 846, 190, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(x_exit, 846, 190, 35)}
+                    font="Bold;{max(10, int(17 * sx))}"
+                    valign="center"
+                    foregroundColor="{hint_color}"
+                    transparent="1"/>
+            """ if show_hint_text else ""
+
+            hint_bar_xml = f"""
+            {hint_text_row_xml}
+
+            {buttonTemplatePanel("yellow", x_yellow, 881)}
+
+            {bundledIcon("ok", x_icon_ok, 881)}
+
+            {bundledIcon("menu", x_icon_menu, 881)}
+
+            {bundledIcon("info", x_icon_info, 881)}
+
+            {bundledIcon("help", x_icon_help, 881)}
+
+            {bundledIcon("exit", x_icon_exit, 881)}
+            """
+
+        else:
+
+            hint_bar_xml = f"""
+            <widget name="hint_text_ok"
+                    {rect(72, 874, 156, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_leftright"
+                    {rect(274, 874, 255, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_yellow"
+                    {rect(575, 874, 378, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_menu"
+                    {rect(999, 874, 171, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+
+            <widget name="hint_text_exit"
+                    {rect(1216, 874, 296, 63)}
+                    font="Bold;{max(10, int(21 * sx))}"
+                    valign="center"
+                    foregroundColor="{palette['hint_fg']}"
+                    transparent="1"/>
+            """
+
         return f"""
         <screen name="MediaPlayer3SettingsScreen"
                 position="0,0"
@@ -402,40 +593,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
                     foregroundColor="{palette['info_label_fg']}"
                     {info_background_attr}/>
 
-            <widget name="hint_text_ok"
-                    {rect(72, 874, 156, 63)}
-                    font="Bold;{max(10, int(21 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_leftright"
-                    {rect(274, 874, 255, 63)}
-                    font="Bold;{max(10, int(21 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_yellow"
-                    {rect(575, 874, 378, 63)}
-                    font="Bold;{max(10, int(21 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_menu"
-                    {rect(999, 874, 171, 63)}
-                    font="Bold;{max(10, int(21 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
-
-            <widget name="hint_text_exit"
-                    {rect(1216, 874, 296, 63)}
-                    font="Bold;{max(10, int(21 * sx))}"
-                    valign="center"
-                    foregroundColor="{palette['hint_fg']}"
-                    transparent="1"/>
+            {hint_bar_xml}
 
         </screen>
         """
@@ -499,8 +657,30 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         self["hint_text_ok"] = Label(_("OK: Edit"))
         self["hint_text_leftright"] = Label(_("LEFT/RIGHT: Change"))
         self["hint_text_yellow"] = Label(_("YELLOW: Clear Radio History"))
-        self["hint_text_menu"] = Label(_("MENU: Menu"))
+        # Round 190: "MENU: Save" -- MENU no longer navigates anywhere
+        # (Main Menu is gone, and "open settings" from Settings itself
+        # is a no-op -- see menuPressed()'s own round 190 comment), it
+        # only saves the current configuration now, same as EXIT does
+        # on its way back.
+        self["hint_text_menu"] = Label(_("MENU: Save"))
         self["hint_text_exit"] = Label(_("EXIT: Save & Back"))
+
+        # Round 194: system_skin's own two-row hint bar needs a
+        # source for its one genuinely-bound colour button (YELLOW --
+        # see buttonTemplatePanel()'s own "key_{color_name}" source
+        # reference in _buildSkin()), plus a Pixmap for each of the
+        # bundled OK/MENU/INFO/HELP/EXIT icons its own <widget
+        # name="hint_icon_X"> declares -- both per the same
+        # skin.SkinError precedent documented in the other five
+        # screens' own round 192 comments: a skin defining a widget
+        # Python never created fails outright.
+        self["key_yellow"] = StaticText(_("Clear Radio History"))
+
+        self["hint_icon_ok"] = Pixmap()
+        self["hint_icon_menu"] = Pixmap()
+        self["hint_icon_info"] = Pixmap()
+        self["hint_icon_help"] = Pixmap()
+        self["hint_icon_exit"] = Pixmap()
 
         actions = {
             "ok": self.keyOK,
@@ -539,7 +719,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             self.exitPressed: _("save and exit"),
             self.keyLeft: _("change the highlighted setting"),
             self.keyRight: _("change the highlighted setting"),
-            self.menuPressed: _("open the menu"),
+            self.menuPressed: _("save the current configuration"),
             self.clearRadioHistoryPressed: _("clear radio history"),
             self.infoPressed: _("show information about this screen"),
         }
@@ -623,6 +803,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             getConfigListEntry(_("Hidden files"), cfg.general.hidden_files),
             getConfigListEntry(_("Show in main menu (restart required)"), cfg.general.show_in_main_menu),
             getConfigListEntry(_("Skin"), cfg.appearance.skin),
+            getConfigListEntry(_("Show upper hint row"), cfg.ui.show_hint_text_row),
         ]
 
         entries += [
@@ -637,6 +818,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             getConfigListEntry(_("Unlimited results for own language"), cfg.radio.unlimited_for_own_language),
             getConfigListEntry(_("Radio history size"), cfg.radio.history_size),
             getConfigListEntry(_("Resume radio station on start"), cfg.radio.resume_on_start),
+            getConfigListEntry(_("Auto-play previous channel on Internet Radio"), cfg.radio.auto_resume_on_select),
             getConfigListEntry(
                 _("Use ExtEplayer3 for radio")
                 + (_(" (installed)") if compatibility.isExtEplayer3Available() else _(" (NOT installed)")),
@@ -699,6 +881,10 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see "
             "SKIN_ELEMENTS.md in its own folder."
         ),
+        _("Show upper hint row"): _(
+            "Shows the OK/MENU/EPG-INFO/HELP/EXIT text row above the colour-button row at the bottom of each "
+            "screen. The colour buttons and their own icons stay visible either way (default: yes)."
+        ),
         _("Return to start of playlist"): _(
             "When the playlist ends, start playing it again from the beginning (default: no)."
         ),
@@ -736,6 +922,10 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         _("Radio history size"): _("At most this many stations are kept in the history list (default: 20)."),
         _("Resume radio station on start"): _(
             "If yes, starting the program goes straight into playing the previous radio station (default: no)."
+        ),
+        _("Auto-play previous channel on Internet Radio"): _(
+            "If yes, choosing Internet Radio from the source menu resumes the last-played station right away. "
+            "If no, it opens the channel search list instead (default: yes)."
         ),
         _("Use ExtEplayer3 for radio"): _(
             "May help some radio stations play correctly (default: no)."
@@ -1210,28 +1400,26 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
 
     def menuPressed(self) -> None:
         """
-        Open Main Menu (SETTINGSSCREEN_SPEC.md section 7).
+        Previously opened Main Menu (SETTINGSSCREEN_SPEC.md section
+        7), letting MENU jump from Settings to any other destination.
+
+        Round 190, per direct request (Main Menu removed entirely --
+        see mainscreen.py's own round 190 comment on menuPressed()):
+        every OTHER screen's own MENU now opens SettingsScreen
+        directly, and MENU while already on SettingsScreen has
+        nowhere meaningful left to go ("open settings" from Settings
+        itself is a no-op) -- so this now just saves the current
+        configuration, matching what it already did before opening
+        Main Menu, and otherwise does nothing. The old
+        _mainMenuCallback() this used to hand off to (forwarding a
+        chosen destination back to whichever screen opened
+        SettingsScreen) is removed along with it -- nothing produces
+        that kind of action_id any more anywhere in the plugin.
         """
 
         logger.verbose("[SettingsScreen] MENU pressed.")
 
         self._saveConfiguration()
-
-        self.session.openWithCallback(self._mainMenuCallback, MainMenu)
-
-    # ------------------------------------------------------------------
-
-    def _mainMenuCallback(self, action_id=None) -> None:
-
-        if action_id in (None, "exit", "settings"):
-            return
-
-        # Any other destination is handled by MainScreen: close this
-        # screen and forward the chosen action so MainScreen can open
-        # the requested Screen next.
-        self._log("Returning to Main Menu.")
-
-        self._close(action_id)
 
     # ------------------------------------------------------------------
 

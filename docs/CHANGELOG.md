@@ -1637,6 +1637,74 @@ specific OpenATV version itself, not of this plugin -- the same thing
 happens with HELP in other apps and plugins on the same image, and
 there's no way for an individual plugin to work around it.
 
+### 1.2.000 (2026-10-01)
+
+Public release. Roughly 50 further internal test builds since
+1.1.000, grouped below by outcome; the full round-by-round record
+stays in the project's own internal notes.
+
+**A two-row hint bar for Light and Dark.** Every screen's bottom hint
+bar now separates the OK/MENU/EPG-INFO/HELP/EXIT text into its own
+row, sitting above the colour-action buttons, instead of sharing one
+crowded row with them -- clearer at a glance, and consistent with
+Vintage Radio's own look. This started life as an experimental skin
+of its own ("System Skin"), built around the receiver's native button-
+hint widgets; once that approach was abandoned for a portable one that
+works the same way on every Enigma2 image, and its two-row layout was
+proven across many rounds of real device photos, it was adopted as
+Light's and Dark's own new default layout directly and System Skin
+itself was retired -- it no longer appears as a separate skin choice,
+and anyone who had it selected is moved to Light automatically.
+
+**Two new settings.** "Show upper hint row" (Settings, default: yes)
+hides that new text row on request, across every screen, while the
+colour buttons stay fully labelled either way. "Auto-play previous
+channel on Internet Radio" (default: yes) controls what happens when
+Internet Radio is chosen from the source menu -- resume the last-
+played station right away, or go straight to the channel search list
+instead.
+
+**Internet Radio search and browsing, much faster.** Browsing a
+station list and searching the local database were both slow enough
+on some receivers to be genuinely noticeable; both are now backed by
+proper indexed lookups, cutting a full search down to roughly 10
+seconds (from closer to 25) and smaller result sets to about 1 second.
+SQLite support is now a hard package dependency with a graceful
+fallback for receivers that don't have it, plus an in-app "Install
+SQLite support" action for anyone updating from an older build without
+reinstalling the whole plugin. Separately, a real bug meant Settings
+could silently revert to its defaults on some receivers after an
+Enigma2 restart (though not a full plugin restart) -- fixed.
+
+**Main Menu removed; a few colour-button reassignments.** The
+in-app Main Menu (About, Playback Information, Developer Tools) is
+gone -- all of it was either visible elsewhere already or logged
+automatically instead -- MENU now opens Settings directly. GREEN is
+now a single-purpose "Source" button (opens the same source-selection
+menu as the dedicated PVR button, on receivers that have one); RED
+handles both adding to and removing from a playlist, via a first
+choice between the two.
+
+**Smaller real bugs found and fixed.** A translation gap left GREEN's
+own hint text showing the untranslated word "source" in Finnish.
+MainScreen's own background image was a slightly different aspect
+ratio than every other screen's, producing a thin, visible light band
+along one edge on dark themes -- corrected to a true 16:9 at the
+source. Uninstalling the plugin via opkg used to leave its install
+directory (and anything Python had cached inside it) behind, since
+opkg only ever removes the files it tracked itself -- fixed by adding
+a proper removal step to the plugin's own packaging recipe. A real
+crash from an icon widget referenced in a screen's skin with no
+matching Python-side component was also found and fixed, along with
+the .ipk packaging itself not listing the plugin correctly in
+Enigma2's own "Remove Extensions" screen.
+
+**Known issue**: on OpenATV 8.0.0-beta specifically, the HELP button
+still opens this app's own Information screen instead of the
+receiver's own native button guide -- unchanged since 1.1.000, still
+confirmed a platform-level limitation rather than something this
+plugin can work around.
+
 ---
 
 
@@ -1704,6 +1772,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0010 | 1.0.0-beta3 | Finland Radio EPG caching (fixed a real stuttering/lag bug), configurable radio station limits with real pagination, GStreamer position fixes (premature track end, frozen elapsed/remaining display), PodcastScreen layout fixes, CH+/CH- page-jump fixed and rolled out across five screens, HelpScreen display fix and help-document review |
 | 0010 | 1.0.0 | LRCLIB lyrics + MusicBrainz cover art downloads with automatic retry; lyrics display overhaul (fixed-position current line, font-size tiers, live fullscreen view); a project-wide title-hiding-behind-background bug found and fixed on all eight screens; MediaPlayer3 branding + clock; a real Settings freeze fixed, plus a multi-round virtual-keyboard/hint-bar fix; Radio's own default language/country settable from Internet Radio itself; a real "unlimited for own language" bug fixed; Swedish/German/Spanish translations; unified MainScreen OK menu; known issue: Bold-font text may not render on OpenPLi |
 | 0010 | 1.1.0 | Test Skin (a writable, user-customizable skin) and Vintage Radio (a new permanent skin choice) added, both sharing a consistent colour scheme, hint bar and scrollbar styling across every screen; standard Enigma2 button conventions adopted throughout (native HELP guide, consistent EPG/INFO behaviour, colour-button shortcuts, simplified translation setup following the receiver's own system language); Finnish translations for both help systems; a real silent-playback bug found and fixed; playlists/favorites/radio database no longer silently lost on some reboots; Radio station limit raised to 100,000; known issue: HELP opens this app's own Information screen instead of the native guide on OpenATV 8.0.0-beta specifically, confirmed a platform limitation |
+| 0010 | 1.2.0 | Light/Dark gained a two-row hint bar (separating OK/MENU/EPG-INFO/HELP/EXIT text from the colour-action buttons), adopted from an experimental "System Skin" that was then retired as a separate choice; two new settings (show/hide that text row, auto-play the previous Internet Radio channel on selection); Internet Radio search/browsing made much faster via proper indexed lookups, with SQLite now a hard dependency and a graceful fallback; Main Menu removed (MENU opens Settings directly), GREEN/RED colour-button reassignments; a real settings-revert-on-restart bug fixed; a real GREEN-label translation gap, a MainScreen background aspect-ratio bug, an uninstall-leaves-files-behind bug, an icon-widget crash, and a packaging bug (plugin not listed in Enigma2's own Remove Extensions screen) all found and fixed; known issue: HELP on OpenATV 8.0.0-beta unchanged, still a confirmed platform limitation |
 
 ---
 

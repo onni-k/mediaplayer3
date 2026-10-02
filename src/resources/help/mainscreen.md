@@ -56,11 +56,9 @@ Radio), the current one highlighted.
 - CH+ / CH-: previous/next track (may not work on every remote/image).
 - PVR: opens the same chooser as OK (Internet Radio / Local Music /
   Music Library / Playlists / Podcasts).
-- RADIO: switch between radio and local playback, or open the radio
-  station search.
 - BLUE: switch between the Player view and the Information view.
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: open Settings.
 - HELP: show the remote control's own button guide.
 - EXIT: stop playback and return to live TV.
 

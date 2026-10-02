@@ -19,7 +19,7 @@ by language and region.
 - GREEN: add the selected station to favorites directly, without
   opening the OK menu first.
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: open Settings.
 - HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 

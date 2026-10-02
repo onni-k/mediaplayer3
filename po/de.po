@@ -395,6 +395,9 @@ msgstr "Suche: {0} ({1} Ergebnisse)"
 msgid "Searching..."
 msgstr "Wird gesucht..."
 
+msgid "Source"
+msgstr "Quelle"
+
 msgid "Startup directory"
 msgstr "Startverzeichnis"
 

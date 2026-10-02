@@ -1002,6 +1002,60 @@
 #     separate, appropriately-detailed context.
 # ------------------------------------------------------------------------------
 
+# 2026-09-13/15  Build 0010 (rounds 157-159, condensed)
+#   - Round 157: version bumped to 1.1.000, the first public release.
+#     CHANGELOG.md's own 49 individual 1.0.0XX patch entries
+#     consolidated into a single, outcome-grouped 1.1.000 entry (the
+#     full round-by-round record stays in this project's own internal
+#     notes).
+#   - Round 158: a GitHub Actions autotag workflow added (.github/
+#     workflows/autotag.yml), per a specific referenced commit as the
+#     exact pattern to follow. __init__.py's own __version__ made the
+#     single source of truth the workflow's own shell-level regex
+#     reads directly; project.py's own VERSION constant now imports
+#     it (see the import line's own comment above) rather than
+#     duplicating the literal string -- a real mistake (the
+#     explanatory comment's own example text accidentally matching
+#     the same regex, doubling the extracted "version") was caught by
+#     literally running the workflow's own grep command against the
+#     real file before shipping, not just reviewing the diff.
+#   - Round 159: audited the actual GitHub repository content against
+#     what was meant to be sent, after the user reported difficulty
+#     getting the workflow file pushed. Found __init__.py's own
+#     __version__ had reverted to a placeholder "0.1.0" and project.py
+#     back to a hardcoded literal -- would have tagged the wrong
+#     version entirely, most likely introduced when GitHub Copilot
+#     regenerated these files while resolving the workflow-permission
+#     issue. Also found nine already-deleted files and ten stray/stale
+#     translation files still present, and a missing .gitignore.
+#     Rebuilt from the last known-good delivered package rather than
+#     patching the flawed snapshot in place.
+# ------------------------------------------------------------------------------
+
+# 2026-09-15  Build 0010 (device test round 160)
+#   - Version bumped to 1.1.001 (a test build; this feature is
+#     genuinely new and unverified on a real device as of this
+#     round). Added "System Skin", built around OpenViX's own native
+#     button-hint widgets (Components.Addons.ButtonSequence/
+#     ColorButtonsSequence -- confirmed, via direct SSH investigation
+#     together with the user on a real OpenViX device rather than
+#     guessed at, to be genuine OpenViX-only additions to its own
+#     Enigma2 core) instead of this project's own hand-drawn hint bar.
+#     compatibility.hasOpenViXButtonAddons() detects the actual
+#     capability directly via ImportError (a BoxInfo string-match
+#     approach was tried first and disproved using four real device
+#     logs -- "displaybrand" returns the receiver's own hardware
+#     brand identically across OpenViX/OpenATV/OpenBH/OpenPLi, not
+#     the distribution). MainScreen only, per direct request --
+#     _resolveMainScreenSkinVariant() silently falls back to Light
+#     whenever the addons aren't actually available on the running
+#     image. ColorButtonsSequence (RED/GREEN/YELLOW/BLUE) sits in the
+#     lowest row, ButtonSequence (OK/MENU/EPG-INFO/HELP/EXIT) above
+#     it, per the user's own explicit ordering. Extending this same
+#     approach to other screens is a separate, not-yet-scoped
+#     follow-up pending real-device confirmation of this first attempt.
+# ------------------------------------------------------------------------------
+
 """
 MediaPlayer3 project information.
 

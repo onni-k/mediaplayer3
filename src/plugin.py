@@ -87,6 +87,7 @@ from Plugins.Plugin import PluginDescriptor
 from Screens.MessageBox import MessageBox
 
 from .compatibility import compatibility
+from .enigma_skin import skin_adapter
 from .config import config_manager
 from .internetradio_manager import internetradio_manager
 from .localization import _
@@ -96,6 +97,22 @@ from .paths import RESOURCE_PATH
 from .playlist_manager import playlist_manager
 from .skin import skin_manager
 from .storage import storage_manager
+
+# Round 177: round 176's own ButtonbarTestScreen (and this plain,
+# top-level "from .buttonbar_test_screen import ButtonbarTestScreen"
+# import) removed entirely -- it already answered the one question it
+# existed for (confirmed on a real device: <panel
+# name="__ButtonTemplate__"/> resolves and renders). It also turned
+# out to be a real, separate bug in its own right: this bare
+# module-level import meant ANY exception raised while importing that
+# one throwaway diagnostic module (not reproducible here without real
+# Enigma2) took plugin.py's own import down with it, hiding EVERY
+# PluginDescriptor this file defines -- including MediaPlayer3's own
+# real entry point, exactly matching the device report of the plugin
+# vanishing from the Extensions menu entirely even after a clean
+# reinstall. See buttonbar_test_screen.py's own git history / round
+# 176-177 Claude_notes entries for the full detail; the file itself is
+# deleted this round.
 from .version import get_version_string
 
 # ------------------------------------------------------------------------------
@@ -180,6 +197,26 @@ def main(session, **kwargs):
     except Exception as error:
 
         logger.warning("Unable to log device/system identification: %s", error)
+
+    #
+    # Round 168, per direct request (a real device confirmed System
+    # Skin's own colour-button icons now load correctly, and asked
+    # where exactly they came from, since they look different from
+    # OpenWebif's/the EPG downloader's own icons -- nothing in the
+    # log said so, because logDiagnostics() existed since round 164
+    # but was never actually wired to run anywhere): logs the active
+    # skin.xml's own path, every skin variable name it defines, and
+    # which real file (if any) was found for each of the four colour
+    # buttons -- the same unconditional, self-contained try/except
+    # pattern as the block above, so a failure here can never prevent
+    # startup either.
+    #
+    try:
+        skin_adapter.logDiagnostics()
+
+    except Exception as error:
+
+        logger.warning("Unable to log active skin diagnostics: %s", error)
 
     #
     # Apply saved Logging Level configuration to the shared logger

@@ -60,6 +60,17 @@ LOCALE_PATH = join(RESOURCE_PATH, "locale")
 
 HELP_PATH = join(RESOURCE_PATH, "help")
 
+# Round 184, per direct request ("Laitetaan kaikki kuvakkeet ohjelman
+# mukaan" -- ship all [buttonbar] icons with the program): bundled
+# OK/MENU/INFO/HELP/EXIT remote-button icons (resources/buttons/
+# key_<name>.png, all 35x25, pre-made transparent), used by
+# MainScreen's own System Skin hint bar instead of a per-device lookup
+# (skin_adapter.buttonbarImage()) or Enigma2's own core skin_default.xml
+# panels -- guarantees the same look on every receiver/skin rather than
+# depending on what a given image's own skin_default.xml happens to
+# ship, at what size, under what filename.
+BUTTON_ICON_PATH = join(RESOURCE_PATH, "buttons")
+
 DOC_PATH = join(PLUGIN_PATH, "docs")
 
 # ------------------------------------------------------------------------------

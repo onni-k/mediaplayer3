@@ -19,7 +19,7 @@ together, side by side with their contents.
   the selected track/station, with a confirmation either way
   (Tracks/Stations panel).
 - EPG / INFO: open this guide.
-- MENU: open the Main Menu.
+- MENU: open Settings.
 - HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 

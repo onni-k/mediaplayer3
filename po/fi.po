@@ -395,6 +395,9 @@ msgstr "Haku: {0} ({1} tulosta)"
 msgid "Searching..."
 msgstr "Haetaan..."
 
+msgid "Source"
+msgstr "Lähde"
+
 msgid "Startup directory"
 msgstr "Käynnistyshakemisto"
 
@@ -569,6 +572,9 @@ msgstr " (EI asennettu)"
 msgid " (installed)"
 msgstr " (asennettu)"
 
+msgid "Auto-play previous channel on Internet Radio"
+msgstr "Soita edellinen radiokanava automaattisesti"
+
 msgid "Automatically play next track"
 msgstr "Soita seuraava kappale automaattisesti"
 
@@ -629,6 +635,9 @@ msgstr "Näytä edistymispalkki"
 msgid "Show remaining time"
 msgstr "Näytä jäljellä oleva aika"
 
+msgid "Show upper hint row"
+msgstr "Näytä ylempi ohjerivi"
+
 msgid "Skin"
 msgstr "Skini"
 
@@ -661,6 +670,16 @@ msgstr "INFO: Haku"
 
 msgid "MENU: Menu"
 msgstr "MENU: Valikko"
+
+# Round 190: Main Menu removed entirely -- MENU now opens Settings
+# directly on every screen except SettingsScreen itself (where it
+# just saves), replacing the "MENU: Menu"/"MENU: Main Menu" entries
+# above (kept, unused, rather than removed).
+msgid "MENU: Settings"
+msgstr "MENU: Asetukset"
+
+msgid "MENU: Save"
+msgstr "MENU: Tallenna"
 
 msgid "EXIT: Back"
 msgstr "EXIT: Takaisin"
@@ -706,6 +725,14 @@ msgstr "YELLOW: Tyhjennä radiohistoria"
 
 msgid "EXIT: Save & Back"
 msgstr "EXIT: Tallenna ja takaisin"
+
+# Round 194: system_skin's own two-row hint bar shows this as the
+# colour-button panel's own short label (no "YELLOW: " prefix --
+# the coloured button graphic itself already says which key), next
+# to "YELLOW: Clear Radio History" above, which stays as the
+# single-row variant's own longer text.
+msgid "Clear Radio History"
+msgstr "Tyhjennä radiohistoria"
 
 msgid "Folder the file Browser opens in by default."
 msgstr "Kansio, jonka Tiedostoselain avaa oletuksena."
@@ -1061,6 +1088,12 @@ msgstr "Tämä kieli näkyy internetradion alueluettelossa 2. sijalla (Oletus: e
 msgid "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
 msgstr "Ohjelman ulkoasu (Oletuksena Light). Test Skin -vaihtoehdolla voit kokeilla uutta ulkoasua turvallisesti -- katso SKIN_ELEMENTS.md sen omasta hakemistosta."
 
+msgid "Shows the OK/MENU/EPG-INFO/HELP/EXIT text row above the colour-button row at the bottom of each screen. The colour buttons and their own icons stay visible either way (default: yes)."
+msgstr "Näyttää OK/MENU/EPG-INFO/HELP/EXIT-tekstirivin väripainikerivin yläpuolella jokaisen näkymän alareunassa. Väripainikkeet ja niiden kuvakkeet näkyvät joka tapauksessa. (Oletus= Kyllä)"
+
+msgid "If yes, choosing Internet Radio from the source menu resumes the last-played station right away. If no, it opens the channel search list instead (default: yes)."
+msgstr "Jos on kyllä, niin internetradion valitseminen lähdevalikosta jatkaa suoraan edellistä kanavaa. Jos ei, niin avautuu kanavien hakulista. (Oletus= Kyllä)"
+
 # Round 155, per direct request: HelpableActionMap's own native
 # per-button help text (Enigma2's own remote-control guide, rounds
 # 130-132) had never been translated into any language since that
@@ -1068,6 +1101,13 @@ msgstr "Ohjelman ulkoasu (Oletuksena Light). Test Skin -vaihtoehdolla voit kokei
 
 msgid "add the current track to a playlist"
 msgstr "lisää nykyinen kappale soittolistaan"
+
+# Round 189: GREEN is now dual-purpose (open the menu when nothing is
+# loaded, add to the playlist otherwise) -- new description covering
+# both, replacing the old add-only one above (kept, unused, rather
+# than removed).
+msgid "add the current track to a playlist, or open the menu if nothing is loaded"
+msgstr "lisää nykyinen kappale soittolistaan, tai avaa valikko jos mitään ei ole ladattu"
 
 msgid "add the selected station to favorites"
 msgstr "lisää valittu asema suosikkeihin"
@@ -1162,6 +1202,15 @@ msgstr "avaa valikko"
 msgid "open the menu for the current view"
 msgstr "avaa nykyisen näkymän valikko"
 
+# Round 190: Main Menu removed entirely -- replaces "open the main
+# menu"/"open the menu" above for menuPressed() everywhere except
+# SettingsScreen (kept, unused, rather than removed).
+msgid "open settings"
+msgstr "avaa asetukset"
+
+msgid "save the current configuration"
+msgstr "tallenna nykyiset asetukset"
+
 msgid "page down"
 msgstr "sivu alas"
 
@@ -1248,3 +1297,75 @@ msgstr "poista tilaus"
 
 msgid "update library"
 msgstr "päivitä kirjasto"
+
+# Round 170, per direct request: System Skin's own colour-button hint
+# row (RED/GREEN/YELLOW/BLUE) translated -- unlike every other
+# hint_text_* label in this file (OK: Menu, MENU: Main Menu, etc,
+# confirmed never translated on any variant since this hint bar was
+# first introduced), the user specifically asked for these four.
+msgid "RED: Remove"
+msgstr "PUNAINEN: Poista"
+
+msgid "GREEN: Add"
+msgstr "VIHREÄ: Lisää"
+
+# Round 189, per direct request ("vihreälle toiminnoksi avaa/lisää"):
+# GREEN's own hint text updated to describe its new dual open/add
+# behaviour -- the "GREEN: Add"/"Add" entries above are kept, unused,
+# rather than removed.
+msgid "GREEN: Open/Add"
+msgstr "VIHREÄ: Avaa/Lisää"
+
+# Round 202, per direct request ("vihreälle lähde, joka aina saman
+# valikon kuin pvr-nappi" / "punaiselle lisää/poista soittolistalta"):
+# GREEN is now a plain "Source" button, RED now handles both playlist
+# directions -- the entries above are kept, unused, matching round
+# 189's own precedent for not removing a superseded string.
+msgid "RED: Playlist"
+msgstr "PUNAINEN: Soittolista"
+
+msgid "GREEN: Source"
+msgstr "VIHREÄ: Lähde"
+
+msgid "YELLOW: Lyrics"
+msgstr "KELTAINEN: Sanoitukset"
+
+msgid "BLUE: Player/Info"
+msgstr "SININEN: Soitin/Tiedot"
+
+# Round 174, per direct request: two of vintage_radio's own round 173
+# shortened colour-row strings ("Remove"/"Lyrics") already had
+# suitable translations elsewhere in this file; these two didn't yet.
+msgid "Add"
+msgstr "Lisää"
+
+msgid "Open/Add"
+msgstr "Avaa/Lisää"
+
+msgid "Player/Info"
+msgstr "Soitin/Tiedot"
+
+# Round 192, per direct request: system_skin's own new two-row hint
+# bar (RED/GREEN/YELLOW/BLUE colour-button row, previously never
+# shown at all) extended from MainScreen to Browser/Internet Radio/
+# Music Library/Playlists/Podcasts -- every genuinely-bound colour
+# key's own key_<color> StaticText source, on every one of those five
+# screens, translated the same way MainScreen's own round 170 colour
+# row already was.
+msgid "Add/Select"
+msgstr "Lisää/Valitse"
+
+msgid "Search"
+msgstr "Hae"
+
+msgid "Add to Playlist"
+msgstr "Lisää soittolistaan"
+
+msgid "Delete/Remove"
+msgstr "Poista"
+
+msgid "Subscribe/Add"
+msgstr "Tilaa/Lisää"
+
+msgid "New"
+msgstr "Uusi"

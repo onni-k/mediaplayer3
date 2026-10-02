@@ -395,6 +395,9 @@ msgstr "Sök: {0} ({1} resultat)"
 msgid "Searching..."
 msgstr "Söker..."
 
+msgid "Source"
+msgstr "Källa"
+
 msgid "Startup directory"
 msgstr "Startmapp"
 

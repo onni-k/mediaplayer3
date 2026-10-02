@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.1.000 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.2.000 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external
@@ -27,9 +27,11 @@ Python dependencies beyond the standard library.
   Media (Radio Nova, Iskelmä, ...) stations, automatically matched.
 - **Redesigned Light / Dark skins** across every screen &mdash; Music
   Library, Internet Radio, the file Browser, Podcasts, Playlists, the
-  Main Player, the Main Menu, and Settings all share the same visual
-  language (rounded cards, colour-coded active panels, consistent
-  iconography), independent of the resolution tier.
+  Main Player, and Settings all share the same visual language
+  (rounded cards, colour-coded active panels, a two-row hint bar
+  separating button names from the colour-action row, consistent
+  iconography), independent of the resolution tier. Vintage Radio is
+  available too, for a different, warm amber-on-wood-and-brass look.
 - A Main Menu entry (optional).
 - Works out of the box: bundled default API keys for Podcast Index and
   Yle EPG, with the option to use your own in Settings.
@@ -80,13 +82,12 @@ history.
 
 ## Configuration
 
-Settings (accessible from MediaPlayer3's own Main Menu, or Enigma2's
-Main Menu if enabled) covers:
+Settings (press MENU from the main player screen) covers:
 
 - Startup/Music Library directories, hidden files
-- Skin (Light/Dark/Vintage Radio), Theme
+- Skin (Light/Dark/Vintage Radio), Theme, show/hide the upper hint row
 - Radio: default country/language, navigation mode, history size,
-  automatic station-database updates
+  automatic station-database updates, resume/auto-play behaviour
 - Your own Podcast Index or Yle EPG API key, if you'd rather not use
   the bundled default
 - Show MediaPlayer3 in Enigma2's own Main Menu (restart required)

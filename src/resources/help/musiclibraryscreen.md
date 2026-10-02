@@ -19,8 +19,8 @@ read from your files rather than folder names.
 - RED: remove the same selection from a playlist.
 - BLUE: update the library directly, without opening the menu first.
 - EPG / INFO: open this guide.
-- MENU: open Music Library functions (update the library, or open the
-  Main Menu).
+- MENU: open Music Library functions (update the library, or open
+  Settings).
 - HELP: show the remote control's own button guide.
 - EXIT: return to the previous screen.
 
