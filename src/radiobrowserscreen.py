@@ -167,7 +167,7 @@ from .logger import logger
 # Build 0010, device test round 16 -- user request: "Internetradion
 # kohdalla riittää, että vaihtaa järjestyksen keskimmäiseen kieli ja
 # oikean puoleiseen alue, koska kieli valitaan useammin." Order here
-drives both the visual left-to-right column layout (_buildSkin())
+# drives both the visual left-to-right column layout (_buildSkin())
 # and the LEFT/RIGHT focus cycle (focusPrevious()/focusNext()) --
 # both must agree, so this tuple is the single source of truth for
 # column order; only the widget names ("region"/"language") stayed
