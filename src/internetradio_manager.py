@@ -146,6 +146,27 @@ REQUEST_TIMEOUT_SECONDS = 8
 
 DEFAULT_SEARCH_LIMIT = 100
 
+# Round 213, per direct request: a search with no filter at all (no
+# name/country/language/tag -- "Any"/"Any" with an empty name field)
+# is the one case that stays slow even with the indexed SQLite
+# backend (round 201/round 200), because there's no selective WHERE
+# clause to narrow the row set before LIMIT applies -- effectively
+# the whole local database gets touched up to `limit`. A user with
+# radio.search_limit raised well above this (or set to 0, unlimited)
+# to browse "everything" was both waiting the longest for it and, per
+# direct report, getting the least practical value out of it: the
+# on-screen station list already shows that browsing even 1500
+# results one page at a time means scrolling through roughly a
+# hundred of them, so very little is actually lost by capping this
+# one specific case here,
+# while a country- or language-narrowed search (already fast, ~1s per
+# the same report) is untouched -- it already returns something small
+# enough to be worth raising search_limit for in the first place. Only
+# kicks in when every filter is empty; radio.search_limit itself keeps
+# its existing meaning and its own configurable ceiling for every
+# other search.
+UNFILTERED_SEARCH_RESULT_CAP = 1500
+
 DEFAULT_FAVORITE_LIST = "General"
 
 DEFAULT_HISTORY_SIZE = 50
@@ -527,6 +548,27 @@ class InternetRadioManager:
         """
 
         self._log("Search started.")
+
+        # Round 213: see UNFILTERED_SEARCH_RESULT_CAP's own comment
+        # above -- a search with every filter left empty is the one
+        # case that stays slow regardless of backend, so it gets its
+        # own, much smaller effective ceiling here, independent of
+        # whatever radio.search_limit the user has configured for
+        # every other (already fast, filter-narrowed) search. Applied
+        # once, up front, so both the local-database path below and
+        # the live-RadioBrowser fallback further down share the exact
+        # same effective limit.
+        no_filter_at_all = not (name or country or language or tag)
+
+        if no_filter_at_all and (limit == 0 or limit > UNFILTERED_SEARCH_RESULT_CAP):
+
+            self._log(
+                f"No search filter set -- capping limit at "
+                f"{UNFILTERED_SEARCH_RESULT_CAP} (was {limit}) for this "
+                f"search only; radio.search_limit itself is unchanged."
+            )
+
+            limit = UNFILTERED_SEARCH_RESULT_CAP
 
         # Round 200: prefers the indexed SQLite backend when
         # available (radio_database.py) -- falls back to round 198's

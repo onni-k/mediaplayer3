@@ -442,6 +442,7 @@ from .diagnostics import logStartupDiagnostics
 from .internetradio_manager import internetradio_manager
 from .browserscreen import _defaultPlayPlaylistName
 from .playlist_manager import playlist_manager
+from .podcast_manager import podcast_manager
 from .localization import _
 from .logger import logger
 from .musiclibraryscreen import MusicLibraryScreen
@@ -2765,7 +2766,7 @@ class MainScreen(Screen, HelpableScreen):
         # "Show lyrics fullscreen" choice already leads to --
         # _showLyricsFullscreen() already handles the "no lyrics yet"
         # case gracefully on its own, so no extra guard is needed here.
-        actions["yellow"] = self._showLyricsFullscreen
+        actions["yellow"] = self.yellowPressed
 
         for action_name in compatibility.getInfoKeyActionNames():
             actions[action_name] = self.infoPressed
@@ -2869,7 +2870,7 @@ class MainScreen(Screen, HelpableScreen):
             # (see each one's own docstring).
             self.greenPressed: _("open the same source-selection menu as PVR"),
             self.redPressed: _("add the current track to a playlist, or remove it from one"),
-            self._showLyricsFullscreen: _("show lyrics fullscreen"),
+            self.yellowPressed: _("show lyrics or episode description fullscreen"),
         }
 
         # Enigma2 versions differ on whether HelpableActionMap accepts
@@ -3317,6 +3318,8 @@ class MainScreen(Screen, HelpableScreen):
 
         self._information_panel.refresh(self._playback, filename, elapsed, duration, station=station)
 
+        self._updateYellowHint()
+
         # Round 148: requests exactly as many lines as this instance's
         # own active row set (self._lyrics_window_rows, already
         # variant-aware -- shrunk to 7 for test_skin per the direct
@@ -3627,6 +3630,17 @@ class MainScreen(Screen, HelpableScreen):
 
             return station.get("name", "") if station is not None else ""
 
+        # Round 232, per direct request ("ylimpänä podcastin nimi ja
+        # sen alla jakson nimi"): an episode played directly from the
+        # Podcasts screen (not via a playlist) has no playlist track
+        # to read the show name from -- the remembered episode info
+        # (PodcastManager.rememberEpisode) covers that case.
+        episode_info = podcast_manager.getEpisodeInfo(self._playback.getCurrentFile())
+
+        if episode_info and episode_info.get("podcast"):
+
+            return episode_info["podcast"]
+
         if self._last_source_screen == "podcast":
 
             track = self._lookupCurrentPlaylistTrack()
@@ -3705,6 +3719,12 @@ class MainScreen(Screen, HelpableScreen):
                 return programme["title"]
 
             return station.get("name", "")
+
+        episode_info = podcast_manager.getEpisodeInfo(filename)
+
+        if episode_info and episode_info.get("title"):
+
+            return episode_info["title"]
 
         if self._last_source_screen == "podcast":
 
@@ -4340,6 +4360,10 @@ class MainScreen(Screen, HelpableScreen):
 
             choices.append((stop_resume_label, "stop_resume"))
 
+        if self._currentEpisodeDescription():
+
+            choices.append((_("Show description fullscreen"), "description"))
+
         choices.append((_("Show lyrics fullscreen"), "lyrics"))
 
         choices.append((_("Show cover art fullscreen"), "cover"))
@@ -4352,6 +4376,93 @@ class MainScreen(Screen, HelpableScreen):
             title=_("Player"),
             list=choices,
         )
+
+    # ------------------------------------------------------------------
+
+    def _currentEpisodeDescription(self):
+        """
+        Round 231: the remembered description of the currently loaded
+        podcast episode, or None (see PodcastManager.rememberEpisode).
+        """
+
+        info = podcast_manager.getEpisodeInfo(self._playback.getCurrentFile())
+
+        return info.get("description") if info else None
+
+    # ------------------------------------------------------------------
+
+    def yellowPressed(self) -> None:
+        """
+        Round 231, per direct request: YELLOW shows the playing
+        podcast episode's description fullscreen (plain text, manual
+        scrolling only, no automatic scrolling); for anything else it
+        shows the lyrics exactly as before.
+        """
+
+        if self._currentEpisodeDescription():
+
+            self._showDescriptionFullscreen()
+
+        else:
+
+            self._showLyricsFullscreen()
+
+    # ------------------------------------------------------------------
+
+    def _showDescriptionFullscreen(self) -> None:
+
+        description = self._currentEpisodeDescription()
+
+        if not description:
+
+            self.session.open(MessageBox, _("No description available."), MessageBox.TYPE_INFO, timeout=3)
+
+            return
+
+        info = podcast_manager.getEpisodeInfo(self._playback.getCurrentFile()) or {}
+
+        title = info.get("title") or _("Description")
+
+        self.session.open(
+            LyricsFullscreenScreen,
+            title,
+            description,
+            None,
+            True,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _updateYellowHint(self) -> None:
+        """
+        Round 231: YELLOW's hint reads "Description" while a podcast
+        episode with a description is loaded, "Lyrics" otherwise.
+        """
+
+        has_description = bool(self._currentEpisodeDescription())
+
+        if has_description == getattr(self, "_yellow_hint_is_description", None):
+            return
+
+        self._yellow_hint_is_description = has_description
+
+        word = _("Description") if has_description else _("Lyrics")
+
+        try:
+
+            self["key_yellow"].setText(word)
+
+            if self._skin_variant == "vintage_radio":
+
+                self["hint_color_yellow"].setText(word)
+
+            else:
+
+                self["hint_color_yellow"].setText(_("YELLOW: Description") if has_description else _("YELLOW: Lyrics"))
+
+        except Exception as error:
+
+            logger.verbose(f"[MainScreen] _updateYellowHint failed: {error}")
 
     # ------------------------------------------------------------------
 
@@ -4429,6 +4540,10 @@ class MainScreen(Screen, HelpableScreen):
             else:
 
                 self.stopPressed()
+
+        elif choice[1] == "description":
+
+            self._showDescriptionFullscreen()
 
         elif choice[1] == "lyrics":
 
@@ -5260,19 +5375,28 @@ class MainScreen(Screen, HelpableScreen):
 
         filepath = self._playback.getCurrentFile()
 
-        if not filepath:
+        # Round 228, per direct request ("lisää/poista soittolistalta
+        # kyselyyn kohta muokkaa soittolistaa. Kun valitsee muokkaa,
+        # niin voisi aueta playlistscreen"): a third "Edit playlist"
+        # choice opens PlaylistScreen. Unlike Add/Remove it needs no
+        # loaded file, so with nothing loaded the query now still
+        # opens, offering only Edit playlist (previously RED did
+        # nothing at all in that case).
+        choices = []
 
-            return
+        if filepath:
+
+            choices.append((_("Add to playlist"), "add"))
+            choices.append((_("Remove from playlist"), "remove"))
+
+        choices.append((_("Edit playlist"), "edit"))
+        choices.append((_("Cancel"), "cancel"))
 
         self.session.openWithCallback(
             self._playlistAddRemoveChoiceMade,
             ChoiceBox,
             title=_("Playlist"),
-            list=[
-                (_("Add to playlist"), "add"),
-                (_("Remove from playlist"), "remove"),
-                (_("Cancel"), "cancel"),
-            ],
+            list=choices,
         )
 
     # ------------------------------------------------------------------
@@ -5280,6 +5404,12 @@ class MainScreen(Screen, HelpableScreen):
     def _playlistAddRemoveChoiceMade(self, choice) -> None:
 
         if choice is None or choice[1] == "cancel":
+
+            return
+
+        if choice[1] == "edit":
+
+            self.openPlaylistScreen()
 
             return
 

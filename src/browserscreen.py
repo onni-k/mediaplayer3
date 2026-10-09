@@ -261,6 +261,32 @@ def _resolveBrowserResolutionTier(screen_width: int) -> str:
 # own PAGE_STEP convention for long lists.
 PAGE_STEP = 15
 
+# Round 225, per direct request: port of RadioBrowserScreen's own
+# round 215 fix (see its own PAGE_JUMP_RELEASE_MS for the full
+# reasoning) -- a held CH-/CH+ key's repeat events can drift onto
+# "directories_list" (the first widget this screen builds) instead
+# of whichever column is actually focused, the same way RadioBrowser-
+# Screen's "stations" panel did. Pins a page-jump burst to whichever
+# column was focused when it started, released this many milliseconds
+# after the last repeat event.
+PAGE_JUMP_RELEASE_MS = 400
+
+# Round 225: port of RadioBrowserScreen's own round 218 drift-
+# correction timer -- see its own DRIFT_CORRECTION_INTERVAL_MS for the
+# full reasoning. Polls "directories_list" own position frequently
+# enough to catch each individual native drift step shortly after it
+# happens, reverses it there, and replays the same movement on
+# whatever column is actually locked.
+DRIFT_CORRECTION_INTERVAL_MS = 80
+
+# Round 225: port of RadioBrowserScreen's own round 220 fix -- see its
+# own DRIFT_WATCHDOG_INITIAL_MS for the full reasoning. Gives the
+# drift timer's very first tick a much longer grace period than a
+# plain key-repeat gap, covering Enigma2's own initial repeat delay,
+# before falling back to the tighter PAGE_JUMP_RELEASE_MS cadence once
+# real drift has actually started happening.
+DRIFT_WATCHDOG_INITIAL_MS = 1500
+
 
 def _defaultPlayPlaylistName() -> str:
     """
@@ -403,7 +429,15 @@ class BrowserScreen(Screen, HelpableScreen):
         # asked for it to be removed only once both Light's and
         # Dark's new two-row layouts are confirmed working on a
         # real device.
-        if self._skin_variant in ("light", "dark"):
+        # Round 229, per direct request ("Korvataan Vintagen
+        # taustakuvat light skinin taustakuvilla ... ja lisätään
+        # toinen alareunan ohjerivi käyttöön, kuten light skinissä"):
+        # Vintage Radio now takes this same two-row hint bar branch
+        # as Light/Dark -- its own resources/skins/vintage_radio/
+        # background images were replaced this round with the Dark
+        # skin's (the two-row-layout derivation of Light's, already
+        # recoloured to the exact colours Vintage's own images had).
+        if self._skin_variant in ("light", "dark", "vintage_radio"):
 
             hint_color = palette["hint_fg"]
 
@@ -727,6 +761,23 @@ class BrowserScreen(Screen, HelpableScreen):
 
         self._focus = "directories"
 
+        # Round 225: port of RadioBrowserScreen's own round 215/218/
+        # 222 state -- see PAGE_JUMP_RELEASE_MS's own comment above
+        # for the full reasoning.
+        self._page_jump_start_focus = None
+
+        self._page_jump_release_timer = eTimer()
+
+        self._page_jump_release_timer.callback.append(self._clearPageJumpFocus)
+
+        self._directories_drift_timer = eTimer()
+
+        self._directories_drift_timer.callback.append(self._correctDirectoriesDrift)
+
+        self._directories_drift_baseline = None
+
+        self._directories_nudge_direction = 0
+
         # Build 0010 -- identified during the Build 0009 exception
         # audit: an unavailable configured startup directory must
         # never crash this screen outright (a disconnected USB drive
@@ -756,6 +807,29 @@ class BrowserScreen(Screen, HelpableScreen):
         self._log("Created")
 
         self._initialize()
+
+        # Round 217: same root cause and fix as RadioBrowserScreen's
+        # own round 217 (see its focusPrevious()'s comment for the
+        # full device-log evidence) -- self._focus is only this
+        # screen's own logical bookkeeping; nothing here ever called
+        # setFocus()/canFocus()/selectionEnabled() either, so Enigma2's
+        # real native GUI focus never actually left "directories_list"
+        # (the first widget created), and a held CH-/CH+ repeat could
+        # drift onto it the same way. onShown is the already-proven
+        # safe deferred hook (see plugin.py's own history of a crash
+        # from an unverified onLayoutFinish call).
+        self.onShown.append(self._onShown)
+
+    # ------------------------------------------------------------------
+
+    def _onShown(self) -> None:
+        """
+        Round 217: see __init__'s own comment -- sets Enigma2's real
+        native GUI focus to match self._focus's own startup default
+        ("directories") the first time this screen is actually shown.
+        """
+
+        self._setRealFocus(self._focus)
 
     # ------------------------------------------------------------------
 
@@ -1286,6 +1360,10 @@ class BrowserScreen(Screen, HelpableScreen):
 
         self._focus = COLUMNS[(COLUMNS.index(self._focus) - 1) % len(COLUMNS)]
 
+        # Round 217: see __init__'s own comment / RadioBrowserScreen's
+        # own round 217 for the full finding.
+        self._setRealFocus(self._focus)
+
         self._updateDisplay()
 
     # ------------------------------------------------------------------
@@ -1296,7 +1374,25 @@ class BrowserScreen(Screen, HelpableScreen):
 
         self._focus = COLUMNS[(COLUMNS.index(self._focus) + 1) % len(COLUMNS)]
 
+        # Round 217: see focusPrevious()'s own comment.
+        self._setRealFocus(self._focus)
+
         self._updateDisplay()
+
+    # ------------------------------------------------------------------
+
+    def _setRealFocus(self, column_name: str) -> None:
+        """
+        Round 217: see RadioBrowserScreen's own identical helper for
+        the full reasoning. Wrapped in try/except and never raises.
+        """
+
+        try:
+            self.setFocus(self[f"{column_name}_list"])
+
+        except Exception as error:
+
+            logger.verbose(f"[BrowserScreen] _setRealFocus({column_name}) failed: {error}")
 
     # ------------------------------------------------------------------
 
@@ -1317,8 +1413,31 @@ class BrowserScreen(Screen, HelpableScreen):
     # ------------------------------------------------------------------
 
     def pageUp(self) -> None:
+        """
+        CH+ -- jump PAGE_STEP entries up in the focused column.
 
-        widget = self[f"{self._focus}_list"]
+        Round 225: port of RadioBrowserScreen's own round 215/218/220/
+        222/223 mechanism -- see PAGE_JUMP_RELEASE_MS's own comment
+        above for the full reasoning. Pins the page-jump to whichever
+        column was focused when the burst started, and (when that
+        column isn't "directories" itself) arms the drift-correction
+        timer/watch to keep "directories_list" from silently stealing
+        the rest of a held key's repeat events.
+        """
+
+        fresh_lock = self._page_jump_start_focus is None
+
+        if fresh_lock:
+
+            self._page_jump_start_focus = self._focus
+
+        column = self._page_jump_start_focus
+
+        logger.verbose("[BrowserScreen] CH+ pressed. focus=%s", column)
+
+        self._logColumnIndices("CH+ before")
+
+        widget = self[f"{column}_list"]
 
         steps = min(PAGE_STEP, widget.getSelectedIndex())
 
@@ -1326,13 +1445,44 @@ class BrowserScreen(Screen, HelpableScreen):
 
             widget.up()
 
+        self._logColumnIndices("CH+ after up()")
+
+        if fresh_lock and column != "directories":
+
+            self._armDirectoriesDriftWatch("up")
+
+            self._armDirectoriesDriftTimer()
+
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
+        else:
+
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
         self._onSelectionChanged()
+
+        self._logColumnIndices("CH+ after _onSelectionChanged()")
 
     # ------------------------------------------------------------------
 
     def pageDown(self) -> None:
+        """
+        CH- -- see pageUp()'s own comment.
+        """
 
-        widget = self[f"{self._focus}_list"]
+        fresh_lock = self._page_jump_start_focus is None
+
+        if fresh_lock:
+
+            self._page_jump_start_focus = self._focus
+
+        column = self._page_jump_start_focus
+
+        logger.verbose("[BrowserScreen] CH- pressed. focus=%s", column)
+
+        self._logColumnIndices("CH- before")
+
+        widget = self[f"{column}_list"]
 
         entries = widget.list or []
 
@@ -1342,7 +1492,251 @@ class BrowserScreen(Screen, HelpableScreen):
 
             widget.down()
 
+        if fresh_lock and column != "directories":
+
+            self._armDirectoriesDriftWatch("down")
+
+            self._armDirectoriesDriftTimer()
+
+        self._logColumnIndices("CH- after down()")
+
+        if fresh_lock and column != "directories":
+
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
+        else:
+
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
         self._onSelectionChanged()
+
+        self._logColumnIndices("CH- after _onSelectionChanged()")
+
+    # ------------------------------------------------------------------
+
+    def _logColumnIndices(self, label: str) -> None:
+        """
+        Round 225: port of RadioBrowserScreen's own round 216
+        diagnostic helper -- logs every column's own current
+        getSelectedIndex() in one line. Never raises.
+        """
+
+        try:
+            indices = {name: self[f"{name}_list"].getSelectedIndex() for name in COLUMNS}
+
+        except Exception as error:
+
+            logger.verbose(f"[BrowserScreen] {label}: unable to read column indices ({error}).")
+
+            return
+
+        logger.verbose(
+            f"[BrowserScreen] {label}: directories={indices['directories']} "
+            f"files={indices['files']} playlist={indices['playlist']}"
+        )
+
+    # ------------------------------------------------------------------
+
+    def _clearPageJumpFocus(self) -> None:
+        """
+        Round 225: port of RadioBrowserScreen's own round 215/218/222/
+        223 release handler -- see _clearPageJumpFocus()'s own comment
+        there for the full reasoning.
+        """
+
+        self._page_jump_start_focus = None
+
+        self._directories_drift_timer.stop()
+
+        self._directories_drift_baseline = None
+
+        if self._directories_nudge_direction:
+
+            steps = abs(self._directories_nudge_direction)
+
+            if self._directories_nudge_direction < 0:
+
+                for _step in range(steps):
+
+                    self["directories_list"].down()
+
+            else:
+
+                for _step in range(steps):
+
+                    self["directories_list"].up()
+
+            self._directories_nudge_direction = 0
+
+            self._onSelectionChanged()
+
+    # ------------------------------------------------------------------
+
+    def _armDirectoriesDriftWatch(self, direction: str) -> None:
+        """
+        Round 225: port of RadioBrowserScreen's own round 222/223
+        boundary nudge -- see _armStationsDriftWatch()'s own comment
+        there for the full reasoning. Nudges "directories_list" off a
+        boundary it's already sitting on (in the opposite direction
+        from the held key) so the native drift mechanism has room to
+        register a full page-jump, rather than silently doing nothing.
+        """
+
+        entries = self["directories_list"].list or []
+
+        nudge = 0
+
+        if entries:
+
+            current = self["directories_list"].getSelectedIndex()
+
+            if direction == "down" and current >= len(entries) - 1:
+
+                steps = min(PAGE_STEP, current)
+
+                for _step in range(steps):
+
+                    self["directories_list"].up()
+
+                actual_steps = current - self["directories_list"].getSelectedIndex()
+
+                if actual_steps:
+
+                    nudge = -actual_steps
+
+            elif direction == "up" and current <= 0:
+
+                steps = min(PAGE_STEP, max(0, len(entries) - 1 - current))
+
+                for _step in range(steps):
+
+                    self["directories_list"].down()
+
+                actual_steps = self["directories_list"].getSelectedIndex() - current
+
+                if actual_steps:
+
+                    nudge = actual_steps
+
+        self._directories_nudge_direction = nudge
+
+        self._directories_drift_baseline = self["directories_list"].getSelectedIndex()
+
+    # ------------------------------------------------------------------
+
+    def _armDirectoriesDriftTimer(self) -> None:
+        """
+        Round 225: port of RadioBrowserScreen's own round 219
+        diagnostic helper.
+        """
+
+        try:
+            self._directories_drift_timer.start(DRIFT_CORRECTION_INTERVAL_MS, False)
+
+            logger.verbose(
+                f"[BrowserScreen] Drift timer armed (interval={DRIFT_CORRECTION_INTERVAL_MS}ms, "
+                f"baseline={self._directories_drift_baseline})."
+            )
+
+        except Exception as error:
+
+            logger.verbose(f"[BrowserScreen] Drift timer failed to arm: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctDirectoriesDrift(self) -> None:
+        """
+        Round 225: port of RadioBrowserScreen's own round 218/219
+        drift-correction tick -- see _correctStationsDrift()'s own
+        comment there for the full reasoning.
+        """
+
+        try:
+
+            self._correctDirectoriesDriftImpl()
+
+        except Exception as error:
+
+            logger.verbose(f"[BrowserScreen] _correctDirectoriesDrift tick raised: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctDirectoriesDriftImpl(self) -> None:
+
+        column = self._page_jump_start_focus
+
+        logger.verbose(
+            f"[BrowserScreen] drift tick: column={column} "
+            f"directories={self['directories_list'].getSelectedIndex()} "
+            f"baseline={self._directories_drift_baseline}"
+        )
+
+        if column is None or column == "directories":
+
+            self._directories_drift_timer.stop()
+
+            self._directories_drift_baseline = None
+
+            return
+
+        if self._directories_drift_baseline is None:
+
+            self._directories_drift_baseline = self["directories_list"].getSelectedIndex()
+
+            return
+
+        current = self["directories_list"].getSelectedIndex()
+
+        delta = current - self._directories_drift_baseline
+
+        if delta == 0:
+
+            return
+
+        logger.verbose(
+            f"[BrowserScreen] Directories drifted by {delta} while locked to "
+            f"{column} -- redirecting."
+        )
+
+        if delta > 0:
+
+            for _step in range(delta):
+
+                self["directories_list"].up()
+
+        else:
+
+            for _step in range(-delta):
+
+                self["directories_list"].down()
+
+        widget = self[f"{column}_list"]
+
+        entries = widget.list or []
+
+        if delta > 0:
+
+            steps = min(delta, max(0, len(entries) - 1 - widget.getSelectedIndex()))
+
+            for _step in range(steps):
+
+                widget.down()
+
+        else:
+
+            steps = min(-delta, widget.getSelectedIndex())
+
+            for _step in range(steps):
+
+                widget.up()
+
+        self._directories_drift_baseline = self["directories_list"].getSelectedIndex()
+
+        self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
+        self._onSelectionChanged()
+
+        self._logColumnIndices("drift-corrected")
 
     # ------------------------------------------------------------------
 

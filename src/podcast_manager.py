@@ -51,8 +51,10 @@ actual external-service communication this delegates to.
 
 from __future__ import annotations
 
+import html
 import json
 import os
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -97,6 +99,13 @@ class PodcastManager:
         # needed, same as a search result would be.
         self._episode_cache: Dict[str, List[Dict[str, Any]]] = {}
 
+        # Round 231: playback_url -> {"title", "podcast", "description"}
+        # for episodes the user has played or added to a playlist, so
+        # MainScreen can show the episode description while it plays
+        # (a playing queue only carries bare URLs). Persisted, capped
+        # at EPISODE_INFO_LIMIT entries (oldest dropped first).
+        self._episode_info: Dict[str, Dict[str, str]] = {}
+
         self._log("Created")
 
         self._initialize()
@@ -115,6 +124,10 @@ class PodcastManager:
 
         self._subscriptions = self._loadJSON(self._subscriptionsPath(), default=[])
 
+        loaded_info = self._loadJSON(self._episodeInfoPath(), default={})
+
+        self._episode_info = loaded_info if isinstance(loaded_info, dict) else {}
+
         self._initialized = True
 
         self._log(f"Ready ({len(self._subscriptions)} subscription(s))")
@@ -125,6 +138,9 @@ class PodcastManager:
 
     def _subscriptionsPath(self) -> str:
         return os.path.join(storage_manager.getPodcastPath(), "subscriptions.json")
+
+    def _episodeInfoPath(self) -> str:
+        return os.path.join(storage_manager.getPodcastPath(), "episode_info.json")
 
     # ------------------------------------------------------------------
 
@@ -186,6 +202,123 @@ class PodcastManager:
             self._log(f"Search failed: {error}")
 
             return []
+
+    def getTrendingPodcasts(self, language: str = "") -> List[Dict[str, Any]]:
+        """
+        Round 230: popular podcasts, optionally for one language code
+        ("" = all languages). Always returns a list, never raises.
+        """
+
+        try:
+            return self._provider.getTrendingPodcasts(language)
+
+        except Exception as error:
+
+            self._log(f"Trending fetch failed: {error}")
+
+            return []
+
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def filterByLanguage(podcasts: List[Dict[str, Any]], language: str) -> List[Dict[str, Any]]:
+        """
+        Round 230: keeps only podcasts whose own "language" field
+        starts with `language` (case-insensitive, so "en" matches
+        "en-US"). Empty `language` keeps everything. Podcasts with no
+        language field at all are kept rather than silently dropped.
+        """
+
+        if not language:
+            return podcasts
+
+        wanted = language.lower()
+
+        return [
+            podcast
+            for podcast in podcasts
+            if not podcast.get("language") or podcast["language"].lower().startswith(wanted)
+        ]
+
+    # ------------------------------------------------------------------
+    # Episode descriptions (round 231)
+    # ------------------------------------------------------------------
+
+    EPISODE_INFO_LIMIT = 300
+
+    @staticmethod
+    def cleanDescription(raw: str) -> str:
+        """
+        Round 231: podcast feeds often carry HTML in descriptions.
+        Turns line-breaking tags into newlines, drops all other tags,
+        unescapes entities and tidies whitespace.
+        """
+
+        text = raw or ""
+
+        text = re.sub(r"(?i)<\s*br\s*/?>", "\n", text)
+
+        text = re.sub(r"(?i)</\s*(p|div|li|h[1-6])\s*>", "\n\n", text)
+
+        text = re.sub(r"<[^>]+>", "", text)
+
+        text = html.unescape(text)
+
+        text = re.sub(r"[ \t\r\f\v]+", " ", text)
+
+        text = re.sub(r" ?\n ?", "\n", text)
+
+        text = re.sub(r"\n{3,}", "\n\n", text)
+
+        return text.strip()
+
+    # ------------------------------------------------------------------
+
+    def rememberEpisode(self, playback_url: str, title: str, podcast_title: str, description: str) -> None:
+        """
+        Round 231: remembers an episode's description under its
+        playback URL (see _episode_info). Never raises.
+        """
+
+        if not playback_url:
+            return
+
+        cleaned = self.cleanDescription(description)
+
+        if not cleaned:
+            return
+
+        try:
+            self._episode_info.pop(playback_url, None)
+
+            self._episode_info[playback_url] = {
+                "title": title or "",
+                "podcast": podcast_title or "",
+                "description": cleaned,
+            }
+
+            while len(self._episode_info) > self.EPISODE_INFO_LIMIT:
+
+                self._episode_info.pop(next(iter(self._episode_info)))
+
+            self._saveJSON(self._episodeInfoPath(), self._episode_info)
+
+        except Exception as error:
+
+            self._log(f"rememberEpisode failed: {error}")
+
+    # ------------------------------------------------------------------
+
+    def getEpisodeInfo(self, playback_url) -> Optional[Dict[str, str]]:
+        """
+        Round 231: the remembered {"title", "podcast", "description"}
+        for `playback_url`, or None.
+        """
+
+        if not playback_url:
+            return None
+
+        return self._episode_info.get(playback_url)
 
     # ------------------------------------------------------------------
     # Subscriptions (PODCAST_MANAGER_SPEC.md "Subscription")

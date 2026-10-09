@@ -521,6 +521,9 @@ msgstr "Senderliste löschen"
 msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
 msgstr "OK: Bearbeiten   LINKS/RECHTS: Ändern   GELB: Radioverlauf löschen   MENU: Menü   EXIT: Speichern & zurück"
 
+msgid "Edit playlist"
+msgstr "Playlist bearbeiten"
+
 msgid "Remove from playlist"
 msgstr "Aus Wiedergabeliste entfernen"
 
@@ -1063,3 +1066,58 @@ msgstr "Diese Sprache erscheint an zweiter Stelle in der Regionsliste des Intern
 
 msgid "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
 msgstr "Das Erscheinungsbild des Programms (Standard: Hell). Mit Test Skin kannst du gefahrlos ein neues Erscheinungsbild ausprobieren -- siehe SKIN_ELEMENTS.md im eigenen Ordner."
+
+msgid "Available"
+msgstr "Verfügbar"
+
+msgid "Press YELLOW to search"
+msgstr "Zum Suchen GELB drücken"
+
+msgid "choose the podcast language"
+msgstr "Podcast-Sprache wählen"
+
+msgid "Fetch popular podcasts"
+msgstr "Beliebte Podcasts abrufen"
+
+msgid "Popular podcasts"
+msgstr "Beliebte Podcasts"
+
+msgid "No popular podcasts found."
+msgstr "Keine beliebten Podcasts gefunden."
+
+msgid "System language"
+msgstr "Systemsprache"
+
+msgid "All languages"
+msgstr "Alle Sprachen"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "YELLOW: Description"
+msgstr "GELB: Beschreibung"
+
+msgid "Show description fullscreen"
+msgstr "Beschreibung im Vollbild anzeigen"
+
+msgid "No description available."
+msgstr "Keine Beschreibung verfügbar."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / LINKS / RECHTS: Schließen -- HOCH / RUNTER: Scrollen"
+
+msgid "show lyrics or episode description fullscreen"
+msgstr "Songtext oder Episodenbeschreibung im Vollbild anzeigen"
+
+msgid "search or fetch popular podcasts"
+msgstr "suchen oder beliebte Podcasts abrufen"
+
+msgid "Search: {0} ({1} podcasts)"
+msgstr "Suche: {0} ({1} Podcasts)"
+
+
+msgid "Podcast search limit"
+msgstr "Podcast-Suchlimit"
+
+msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
+msgstr "Höchstzahl der Podcasts, die pro Suche oder Abruf der beliebtesten von Podcast Index angefordert werden (10-1000, Standard 1000)."

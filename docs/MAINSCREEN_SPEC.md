@@ -176,6 +176,14 @@ If something is loaded, opens a small action menu instead:
   key, unaffected by this menu.
 - Cancel
 
+Colour buttons (1.3.000): RED opens the add / remove / "Edit playlist"
+query (Edit playlist opens PlaylistScreen and needs no loaded track);
+GREEN opens the source menu; YELLOW shows lyrics fullscreen, or, for a
+podcast episode with a stored description, the description fullscreen
+as static text scrolled with UP/DOWN; BLUE switches Player /
+Information. The top info box shows the podcast's name above the
+episode's title for episodes started from PodcastScreen.
+
 PVR opens the same startup chooser OK does when nothing is loaded,
 regardless of current playback state -- it no longer opens
 BrowserScreen directly.

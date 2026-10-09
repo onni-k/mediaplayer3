@@ -414,6 +414,22 @@ restructure any Core module. See CHANGELOG.md's two "BUILD 0010"
 closing notes and Claude_notes_build0010.txt for the full, round-by-
 round record.
 
+Releases after the redesign (1.0.0 to 1.3.000), all still within Build
+0010, were driven by device testing on four Enigma2 images and kept to
+the same layering: lyrics download and a lyrics display overhaul
+(1.0.0), the Test Skin / Vintage Radio skins and standard Enigma2
+button conventions (1.1.0), the two-row hint bar, faster indexed
+RadioBrowser lookups with SQLite as a package dependency, and removal
+of the Main Menu (1.2.0), and in 1.3.000 podcast completion (popular
+podcasts, language choice, configurable search limit, remembered last
+result, episode descriptions via a small PodcastManager registry),
+debounced network seeks in PlaybackController, a held-key drift
+correction for CH+/CH- on every multi-column screen, and an
+InformationPanel that remembers the kind of page the user chose and
+falls back to the best available page when a track or station changes.
+No Core module was added or restructured; each change stayed inside
+its own Screen or Controller.
+
 ---
 
 # 4. Major Architecture Decisions

@@ -2,11 +2,11 @@
 
 Modern Media Player for Enigma2
 
-Version: 0.7.0-dev
+Version: 1.3.000
 
-Current Build: 0007
+Current Build: 0010
 
-Status: CONFIRMED COMPLETE -- device tested across four Enigma2 images (OpenViX, OpenATV, openPLI, OpenBH), 13 rounds
+Status: Public release 1.3.000 -- device tested across four Enigma2 images (OpenViX, OpenATV, openPLI, OpenBH). See CHANGELOG.md for the release history; the Build 0007 status text below is historical.
 
 ---
 

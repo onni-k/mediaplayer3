@@ -405,7 +405,15 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         # asked for it to be removed only once both Light's and
         # Dark's new two-row layouts are confirmed working on a
         # real device.
-        if self._skin_variant in ("light", "dark"):
+        # Round 229, per direct request ("Korvataan Vintagen
+        # taustakuvat light skinin taustakuvilla ... ja lisätään
+        # toinen alareunan ohjerivi käyttöön, kuten light skinissä"):
+        # Vintage Radio now takes this same two-row hint bar branch
+        # as Light/Dark -- its own resources/skins/vintage_radio/
+        # background images were replaced this round with the Dark
+        # skin's (the two-row-layout derivation of Light's, already
+        # recoloured to the exact colours Vintage's own images had).
+        if self._skin_variant in ("light", "dark", "vintage_radio"):
 
             hint_color = palette["hint_fg"]
 
@@ -826,6 +834,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             ),
             getConfigListEntry(_("Yle EPG app_id"), cfg.epg.yle_app_id),
             getConfigListEntry(_("Yle EPG app_key"), cfg.epg.yle_app_key),
+            getConfigListEntry(_("Podcast search limit"), cfg.podcast.search_limit),
             getConfigListEntry(_("Podcast Index API key"), cfg.podcast.podcastindex_api_key),
             getConfigListEntry(_("Podcast Index API secret"), cfg.podcast.podcastindex_api_secret),
             getConfigListEntry(_("Log station codec info (Internet Radio)"), cfg.logging.log_station_codecs),
@@ -935,6 +944,10 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         ),
         _("Yle EPG app_key"): _(
             "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+        ),
+        _("Podcast search limit"): _(
+            "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch "
+            "(10-1000, default 1000)."
         ),
         _("Podcast Index API key"): _(
             "If you want to search podcasts from the Podcast Index service, put your key here, from "

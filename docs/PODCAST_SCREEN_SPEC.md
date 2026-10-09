@@ -117,6 +117,34 @@ playlist architecture.
 
 ---
 
+# Popular Podcasts, Language and Result Limit
+
+(Added in 1.3.000.)
+
+OK in the Available column always offers "Fetch popular podcasts"
+(Podcast Index's trending list) and "Search", in addition to Subscribe /
+Open podcast when a podcast is selected. YELLOW opens the same menu from
+every column (only Fetch popular / Search outside the Available column).
+
+BLUE chooses the podcast language: the receiver's system language by
+default (config key podcast.language empty), "All languages" ("all"),
+or a language code. The language is sent to Podcast Index's trending
+endpoint and used to filter search results client-side by each
+podcast's declared language, since the search endpoint has no
+language parameter.
+
+Both search and popular requests ask the provider for up to
+podcast.search_limit podcasts (Settings: "Podcast search limit",
+10-1000, default 1000).
+
+The top line shows what the column lists and the number found. The
+last Available result (list, query/label and selected row) is kept for
+the running session and shown again when the screen is reopened.
+Descriptions are shown with HTML removed
+(PodcastManager.cleanDescription()).
+
+---
+
 # Search
 
 Podcast search shall be available from the Available Podcasts column.

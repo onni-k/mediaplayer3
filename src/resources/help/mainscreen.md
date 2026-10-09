@@ -20,10 +20,17 @@ are available depends entirely on what the current track or station
 actually has -- an empty page is never shown.
 
 For local music, possible pages are Lyrics (synchronized, embedded or
-plain text), Metadata and Codec Information. For Internet Radio,
+plain text), Metadata and Codec Information. For a podcast episode
+played from the Podcasts screen, the first page is its Description. For Internet Radio,
 possible pages are Radio EPG (the current programme plus the next few
 upcoming ones, when a station has schedule data), Now Playing, Station
 Information and Codec Information.
+
+When the track or station changes, the panel shows the page you last
+chose if the new item has it, and otherwise the best available page
+(for example programme information for a radio station that has it,
+or lyrics when a track has them) -- so it never stays on a page that
+no longer applies.
 
 LEFT/RIGHT switches between the available Information pages; UP/DOWN
 scrolls the currently displayed page (or, on synchronized lyrics
@@ -56,11 +63,17 @@ Radio), the current one highlighted.
 - CH+ / CH-: previous/next track (may not work on every remote/image).
 - PVR: opens the same chooser as OK (Internet Radio / Local Music /
   Music Library / Playlists / Podcasts).
+- RED: add the current track to a playlist or remove it from one, or
+  open the Playlist screen to edit playlists.
+- GREEN: open the source menu (the same as PVR).
+- YELLOW: show lyrics fullscreen -- or, for a podcast episode, its
+  description fullscreen (scrolled with UP / DOWN).
 - BLUE: switch between the Player view and the Information view.
 - EPG / INFO: open this guide.
 - MENU: open Settings.
 - HELP: show the remote control's own button guide.
-- EXIT: stop playback and return to live TV.
+- EXIT: stops playback; pressing it again closes MediaPlayer3 and
+  returns to live TV.
 
 ## Notes
 
@@ -68,6 +81,9 @@ Internet Radio stations resume automatically from your most recent
 history entry when you choose Internet Radio from the startup
 chooser, falling back to your "General" favorites list, and finally
 to the station search if neither has anything yet.
+
+For a podcast episode played from the Podcasts screen, the top info
+box shows the podcast's name with the episode's title below it.
 
 The top info line shows the current track's tags for local files, or
 the station's Now Playing info (when available) for Internet Radio,

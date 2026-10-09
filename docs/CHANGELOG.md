@@ -1705,9 +1705,108 @@ receiver's own native button guide -- unchanged since 1.1.000, still
 confirmed a platform-level limitation rather than something this
 plugin can work around.
 
+**Confirmed across every supported image on a second device.** On top
+of the Vu+ Duo2 testing above, this release was separately re-tested
+on a Vu+ Uno4K SE across OpenPLI 9.2, OpenATV 8.00 beta and OpenBH
+5.6.008. Every feature passed on all three; the only item was
+OpenPLI's own long-standing Bold-font-not-found limitation, already
+known since 1.0.0 and unrelated to this release.
+
 ---
 
+### 1.3.000 (2026-10-08)
 
+Public release. Roughly 23 further internal test builds since
+1.2.000, grouped below by outcome; the full round-by-round record
+(every device log, every false start) stays in the project's own
+internal notes (Claude_notes_build0010.txt). Confirmed on a Vu+ Uno4K
+SE across OpenViX 6.9, OpenPLI 9.2, OpenATV 8.0.0-beta and OpenBH
+5.6.008.
+
+**Podcasts, much more complete.** The Available column is now titled
+just "Available". OK always offers "Fetch popular podcasts" (Podcast
+Index's trending list) and "Search"; YELLOW opens the same menu. BLUE
+(with its own button in the hint bar) chooses the podcast language --
+the receiver's system language by default, "All languages", or one of
+14 languages -- applied to popular podcasts and to search results
+(podcasts that declare a different language are filtered out). Search
+and popular podcasts now ask Podcast Index for up to 1000 results, and
+the new Settings entry "Podcast search limit" (10-1000, default 1000)
+controls that. The top line shows how many podcasts were found
+("Search: word (N podcasts)"), the log records how many the service
+returned and how many were kept after the language filter, and when
+the Podcasts screen is opened again (for example from the main
+screen) the Available column shows the previous result with the same
+item selected, as Internet Radio already did. HTML left in feed
+descriptions is stripped everywhere it is shown.
+
+**Podcast episode information on the main screen.** While an episode
+played (or added to a playlist) from the Podcasts screen is loaded,
+the top box shows the podcast's name with the episode's title below
+it, and its description is the first page of the Information panel.
+YELLOW (whose hint now reads "Description") shows the description
+fullscreen in a larger font as plain text, scrolled manually with
+UP/DOWN -- no automatic scrolling. Anything else still shows lyrics on
+YELLOW. The OK menu also offers "Show description fullscreen".
+Descriptions are remembered per episode (last 300).
+
+**The Information panel follows the best available information.**
+When the track or radio station changes, the panel now shows the page
+kind you last chose with LEFT/RIGHT if the new item has it, otherwise
+the best available page (lyrics, description or programme info
+first). A track without lyrics shows other information, and the next
+track with lyrics brings the lyrics back; a station with programme
+information switches to it automatically. Without a manual choice the
+panel always shows the best page.
+
+**No more freezing when seeking inside a podcast.** Seeking inside an
+episode streamed over http(s) made the HTTP source reconnect and block
+Enigma2's main thread (one RIGHT press sends two seeks, +30 s and
++10 s). Seeks inside network files are now debounced: the displayed
+position moves at once, but only one real seek is sent, 0.7 s after
+the last request. Local files seek exactly as before.
+
+**Holding CH+/CH- no longer drifts onto the wrong column.** A held
+CH+/CH- key's repeat events were silently landing on whichever list
+widget the screen had built first instead of the column shown as
+active (most visible in Internet Radio, where an unfiltered search
+can list up to 1500 stations). After several rounds of diagnostics the
+real cause was found and fixed with a drift-correction timer that
+notices the unwanted movement and replays it on the correct column,
+including the case where the first or last entry is selected. It is
+in use in Internet Radio, the file Browser, the Music Library and the
+Playlist screen (device-confirmed in all except the Music Library,
+whose test collection was too small to hold the key long enough; it
+uses the same code).
+
+**Internet Radio.** Browsing every station without any filter is now
+capped at 1500 results and takes about 2 seconds instead of about 10;
+a capped search reports "Found 1500/59814 stations" so it is clear
+the smaller number is a deliberate limit. Filtered searches are
+unchanged (about 1 second).
+
+**Playlists and skins.** The main player's RED button query gained
+"Edit playlist" (opens the Playlist screen; RED now also works with
+nothing playing). On Vintage Radio the six non-main screens (Browser,
+Music Library, Internet Radio, Podcasts, Playlists, Settings) now use
+the same two-row hint bar as Light and Dark, including the "Show
+upper hint row" setting.
+
+**OpenPLI text fixed.** Text that used the "Bold" font did not render
+on OpenPLI. MediaPlayer3 now registers OpenPLI's own bundled bold
+font under that name when the image has none; nothing changes on the
+other images.
+
+**Known issues.** On OpenATV 8.0.0-beta the HELP button still opens
+this app's own Information screen instead of the receiver's native
+button guide, and EXIT while music is playing closes the whole plugin
+at once instead of stopping playback first as on the other images --
+both confirmed platform differences, not fixable from the plugin. The
+non-held column's active row still flickers slightly while CH+/CH- is
+held on the screens above (cosmetic, left as is). One RIGHT press in
+the Player view sends a 30 s and a 10 s seek together.
+
+---
 
 Closing note (a second, much larger round of device testing since the
 note above -- 47 further rounds, across OpenViX, OpenATV, OpenPLI, and
@@ -1773,6 +1872,7 @@ See Claude_notes_build0010.txt for the full, round-by-round record.
 | 0010 | 1.0.0 | LRCLIB lyrics + MusicBrainz cover art downloads with automatic retry; lyrics display overhaul (fixed-position current line, font-size tiers, live fullscreen view); a project-wide title-hiding-behind-background bug found and fixed on all eight screens; MediaPlayer3 branding + clock; a real Settings freeze fixed, plus a multi-round virtual-keyboard/hint-bar fix; Radio's own default language/country settable from Internet Radio itself; a real "unlimited for own language" bug fixed; Swedish/German/Spanish translations; unified MainScreen OK menu; known issue: Bold-font text may not render on OpenPLi |
 | 0010 | 1.1.0 | Test Skin (a writable, user-customizable skin) and Vintage Radio (a new permanent skin choice) added, both sharing a consistent colour scheme, hint bar and scrollbar styling across every screen; standard Enigma2 button conventions adopted throughout (native HELP guide, consistent EPG/INFO behaviour, colour-button shortcuts, simplified translation setup following the receiver's own system language); Finnish translations for both help systems; a real silent-playback bug found and fixed; playlists/favorites/radio database no longer silently lost on some reboots; Radio station limit raised to 100,000; known issue: HELP opens this app's own Information screen instead of the native guide on OpenATV 8.0.0-beta specifically, confirmed a platform limitation |
 | 0010 | 1.2.0 | Light/Dark gained a two-row hint bar (separating OK/MENU/EPG-INFO/HELP/EXIT text from the colour-action buttons), adopted from an experimental "System Skin" that was then retired as a separate choice; two new settings (show/hide that text row, auto-play the previous Internet Radio channel on selection); Internet Radio search/browsing made much faster via proper indexed lookups, with SQLite now a hard dependency and a graceful fallback; Main Menu removed (MENU opens Settings directly), GREEN/RED colour-button reassignments; a real settings-revert-on-restart bug fixed; a real GREEN-label translation gap, a MainScreen background aspect-ratio bug, an uninstall-leaves-files-behind bug, an icon-widget crash, and a packaging bug (plugin not listed in Enigma2's own Remove Extensions screen) all found and fixed; known issue: HELP on OpenATV 8.0.0-beta unchanged, still a confirmed platform limitation |
+| 0010 | 1.3.0 | Podcasts completed (popular podcasts, language choice and filter, search up to 1000 results with a settings limit, result counts, remembered last result, episode descriptions on the main screen with fullscreen view); Information panel follows the best available information when the track or station changes; podcast seek freeze fixed (debounced network seeks); the CH+/CH- column-drift bug fixed in Internet Radio, the file Browser, the Music Library and Playlists; faster unfiltered Internet Radio browsing; Edit playlist in the main player's RED query; Vintage Radio's non-main screens got the two-row hint bar; OpenPLI Bold-font text fixed; known issues: HELP and EXIT behaviour on OpenATV 8.0.0-beta (platform differences) |
 
 ---
 

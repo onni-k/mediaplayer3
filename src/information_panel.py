@@ -74,6 +74,7 @@ from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_p
 from .localization import _
 from .logger import logger
 from .lyrics_manager import lyrics_manager
+from .podcast_manager import podcast_manager
 
 # Lines visible at once in a page's content area. MainScreen's Build
 # 0009 layout gives the Information Panel the entire right-hand side
@@ -153,6 +154,15 @@ class InformationPanel:
         # periodic refresh of the same one (see refresh()'s own
         # docstring for why that distinction matters).
         self._current_track_key = None
+
+        # Round 237, per direct request: the kind of page (see
+        # _pageKind()) the user last chose by hand with LEFT/RIGHT, or
+        # None if they never did. On every refresh() the panel shows
+        # that kind whenever the current track/station has it, and
+        # otherwise falls back to the first (= best) page -- so
+        # moving to a track without lyrics shows the best other info,
+        # and the next track with lyrics brings the lyrics back.
+        self._preferred_kind: Optional[str] = None
 
         # Device test round 27 -- single-slot cache for ffprobe_helper
         # results, keyed the same way _current_track_key already is.
@@ -235,29 +245,61 @@ class InformationPanel:
 
             self._lyrics_offset_seconds = 0.0
 
-        if previous_title is not None:
+        # Round 237: choose the page. The user's own last choice (by
+        # kind) wins when available; otherwise the first page, which
+        # every page builder already orders best-first.
+        chosen = 0
+
+        if self._preferred_kind is not None:
 
             for index, (title, _content) in enumerate(self._pages):
 
-                if title == previous_title:
+                if self._pageKind(title) == self._preferred_kind:
 
-                    self._current_index = index
+                    chosen = index
 
-                    if track_changed:
+                    break
 
-                        self._scroll_offset = 0
+        self._current_index = chosen
 
-                    return
+        new_title = self._pages[chosen][0] if self._pages else None
 
-        self._current_index = 0
+        if track_changed or new_title != previous_title:
 
-        self._scroll_offset = 0
+            self._scroll_offset = 0
+
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _pageKind(title: str) -> str:
+        """
+        Round 237: page category used to remember the user's choice.
+        All lyrics variants (synchronized, embedded, file ...) count as
+        one kind; every other page is its own kind (its title).
+        """
+
+        for label in set(_LYRICS_SOURCE_TITLES.values()) | {"Lyrics"}:
+
+            if title == f"{_('Information')}: {_(label)}":
+
+                return "lyrics"
+
+        return title
 
     # ------------------------------------------------------------------
 
     def _buildLocalPages(self, playback, filename, elapsed, duration) -> List[Tuple[str, str]]:
 
         pages: List[Tuple[str, str]] = []
+
+        # Round 231, per direct request: a podcast episode's own
+        # description is shown first (page 0, so it is what the panel
+        # opens on when an episode starts).
+        episode_info = podcast_manager.getEpisodeInfo(filename)
+
+        if episode_info and episode_info.get("description"):
+
+            pages.append((f"{_('Information')}: {_('Description')}", episode_info["description"]))
 
         if filename:
 
@@ -849,6 +891,9 @@ class InformationPanel:
         self._current_index = (self._current_index + direction) % len(self._pages)
 
         self._scroll_offset = 0
+
+        # Round 237: remember the kind the user chose (see refresh()).
+        self._preferred_kind = self._pageKind(self._pages[self._current_index][0])
 
     # ------------------------------------------------------------------
 

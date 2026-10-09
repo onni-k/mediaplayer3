@@ -188,6 +188,9 @@ msgstr "Kanavia haetaan, odota hetki..."
 msgid "Found {0} stations"
 msgstr "Löytyi {0} kanavaa"
 
+msgid "Found {0}/{1} stations"
+msgstr "Löytyi {0}/{1} kanavaa"
+
 msgid "Add all files from directory"
 msgstr "Lisää kaikki hakemiston tiedostot"
 
@@ -520,6 +523,9 @@ msgstr "Tyhjennä asemaluettelo"
 
 msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
 msgstr "OK: Muokkaa   VASEN/OIKEA: Vaihda   YELLOW: Tyhjennä radiohistoria   MENU: Valikko   EXIT: Tallenna ja takaisin"
+
+msgid "Edit playlist"
+msgstr "Muokkaa soittolistaa"
 
 msgid "Remove from playlist"
 msgstr "Poista soittolistalta"
@@ -1369,3 +1375,58 @@ msgstr "Tilaa/Lisää"
 
 msgid "New"
 msgstr "Uusi"
+
+msgid "Available"
+msgstr "Saatavilla"
+
+msgid "Press YELLOW to search"
+msgstr "Paina keltaista hakeaksesi"
+
+msgid "choose the podcast language"
+msgstr "valitse podcastien kieli"
+
+msgid "Fetch popular podcasts"
+msgstr "Hae suosituimmat podcastit"
+
+msgid "Popular podcasts"
+msgstr "Suosituimmat podcastit"
+
+msgid "No popular podcasts found."
+msgstr "Suosittuja podcasteja ei löytynyt."
+
+msgid "System language"
+msgstr "Järjestelmän kieli"
+
+msgid "All languages"
+msgstr "Kaikki kielet"
+
+msgid "Description"
+msgstr "Kuvaus"
+
+msgid "YELLOW: Description"
+msgstr "KELTAINEN: Kuvaus"
+
+msgid "Show description fullscreen"
+msgstr "Näytä kuvaus koko ruudussa"
+
+msgid "No description available."
+msgstr "Kuvausta ei ole saatavilla."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Vieritä"
+
+msgid "show lyrics or episode description fullscreen"
+msgstr "näytä sanoitukset tai jakson kuvaus koko näytöllä"
+
+msgid "search or fetch popular podcasts"
+msgstr "hae tai hae suosituimmat podcastit"
+
+msgid "Search: {0} ({1} podcasts)"
+msgstr "Haku: {0} ({1} podcastia)"
+
+
+msgid "Podcast search limit"
+msgstr "Podcast-hakuraja"
+
+msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
+msgstr "Podcast Indexistä haettavien podcastien enimmäismäärä yhtä hakua tai suosituimpien hakua kohden (10-1000, oletus 1000)."

@@ -179,6 +179,70 @@ PANELS = ("stations", "language", "region")
 # countries/languages are slow to scroll one entry at a time).
 PAGE_STEP = 15
 
+# Round 215, per direct request: a real device report (first on
+# 1.2.000, confirmed again on 1.2.003) that holding CH-/CH+ pages the
+# originally-focused panel correctly ONCE, then starts paging a
+# different panel instead -- less noticeable with a small channel
+# count, worse with a large one. Two device logs already confirmed
+# the logged self._focus value stays correct for every single CH-/
+# CH+ event during a hold, so pageUp()/pageDown() now pin themselves
+# to whichever panel was focused when a page-jump burst *started*
+# (self._page_jump_start_focus below), for the duration of that
+# burst, released this many milliseconds after the last repeat event
+# -- comfortably longer than the 150-300ms gap between individual
+# CH-/CH+ key-repeat events seen across those same two device logs,
+# so a genuine hold never releases the lock early, but short enough
+# that releasing the physical key still feels immediate.
+PAGE_JUMP_RELEASE_MS = 400
+
+# Round 218, per direct request after a fresh device log proved round
+# 217's setFocus()-based fix had NO effect at all (identical symptom:
+# "stations" silently drifted by a large amount -- 1605 this time --
+# during a held CH-/CH+, while the locked panel only moved by the one
+# step its own single resolved "Make" event caused). Whatever actually
+# routes a held CH-/CH+ key's repeat events to "stations" instead of
+# our own Python code, giving Enigma2 the real native GUI focus did
+# not change it. Rather than guess at a third theory of the exact
+# native mechanism, this polls "stations" own position frequently
+# enough to catch each individual drift step shortly after it happens
+# (observed repeat gaps were 107-300ms; polling well under that),
+# reverses it on "stations", and replays the same movement on whatever
+# panel is actually locked -- regardless of *why* "stations" moved.
+DRIFT_CORRECTION_INTERVAL_MS = 80
+
+# Round 220, found via round 219's own per-tick logging: the drift-
+# correction timer WAS running correctly (ticking every 80ms exactly
+# as designed) -- but during the only window it ever got to run in
+# (the first PAGE_JUMP_RELEASE_MS=400ms after the initial press),
+# "stations" never moved at all, every single tick. The release timer
+# (armed only once, at that same initial press, and never re-armed
+# because no drift had happened yet to re-arm it) then fired right at
+# that 400ms mark and shut the whole mechanism down -- for the entire
+# rest of an ~11-14 second hold -- before the real native drift (which
+# clearly did eventually happen, per the next logged CH+ event) ever
+# even started. Enigma2's own key-repeat typically has an initial
+# "repeat doesn't start immediately" delay before the steady repeat
+# cadence kicks in, and 400ms is apparently too short to survive it.
+# Fixes this by giving the *first* drift tick a much more generous
+# grace period to show up in, before falling back to the original,
+# tight, already-proven-correct cadence (PAGE_JUMP_RELEASE_MS) once
+# real drift has actually started happening.
+DRIFT_WATCHDOG_INITIAL_MS = 1500
+
+# Round 222, per direct device report: CH+ held on Region/Language
+# silently does nothing whenever Stations already has its own FIRST
+# entry selected, and the mirror case for CH- when Stations already
+# has its own LAST entry selected -- worst with exactly one found
+# station, where that single entry is simultaneously both. The whole
+# drift-correction mechanism (round 218 onward) only ever notices a
+# held key is still active by seeing Stations' own position actually
+# change; when Stations is already pinned at the boundary the held
+# direction's native drift would push it toward, that native
+# mechanism keeps trying on every repeat but has nowhere left to move
+# it, so its own position never changes at all -- indistinguishable
+# from the key having already been released. See
+# _armStationsDriftWatch()'s own comment for the fix.
+
 # Device test round 27 -- how long the Stations-column selection must
 # sit still before _logSelectedStationCodec() actually runs. Long
 # enough that scrolling through a list doesn't fire a probe per
@@ -404,7 +468,15 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         # asked for it to be removed only once both Light's and
         # Dark's new two-row layouts are confirmed working on a
         # real device.
-        if self._skin_variant in ("light", "dark"):
+        # Round 229, per direct request ("Korvataan Vintagen
+        # taustakuvat light skinin taustakuvilla ... ja lisätään
+        # toinen alareunan ohjerivi käyttöön, kuten light skinissä"):
+        # Vintage Radio now takes this same two-row hint bar branch
+        # as Light/Dark -- its own resources/skins/vintage_radio/
+        # background images were replaced this round with the Dark
+        # skin's (the two-row-layout derivation of Light's, already
+        # recoloured to the exact colours Vintage's own images had).
+        if self._skin_variant in ("light", "dark", "vintage_radio"):
 
             hint_color = palette["hint_fg"]
 
@@ -703,6 +775,26 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self._focus = "stations"
 
+        # Round 215, per direct request: see pageUp()/pageDown()'s own
+        # comment for the full reasoning -- pins a CH+/CH- page-jump
+        # burst to whichever panel it started on, so a long hold can't
+        # drift onto a different panel partway through.
+        self._page_jump_start_focus = None
+
+        self._page_jump_release_timer = eTimer()
+
+        self._page_jump_release_timer.callback.append(self._clearPageJumpFocus)
+
+        # Round 218: see DRIFT_CORRECTION_INTERVAL_MS's own comment.
+        self._stations_drift_timer = eTimer()
+
+        self._stations_drift_timer.callback.append(self._correctStationsDrift)
+
+        self._stations_drift_baseline = None
+
+        # Round 222: see _armStationsDriftWatch()'s own comment.
+        self._stations_nudge_direction = 0
+
         self._search_name = _last_search_name
         self._stations = []
 
@@ -714,6 +806,29 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         self._log("Created")
 
         self._initialize()
+
+        # Round 217: self._focus defaults to "stations" above, but
+        # nothing had ever told Enigma2's real native GUI focus to
+        # actually start there -- see focusPrevious()'s own comment
+        # for the full finding. setFocus() needs the widgets' real GUI
+        # instances, which only exist once the screen has actually
+        # been shown (plugin.py's own history has a crash from an
+        # "unverified onLayoutFinish API" -- onShown is the
+        # already-proven-safe deferred hook, matching MainScreen's and
+        # SettingsScreen's own onShown.append() precedent), so this is
+        # deferred the same way rather than called directly here.
+        self.onShown.append(self._onShown)
+
+    # ------------------------------------------------------------------
+
+    def _onShown(self) -> None:
+        """
+        Round 217: see __init__'s own comment -- sets Enigma2's real
+        native GUI focus to match self._focus's own startup default
+        ("stations") the first time this screen is actually shown.
+        """
+
+        self._setRealFocus(self._focus)
 
     # ------------------------------------------------------------------
 
@@ -1228,7 +1343,32 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self._search()
 
-        self["status"].setText(_("Found {0} stations").format(len(self._stations)))
+        # Round 214, per direct request: a search with every filter
+        # left on "Any" and no name text is the one case
+        # internetradio_manager.search() may itself cap below what was
+        # actually asked for (UNFILTERED_SEARCH_RESULT_CAP, round
+        # 213) -- shown here as "Found X/Y stations" (Y = the local
+        # database's own total station count, already tracked via
+        # getStationDatabaseInfo() and refreshed whenever the database
+        # itself is updated) so it's clear the smaller number is a
+        # deliberate cap, not "that's all there is". Any filtered
+        # search keeps the plain "Found N stations" message -- the
+        # database's own overall total isn't a meaningful comparison
+        # once a filter has already narrowed the result set to begin
+        # with.
+        found = len(self._stations)
+
+        no_filter_at_all = not (self._search_name or self._selectedRegion() or self._selectedLanguage())
+
+        total = internetradio_manager.getStationDatabaseInfo().get("count", 0)
+
+        if no_filter_at_all and total and found < total:
+
+            self["status"].setText(_("Found {0}/{1} stations").format(found, total))
+
+        else:
+
+            self["status"].setText(_("Found {0} stations").format(found))
 
         self._result_message_timer = eTimer()
 
@@ -1243,9 +1383,42 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
     def focusPrevious(self) -> None:
 
-        logger.verbose("[RadioBrowser] LEFT pressed.")
+        old_focus = self._focus
 
         self._focus = PANELS[(PANELS.index(self._focus) - 1) % len(PANELS)]
+
+        # Round 216, diagnostic (per direct request): logs the actual
+        # before/after transition, not just "LEFT pressed" -- this is
+        # the ONLY code path that can reassign self._focus at all
+        # (confirmed by reading every other method in this file), so
+        # if a device log ever shows self._focus becoming "stations"
+        # without one of these two lines immediately before it, the
+        # real cause is proven to be something other than self._focus
+        # itself, e.g. the "stations" widget's own selection moving
+        # independently of which panel self._focus says is active.
+        logger.verbose("[RadioBrowser] LEFT pressed. focus %s -> %s", old_focus, self._focus)
+
+        # Round 217 (root cause found via the 1.2.005 diagnostic log):
+        # self._focus is only ever this screen's OWN bookkeeping of
+        # which panel is "logically" active -- it never actually moved
+        # Enigma2's real native GUI keyboard focus away from
+        # "stations" (the first widget created in _initialize()),
+        # because nothing in this file ever called setFocus()/
+        # canFocus()/selectionEnabled() (confirmed by grep returning no
+        # matches at all). A held CH-/CH+ key only resolves its very
+        # first ("Make") event through the ActionMap into our own
+        # pageUp()/pageDown(); every subsequent auto-repeat event never
+        # reaches the ActionMap/our code at all and instead falls
+        # through directly to whatever widget holds real native focus
+        # -- always "stations", regardless of what self._focus said.
+        # That's exactly the symptom reported: the first CH- page-jump
+        # lands on the right (logically focused) panel, then every
+        # further repeat silently scrolls "stations" instead. Giving
+        # Enigma2 the real focus transfer here (and in focusNext(),
+        # and once at startup to match the "stations" default) should
+        # make repeat events land on whichever panel is actually
+        # active.
+        self._setRealFocus(self._focus)
 
         self._updateFocusIndicator()
 
@@ -1253,19 +1426,50 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
     def focusNext(self) -> None:
 
-        logger.verbose("[RadioBrowser] RIGHT pressed.")
+        old_focus = self._focus
 
         self._focus = PANELS[(PANELS.index(self._focus) + 1) % len(PANELS)]
+
+        # Round 216: see focusPrevious()'s own comment.
+        logger.verbose("[RadioBrowser] RIGHT pressed. focus %s -> %s", old_focus, self._focus)
+
+        # Round 217: see focusPrevious()'s own comment.
+        self._setRealFocus(self._focus)
 
         self._updateFocusIndicator()
 
     # ------------------------------------------------------------------
 
+    def _setRealFocus(self, panel_name: str) -> None:
+        """
+        Round 217: transfers Enigma2's actual native GUI keyboard focus
+        to the named panel's widget, so that key-repeat events this
+        screen's own ActionMap never sees (see focusPrevious()'s own
+        comment for the full device-log evidence) land on the correct
+        widget instead of always on "stations". Wrapped in try/except
+        and never raises -- if a particular skin/widget combination
+        doesn't support it for some reason, the worst case is exactly
+        today's existing (already-reported) behaviour, not a crash.
+        """
+
+        try:
+            self.setFocus(self[panel_name])
+
+        except Exception as error:
+
+            logger.verbose(f"[RadioBrowser] _setRealFocus({panel_name}) failed: {error}")
+
+    # ------------------------------------------------------------------
+
     def moveUp(self) -> None:
 
-        logger.verbose("[RadioBrowser] UP pressed.")
+        logger.verbose("[RadioBrowser] UP pressed. focus=%s", self._focus)
+
+        self._logPanelIndices("UP before")
 
         self[self._focus].up()
+
+        self._logPanelIndices("UP after")
 
         self._onSelectionChanged()
 
@@ -1273,9 +1477,13 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
     def moveDown(self) -> None:
 
-        logger.verbose("[RadioBrowser] DOWN pressed.")
+        logger.verbose("[RadioBrowser] DOWN pressed. focus=%s", self._focus)
+
+        self._logPanelIndices("DOWN before")
 
         self[self._focus].down()
+
+        self._logPanelIndices("DOWN after")
 
         self._onSelectionChanged()
 
@@ -1287,33 +1495,455 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         (requested after real device testing). Clamped so it stops at
         the top of the list instead of wrapping around when fewer
         than PAGE_STEP entries remain (round 80, per direct request).
+
+        Round 215: see PAGE_JUMP_RELEASE_MS's own comment -- the first
+        CH+/CH- event of a burst locks the page-jump to whatever panel
+        is focused at that moment (self._page_jump_start_focus);
+        every repeat event within the same burst keeps acting on that
+        same panel even if self._focus itself were to change
+        underneath it, instead of re-reading self._focus fresh each
+        time. The lock releases PAGE_JUMP_RELEASE_MS after the last
+        repeat event, so a genuinely new press (after releasing the
+        key) picks up whatever panel LEFT/RIGHT has since moved to.
+
+        Round 218: if this is a fresh lock (not already active from a
+        near-simultaneous previous call) and the locked panel isn't
+        "stations" itself, also arms the drift-correction timer -- see
+        _correctStationsDrift()'s own comment for why.
         """
 
-        logger.verbose("[RadioBrowser] CH+ pressed. focus=%s", self._focus)
+        fresh_lock = self._page_jump_start_focus is None
 
-        steps = min(PAGE_STEP, self[self._focus].getSelectedIndex())
+        if fresh_lock:
+
+            self._page_jump_start_focus = self._focus
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose("[RadioBrowser] CH+ pressed. focus=%s", panel)
+
+        self._logPanelIndices("CH+ before")
+
+        steps = min(PAGE_STEP, self[panel].getSelectedIndex())
 
         for _step in range(steps):
 
-            self[self._focus].up()
+            self[panel].up()
+
+        self._logPanelIndices("CH+ after up()")
+
+        if fresh_lock and panel != "stations":
+
+            # Round 222: see _armStationsDriftWatch()'s own comment.
+            self._armStationsDriftWatch("up")
+
+            self._armStationsDriftTimer()
+
+            # Round 220: the drift timer's own first tick needs a much
+            # longer grace period than a plain repeat gap -- see
+            # DRIFT_WATCHDOG_INITIAL_MS's own comment.
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
+        else:
+
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
 
         self._onSelectionChanged()
+
+        self._logPanelIndices("CH+ after _onSelectionChanged()")
 
     # ------------------------------------------------------------------
 
     def pageDown(self) -> None:
+        """
+        CH- -- see pageUp()'s own comment (round 80 for PAGE_STEP,
+        round 215 for the same-panel lock across a key-repeat burst,
+        round 218 for the drift-correction timer).
+        """
 
-        logger.verbose("[RadioBrowser] CH- pressed. focus=%s", self._focus)
+        fresh_lock = self._page_jump_start_focus is None
 
-        entries = self[self._focus].list or []
+        if fresh_lock:
 
-        steps = min(PAGE_STEP, max(0, len(entries) - 1 - self[self._focus].getSelectedIndex()))
+            self._page_jump_start_focus = self._focus
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose("[RadioBrowser] CH- pressed. focus=%s", panel)
+
+        self._logPanelIndices("CH- before")
+
+        entries = self[panel].list or []
+
+        steps = min(PAGE_STEP, max(0, len(entries) - 1 - self[panel].getSelectedIndex()))
 
         for _step in range(steps):
 
-            self[self._focus].down()
+            self[panel].down()
+
+        if fresh_lock and panel != "stations":
+
+            # Round 222: see _armStationsDriftWatch()'s own comment.
+            self._armStationsDriftWatch("down")
+
+            self._armStationsDriftTimer()
+
+        self._logPanelIndices("CH- after down()")
+
+        if fresh_lock and panel != "stations":
+
+            # Round 220: see pageUp()'s own comment / DRIFT_WATCHDOG_INITIAL_MS.
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
+        else:
+
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
 
         self._onSelectionChanged()
+
+        self._logPanelIndices("CH- after _onSelectionChanged()")
+
+    # ------------------------------------------------------------------
+
+    def _logPanelIndices(self, label: str) -> None:
+        """
+        Round 216, diagnostic only (per direct request after three
+        device logs in a row showed self._focus/the locked panel
+        logging correctly on every single CH+/CH- event, yet the
+        Stations column was still reported moving instead of Region/
+        Language): logs every panel's own current getSelectedIndex()
+        in one line, so a device log can show directly whether a
+        panel OTHER than the one pageUp()/pageDown() just acted on
+        also moved -- something logging just the chosen panel's name
+        can never catch. Called at several points around each page-
+        jump (before/after the up()/down() loop, and again after
+        _onSelectionChanged()) so the exact moment any unexpected
+        change happens narrows down to one of those three windows.
+        Never raises -- a widget that isn't ready yet just logs
+        nothing rather than breaking the key handling it's attached
+        to.
+        """
+
+        try:
+            indices = {name: self[name].getSelectedIndex() for name in PANELS}
+
+        except Exception as error:
+
+            logger.verbose(f"[RadioBrowser] {label}: unable to read panel indices ({error}).")
+
+            return
+
+        logger.verbose(
+            f"[RadioBrowser] {label}: stations={indices['stations']} "
+            f"language={indices['language']} region={indices['region']}"
+        )
+
+    # ------------------------------------------------------------------
+
+    def _clearPageJumpFocus(self) -> None:
+        """
+        Round 215: releases the CH+/CH- same-panel lock
+        PAGE_JUMP_RELEASE_MS after the last repeat event of a burst --
+        see PAGE_JUMP_RELEASE_MS's own comment for why that particular
+        duration. Letting self._page_jump_start_focus go back to None
+        is enough; the next CH+/CH- event (if any) re-reads whatever
+        self._focus is at that point, same as a fresh, un-held press
+        always has.
+
+        Round 218: also stops the drift-correction timer, if it was
+        running -- see _correctStationsDrift()'s own comment. Safe to
+        call .stop() even if it was never started.
+
+        Round 222: also undoes any still-pending one-step nudge from
+        _armStationsDriftWatch() -- see its own comment. This runs
+        whether or not any real drift ever happened in between, since
+        every drift correction always puts Stations back at the
+        nudged baseline, never at its true original position.
+        """
+
+        self._page_jump_start_focus = None
+
+        self._stations_drift_timer.stop()
+
+        self._stations_drift_baseline = None
+
+        if self._stations_nudge_direction:
+
+            # Round 223: self._stations_nudge_direction now holds a
+            # signed STEP COUNT (see _armStationsDriftWatch()'s own
+            # comment), not just a +1/-1 direction, so reversing it
+            # takes that many steps, not just one.
+            steps = abs(self._stations_nudge_direction)
+
+            if self._stations_nudge_direction < 0:
+
+                for _step in range(steps):
+
+                    self["stations"].down()
+
+            else:
+
+                for _step in range(steps):
+
+                    self["stations"].up()
+
+            self._stations_nudge_direction = 0
+
+            self._onSelectionChanged()
+
+    # ------------------------------------------------------------------
+
+    def _armStationsDriftWatch(self, direction: str) -> None:
+        """
+        Round 222, per direct device report: CH+ held on Region/
+        Language silently does nothing whenever Stations already has
+        its own FIRST entry selected, and the mirror case for CH- when
+        Stations already has its own LAST entry selected -- worst with
+        exactly one found station, where that single entry is
+        simultaneously both (reported as the clearest way to reproduce
+        it). The whole drift-correction mechanism (round 218 onward)
+        only ever notices a held key is still active by seeing
+        Stations' own position actually change; when Stations is
+        already pinned at the boundary the held direction would push
+        it toward, the native drift mechanism keeps trying on every
+        repeat but has nowhere left to move it, so its own position
+        never changes at all -- indistinguishable from the key having
+        already been released, so the lock on Region/Language's own
+        panel (and the drift correction) was clearing out early
+        exactly like it did before round 220's fix, just for a
+        different underlying reason.
+
+        If Stations already sits on that boundary when the lock
+        engages, nudges it OFF that boundary first, in the opposite
+        direction from the held key, so the very next native repeat
+        (if the key really is still held) has somewhere to go and
+        becomes visible to the drift-correction timer like any other
+        case. _clearPageJumpFocus() undoes the nudge once the hold
+        actually ends, restoring Stations to its true original
+        position -- this is the one-time cost of the fix, a block of
+        steps applied once and then reversed once, rather than a
+        change that lingers.
+
+        Round 223, per direct device report: the initial version of
+        this nudged by exactly ONE step, which worked (CH+ on Region/
+        Language started moving again) but only ever one row at a
+        time, while CH- (never needing a nudge, since Stations always
+        had plenty of room already) kept moving a full PAGE_STEP at a
+        time as intended. Per that same device log, a single unclaimed
+        repeat event apparently moves Stations by a full native "page"
+        in one go, not by one row -- round 218's own correction only
+        ever sees however much of that native page-jump actually fit
+        before Stations hit its own boundary again. A one-step nudge
+        left only one row of room, clamping every native page-jump
+        down to a one-row move; nudging by a full PAGE_STEP's worth of
+        room instead (clamped to however much the list actually has,
+        same as pageUp()/pageDown()'s own clamping) gives a real
+        native page-jump room to land in full, matching CH-'s own
+        already-correct behaviour.
+
+        Has no effect (and nothing to undo later) when Stations has
+        more than one entry but isn't already sitting on the relevant
+        boundary -- the normal, most common case. With exactly one
+        found station, the single entry is both boundaries at once,
+        so there is no direction to nudge it in at all; that specific
+        edge case remains a known limitation.
+        """
+
+        entries = self["stations"].list or []
+
+        nudge = 0
+
+        if entries:
+
+            current = self["stations"].getSelectedIndex()
+
+            if direction == "down" and current >= len(entries) - 1:
+
+                steps = min(PAGE_STEP, current)
+
+                for _step in range(steps):
+
+                    self["stations"].up()
+
+                # Only record the nudge if it actually moved something
+                # -- with exactly one entry, up() is itself clamped at
+                # the same single index, so there is nowhere to nudge
+                # to and nothing will need undoing later either.
+                actual_steps = current - self["stations"].getSelectedIndex()
+
+                if actual_steps:
+
+                    nudge = -actual_steps
+
+            elif direction == "up" and current <= 0:
+
+                steps = min(PAGE_STEP, max(0, len(entries) - 1 - current))
+
+                for _step in range(steps):
+
+                    self["stations"].down()
+
+                actual_steps = self["stations"].getSelectedIndex() - current
+
+                if actual_steps:
+
+                    nudge = actual_steps
+
+        self._stations_nudge_direction = nudge
+
+        self._stations_drift_baseline = self["stations"].getSelectedIndex()
+
+    # ------------------------------------------------------------------
+
+    def _armStationsDriftTimer(self) -> None:
+        """
+        Round 219, diagnostic addition: isolates the
+        self._stations_drift_timer.start() call behind its own
+        explicit success/failure log line, since the previous device
+        log showed the whole drift-correction mechanism having zero
+        effect with no error anywhere -- this rules out (or confirms)
+        the .start() call itself silently failing.
+        """
+
+        try:
+            self._stations_drift_timer.start(DRIFT_CORRECTION_INTERVAL_MS, False)
+
+            logger.verbose(
+                f"[RadioBrowser] Drift timer armed (interval={DRIFT_CORRECTION_INTERVAL_MS}ms, "
+                f"baseline={self._stations_drift_baseline})."
+            )
+
+        except Exception as error:
+
+            logger.verbose(f"[RadioBrowser] Drift timer failed to arm: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctStationsDrift(self) -> None:
+        """
+        Round 218 (per direct request after a fresh device log proved
+        round 217's setFocus() fix had no effect): a held CH-/CH+ key
+        only ever gets ONE event through to this project's own Python
+        code (see pageUp()'s/pageDown()'s own comment and round 217's
+        full finding) -- every repeat event after that lands somewhere
+        that still ends up moving the "stations" MenuList's own
+        selection directly, regardless of which panel is actually
+        locked/focused, by some mechanism giving Enigma2 real GUI
+        focus did not change. Rather than keep guessing at what that
+        mechanism actually is, this runs on a short repeating timer
+        (armed only while the locked panel isn't "stations" itself,
+        so there's nothing to correct) and treats the symptom
+        directly: any change in "stations"' own position since the
+        last tick is undone there and replayed on the actually-locked
+        panel instead, in the same direction and by the same amount.
+        Each real correction also re-arms the release timer (round
+        215's own PAGE_JUMP_RELEASE_MS, previously only ever armed
+        once per hold since pageUp()/pageDown() itself is only ever
+        called once per hold) -- a real drift tick IS the proof that
+        the key is still actually held, which pageUp()/pageDown()
+        being called again never was.
+
+        Round 219, diagnostic addition (per direct request after a
+        device log showed ZERO effect from this timer at all -- not
+        even one "drifted" log line across an ~11s hold that still
+        ended up moving Stations by over a thousand -- despite
+        MainScreen's own 1000ms refresh timer firing normally
+        throughout that exact same window, which rules out the whole
+        reactor/event loop being blocked): wrapped the entire body in
+        try/except (previously had none at all -- if this ever raised
+        on its very first tick, Enigma2's own callback dispatcher
+        could have silently discarded that exception, which would
+        perfectly explain total silence despite correct-looking code)
+        and now logs unconditionally on every single tick, not just
+        when a correction actually happens, so the next device log
+        can show directly whether this method is ever even being
+        invoked at all, and if so, what it's actually reading.
+        """
+
+        try:
+
+            self._correctStationsDriftImpl()
+
+        except Exception as error:
+
+            logger.verbose(f"[RadioBrowser] _correctStationsDrift tick raised: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctStationsDriftImpl(self) -> None:
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose(
+            f"[RadioBrowser] drift tick: panel={panel} "
+            f"stations={self['stations'].getSelectedIndex()} "
+            f"baseline={self._stations_drift_baseline}"
+        )
+
+        if panel is None or panel == "stations":
+
+            self._stations_drift_timer.stop()
+
+            self._stations_drift_baseline = None
+
+            return
+
+        if self._stations_drift_baseline is None:
+
+            self._stations_drift_baseline = self["stations"].getSelectedIndex()
+
+            return
+
+        current = self["stations"].getSelectedIndex()
+
+        delta = current - self._stations_drift_baseline
+
+        if delta == 0:
+
+            return
+
+        logger.verbose(
+            f"[RadioBrowser] Stations drifted by {delta} while locked to "
+            f"{panel} -- redirecting."
+        )
+
+        if delta > 0:
+
+            for _step in range(delta):
+
+                self["stations"].up()
+
+        else:
+
+            for _step in range(-delta):
+
+                self["stations"].down()
+
+        entries = self[panel].list or []
+
+        if delta > 0:
+
+            steps = min(delta, max(0, len(entries) - 1 - self[panel].getSelectedIndex()))
+
+            for _step in range(steps):
+
+                self[panel].down()
+
+        else:
+
+            steps = min(-delta, self[panel].getSelectedIndex())
+
+            for _step in range(steps):
+
+                self[panel].up()
+
+        self._stations_drift_baseline = self["stations"].getSelectedIndex()
+
+        self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
+        self._onSelectionChanged()
+
+        self._logPanelIndices("drift-corrected")
 
     # ------------------------------------------------------------------
 

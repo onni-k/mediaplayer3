@@ -513,8 +513,10 @@ cfg.ui.show_playback_state = ConfigYesNoLocalized(
 # row with no separate colour-button row at all -- there's truly no
 # "upper row" to hide there, so it alone still ignores this setting.
 # The other 6 screens never gave Vintage Radio (or Test Skin) a
-# two-row treatment of their own to begin with -- both share those
-# screens' plain single-row fallback layout, unaffected either way.
+# two-row treatment of their own to begin with -- both shared those
+# screens' plain single-row fallback layout. Round 229: Vintage Radio
+# (not Test Skin) now takes the same two-row branch as Light/Dark on
+# those 6 screens too, so this setting applies to it there as well.
 cfg.ui.show_hint_text_row = ConfigYesNoLocalized(
     default=True
 )
@@ -792,6 +794,23 @@ cfg.podcast.podcastindex_api_secret = ConfigText(
     fixed_size=False,
 )
 
+# Round 230, per direct request: language used by PodcastScreen's
+# "popular podcasts" fetch and search results. "" (default) = follow
+# the receiver's own system language, "all" = no language filter,
+# anything else = a language code such as "fi" or "en".
+cfg.podcast.language = ConfigText(
+    default="",
+    fixed_size=False,
+)
+
+# Round 236, per direct request: maximum number of podcasts requested
+# from Podcast Index per search / popular-podcasts fetch (the API's
+# own ceiling is 1000).
+cfg.podcast.search_limit = ConfigInteger(
+    default=1000,
+    limits=(10, 1000),
+)
+
 # ------------------------------------------------------------------------------
 # Logging (SETTINGSSCREEN_SPEC.md section 6)
 # ------------------------------------------------------------------------------
@@ -892,6 +911,8 @@ _ENTRIES: Dict[str, Any] = {
     "epg.yle_app_key": cfg.epg.yle_app_key,
     "podcast.podcastindex_api_key": cfg.podcast.podcastindex_api_key,
     "podcast.podcastindex_api_secret": cfg.podcast.podcastindex_api_secret,
+    "podcast.language": cfg.podcast.language,
+    "podcast.search_limit": cfg.podcast.search_limit,
 
     "logging.developer_level": cfg.logging.developer_level,
     "logging.keep_log_files": cfg.logging.keep_log_files,

@@ -105,6 +105,7 @@ from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
 from Components.Label import Label
 from Components.Pixmap import Pixmap
+from Components.ScrollLabel import ScrollLabel
 from Screens.HelpMenu import HelpableScreen
 from Screens.Screen import Screen
 from enigma import ePicLoad, eTimer, gFont
@@ -365,9 +366,9 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
             <widget name="content"
                     {rect(40, 110, 1840, 900)}
-                    {font(28)}
-                    halign="center"
-                    valign="center"
+                    {font(38 if self._static_scroll else 28)}
+                    halign="{'left' if self._static_scroll else 'center'}"
+                    valign="{'top' if self._static_scroll else 'center'}"
                     {panel_background_attr}
                     foregroundColor="{panel_text_color}"/>
 
@@ -388,7 +389,17 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
     # Initialization
     # ------------------------------------------------------------------
 
-    def __init__(self, session, title: str, static_text: str, information_panel):
+    def __init__(self, session, title: str, static_text: str, information_panel, static_scroll: bool = False):
+        """
+        Round 231, per direct request: static_scroll=True turns this
+        into a plain fullscreen text viewer (used for a podcast
+        episode's description) -- fixed top-left text in a
+        ScrollLabel scrolled manually with UP/DOWN, no live refresh
+        timer and no automatic scrolling of any kind; information_panel
+        is unused in that mode (may be None).
+        """
+
+        self._static_scroll = static_scroll
 
         width, height = compatibility.getDesktopSize(self.DESIGN_WIDTH, self.DESIGN_HEIGHT)
 
@@ -443,9 +454,17 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
         self["title"] = Label(self._title)
 
-        self["content"] = Label(self._static_text)
+        if self._static_scroll:
 
-        self["hint"] = Label(_("OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"))
+            self["content"] = ScrollLabel(self._static_text)
+
+            self["hint"] = Label(_("OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"))
+
+        else:
+
+            self["content"] = Label(self._static_text)
+
+            self["hint"] = Label(_("OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"))
 
         for row_index in range(len(self.LYRICS_WINDOW_ROWS)):
 
@@ -485,13 +504,17 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
             self["actions"] = ActionMap(contexts, actions, -1)
 
-        self._refresh_timer.callback.append(self._refresh)
+        if not self._static_scroll:
 
-        self._refresh_timer.start(self.REFRESH_INTERVAL_MS, False)
+            self._refresh_timer.callback.append(self._refresh)
+
+            self._refresh_timer.start(self.REFRESH_INTERVAL_MS, False)
 
         self._decodeBackgroundImage()
 
-        self._refresh()
+        if not self._static_scroll:
+
+            self._refresh()
 
         self._initialized = True
 
@@ -635,11 +658,23 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
     def scrollUp(self) -> None:
 
+        if self._static_scroll:
+
+            self["content"].pageUp()
+
+            return
+
         self._information_panel.scroll(-1)
 
     # ------------------------------------------------------------------
 
     def scrollDown(self) -> None:
+
+        if self._static_scroll:
+
+            self["content"].pageDown()
+
+            return
 
         self._information_panel.scroll(1)
 

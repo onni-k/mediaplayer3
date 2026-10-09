@@ -521,6 +521,9 @@ msgstr "Rensa stationslista"
 msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
 msgstr "OK: Redigera   VÄNSTER/HÖGER: Ändra   GUL: Rensa radiohistorik   MENU: Meny   EXIT: Spara & tillbaka"
 
+msgid "Edit playlist"
+msgstr "Redigera spellista"
+
 msgid "Remove from playlist"
 msgstr "Ta bort från spellista"
 
@@ -1063,3 +1066,58 @@ msgstr "Detta språk visas som nummer två i internetradions egen regionslista, 
 
 msgid "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
 msgstr "Programmets utseende (standard: Ljust). Med Test Skin kan du prova ett nytt utseende säkert -- se SKIN_ELEMENTS.md i dess egen mapp."
+
+msgid "Available"
+msgstr "Tillgängliga"
+
+msgid "Press YELLOW to search"
+msgstr "Tryck på GUL för att söka"
+
+msgid "choose the podcast language"
+msgstr "välj podcastspråk"
+
+msgid "Fetch popular podcasts"
+msgstr "Hämta populära podcasts"
+
+msgid "Popular podcasts"
+msgstr "Populära podcasts"
+
+msgid "No popular podcasts found."
+msgstr "Inga populära podcasts hittades."
+
+msgid "System language"
+msgstr "Systemspråk"
+
+msgid "All languages"
+msgstr "Alla språk"
+
+msgid "Description"
+msgstr "Beskrivning"
+
+msgid "YELLOW: Description"
+msgstr "GUL: Beskrivning"
+
+msgid "Show description fullscreen"
+msgstr "Visa beskrivning i helskärm"
+
+msgid "No description available."
+msgstr "Ingen beskrivning tillgänglig."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / VÄNSTER / HÖGER: Stäng -- UPP / NER: Scrolla"
+
+msgid "show lyrics or episode description fullscreen"
+msgstr "visa sångtext eller avsnittsbeskrivning i helskärm"
+
+msgid "search or fetch popular podcasts"
+msgstr "sök eller hämta populära podcasts"
+
+msgid "Search: {0} ({1} podcasts)"
+msgstr "Sök: {0} ({1} podcasts)"
+
+
+msgid "Podcast search limit"
+msgstr "Gräns för podcastsökning"
+
+msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
+msgstr "Högsta antal podcaster som hämtas från Podcast Index per sökning eller hämtning av populära (10-1000, standard 1000)."

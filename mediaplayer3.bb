@@ -7,7 +7,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=1ebbd3e34237af26da5dc08a4e440464"
 HOMEPAGE = "https://github.com/onni-k/mediaplayer3"
 BUGTRACKER = "https://github.com/onni-k/mediaplayer3/issues"
 
-PV = "1.2.000"
+PV = "1.3.000"
 PR = "r0"
 
 SRC_URI = "git://github.com/onni-k/mediaplayer3.git;branch=main;protocol=https"

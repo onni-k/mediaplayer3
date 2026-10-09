@@ -521,6 +521,9 @@ msgstr "Clear station list"
 msgid "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
 msgstr "OK: Edit   LEFT/RIGHT: Change   YELLOW: Clear Radio History   MENU: Menu   EXIT: Save & Back"
 
+msgid "Edit playlist"
+msgstr "Edit playlist"
+
 msgid "Remove from playlist"
 msgstr "Remove from playlist"
 
@@ -1063,3 +1066,58 @@ msgstr "This language shows second in Internet Radio's own region list, right af
 
 msgid "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
 msgstr "The program's appearance (default: Light). Test Skin lets you try out a new one safely -- see SKIN_ELEMENTS.md in its own folder."
+
+msgid "Available"
+msgstr "Available"
+
+msgid "Press YELLOW to search"
+msgstr "Press YELLOW to search"
+
+msgid "choose the podcast language"
+msgstr "choose the podcast language"
+
+msgid "Fetch popular podcasts"
+msgstr "Fetch popular podcasts"
+
+msgid "Popular podcasts"
+msgstr "Popular podcasts"
+
+msgid "No popular podcasts found."
+msgstr "No popular podcasts found."
+
+msgid "System language"
+msgstr "System language"
+
+msgid "All languages"
+msgstr "All languages"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "YELLOW: Description"
+msgstr "YELLOW: Description"
+
+msgid "Show description fullscreen"
+msgstr "Show description fullscreen"
+
+msgid "No description available."
+msgstr "No description available."
+
+msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+
+msgid "show lyrics or episode description fullscreen"
+msgstr "show lyrics or episode description fullscreen"
+
+msgid "search or fetch popular podcasts"
+msgstr "search or fetch popular podcasts"
+
+msgid "Search: {0} ({1} podcasts)"
+msgstr "Search: {0} ({1} podcasts)"
+
+
+msgid "Podcast search limit"
+msgstr "Podcast search limit"
+
+msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
+msgstr "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."

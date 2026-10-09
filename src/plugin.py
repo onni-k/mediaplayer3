@@ -277,6 +277,64 @@ def main(session, **kwargs):
 
         logger.warning("Unable to apply skin/theme configuration: %s", error)
 
+    #
+    # Round 211, per direct request: a best-effort fix for the known
+    # OpenPLi issue (see docs/CHANGELOG.md's "Known Issues" -- every
+    # "Bold" font="Bold;..." reference used throughout this project's
+    # own skin XML falls back to something else on OpenPLi, since that
+    # image's own font registration never defines a family literally
+    # named "Bold", unlike OpenATV/OpenBH/OpenViX (confirmed again via
+    # round 210's device logs: those three each register a real
+    # "Bold" font such as Roboto-Black.ttf during their own skin.xml
+    # loading; OpenPLi's own startup log has no such line at all).
+    #
+    # Rather than special-case by image name (getImageName() only
+    # returns the receiver's display brand, e.g. "Vu+", identical
+    # across all four images -- see compatibility.py's own round 164
+    # comment), this checks the live skin.fonts registry directly: if
+    # nothing has claimed the name "Bold" by this point, it registers
+    # OpenPLi's own bundled nmsbd.ttf (Nimbus Sans Bold, confirmed
+    # present at /usr/share/fonts/nmsbd.ttf in round 210's OpenPLi
+    # device log, already loaded there under the names "Regular" and
+    # "FdLcD") under that missing name instead. On every other image,
+    # "Bold" is already present by this point, so this does nothing.
+    #
+    # Unverified on a real OpenPLi device as of this round -- this is
+    # a first attempt, not a confirmed fix. The exact system "skin"
+    # module API (addFont's own argument order, and whether "fonts" is
+    # exposed the same way on every image) can't be checked in this
+    # sandbox, which has no enigma2 modules to import -- wrapped
+    # defensively like every other startup step here so a mismatch
+    # just skips the fix silently rather than affecting startup.
+    #
+    try:
+        import skin as enigma_skin_module
+        from Tools.Directories import SCOPE_FONTS, resolveFilename
+
+        if "Bold" not in getattr(enigma_skin_module, "fonts", {}):
+
+            bold_font_path = resolveFilename(SCOPE_FONTS, "nmsbd.ttf")
+
+            if bold_font_path and os.path.exists(bold_font_path):
+
+                enigma_skin_module.addFont(bold_font_path, "Bold", 100, False)
+
+                logger.info(
+                    "Registered fallback 'Bold' font from %s (image provided none).",
+                    bold_font_path,
+                )
+
+            else:
+
+                logger.info(
+                    "No 'Bold' font registered by this image, and nmsbd.ttf "
+                    "was not found either -- leaving as-is."
+                )
+
+    except Exception as error:
+
+        logger.warning("Unable to register fallback Bold font: %s", error)
+
     logger.info("Storage working directory: %s", storage_manager.getWorkingDirectory())
 
     logger.info("Playlists available: %d", len(playlist_manager.getPlaylistNames()))

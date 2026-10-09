@@ -90,6 +90,16 @@ USER_AGENT = "MediaPlayer3-PodcastIndex/0.1"
 
 REQUEST_TIMEOUT_SECONDS = 10
 
+# Round 234, per direct request ("Voiko hakutoimintoon saada enemmän
+# tuloksia? ... rajan voi nostaa max 1000"): Podcast Index returns
+# only its small default (40) unless "max" is passed; 1000 is the
+# API's own maximum. Trending (popular) lists are capped lower --
+# they are ordered by popularity, so the tail is of little use, and
+# a smaller response is quicker on the receiver's connection.
+SEARCH_MAX_RESULTS = 1000
+
+TRENDING_MAX_RESULTS = 1000
+
 # Build 0010 -- light obfuscation only, see this file's own header for
 # why. XOR against a fixed pad, then base64. PAD is not a secret in
 # any real sense -- it's here purely so the credentials below aren't
@@ -297,7 +307,7 @@ class PodcastIndexProvider:
         if not query or not query.strip():
             return []
 
-        data = self._apiGet("search/byterm", {"q": query})
+        data = self._apiGet("search/byterm", {"q": query, "max": self._resultLimit()})
 
         if data is None:
             return []
@@ -307,6 +317,51 @@ class PodcastIndexProvider:
         if not isinstance(feeds, list):
 
             self._log("searchPodcasts(): 'feeds' field was not a list.")
+
+            return []
+
+        return [self._convertFeedToPodcast(feed) for feed in feeds if isinstance(feed, dict)]
+
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resultLimit() -> int:
+        """Round 236: user-configured result limit (default 1000, API max 1000)."""
+
+        try:
+            value = int(config_manager.get("podcast.search_limit", SEARCH_MAX_RESULTS))
+
+        except Exception:
+
+            value = SEARCH_MAX_RESULTS
+
+        return max(10, min(1000, value))
+
+    def getTrendingPodcasts(self, language: str = "", max_results: int = 0) -> List[Dict[str, Any]]:
+        """
+        Round 230, per direct request ("Hae suosituimmat"): Podcast
+        Index's own "podcasts/trending" endpoint, optionally limited
+        to one language code (its "lang" parameter, e.g. "fi").
+        Same guarantees as searchPodcasts(): always a list, empty on
+        any failure.
+        """
+
+        params: Dict[str, Any] = {"max": max_results or self._resultLimit()}
+
+        if language:
+
+            params["lang"] = language
+
+        data = self._apiGet("podcasts/trending", params)
+
+        if data is None:
+            return []
+
+        feeds = data.get("feeds", [])
+
+        if not isinstance(feeds, list):
+
+            self._log("getTrendingPodcasts(): 'feeds' field was not a list.")
 
             return []
 

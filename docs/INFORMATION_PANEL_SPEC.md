@@ -157,6 +157,22 @@ Internet Radio without programme information:
 
 The user never encounters empty information pages.
 
+A podcast episode played from PodcastScreen additionally gets
+"Information: Description" as its first page (text from
+PodcastManager's episode registry).
+
+## Page choice on track/station change (1.3.000)
+
+Pages are always built best-first. The panel remembers the kind of page
+the user last chose with LEFT/RIGHT (all lyrics variants count as one
+kind). On every refresh it selects that kind if the current item has
+it; otherwise it selects the first page. Without a manual choice it
+always selects the first page. The scroll position is reset when the
+track/station or the selected page changes. Consequently a track
+without lyrics shows the best other page, and the next track with
+lyrics brings lyrics back; a station whose programme information
+appears later switches to it automatically.
+
 ---
 
 # Navigation

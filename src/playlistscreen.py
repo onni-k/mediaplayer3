@@ -264,6 +264,34 @@ PANELS = ("playlists", "tracks")
 # CH- paging before this round).
 PAGE_STEP = 15
 
+# Round 226, per direct request: port of RadioBrowserScreen's own
+# round 215 fix (see its own PAGE_JUMP_RELEASE_MS for the full
+# reasoning, and browserscreen.py's/musiclibraryscreen.py's own round
+# 225 ports, confirmed effective on a real device for BrowserScreen)
+# -- a held CH-/CH+ key's repeat events can drift onto "playlists"
+# (the first widget this screen builds) instead of whichever panel
+# is actually focused, the same way RadioBrowserScreen's "stations"
+# panel and BrowserScreen's "directories_list" column did. Pins a
+# page-jump burst to whichever panel was focused when it started,
+# released this many milliseconds after the last repeat event.
+PAGE_JUMP_RELEASE_MS = 400
+
+# Round 226: port of RadioBrowserScreen's own round 218 drift-
+# correction timer -- see its own DRIFT_CORRECTION_INTERVAL_MS for
+# the full reasoning. Polls "playlists" own position frequently
+# enough to catch each individual native drift step shortly after it
+# happens, reverses it there, and replays the same movement on
+# whatever panel is actually locked.
+DRIFT_CORRECTION_INTERVAL_MS = 80
+
+# Round 226: port of RadioBrowserScreen's own round 220 fix -- see its
+# own DRIFT_WATCHDOG_INITIAL_MS for the full reasoning. Gives the
+# drift timer's very first tick a much longer grace period than a
+# plain key-repeat gap, covering Enigma2's own initial repeat delay,
+# before falling back to the tighter PAGE_JUMP_RELEASE_MS cadence once
+# real drift has actually started happening.
+DRIFT_WATCHDOG_INITIAL_MS = 1500
+
 
 def _formatPlaylistDuration(total_seconds: int) -> str:
     """
@@ -376,7 +404,15 @@ class PlaylistScreen(Screen, HelpableScreen):
         # asked for it to be removed only once both Light's and
         # Dark's new two-row layouts are confirmed working on a
         # real device.
-        if self._skin_variant in ("light", "dark"):
+        # Round 229, per direct request ("Korvataan Vintagen
+        # taustakuvat light skinin taustakuvilla ... ja lisätään
+        # toinen alareunan ohjerivi käyttöön, kuten light skinissä"):
+        # Vintage Radio now takes this same two-row hint bar branch
+        # as Light/Dark -- its own resources/skins/vintage_radio/
+        # background images were replaced this round with the Dark
+        # skin's (the two-row-layout derivation of Light's, already
+        # recoloured to the exact colours Vintage's own images had).
+        if self._skin_variant in ("light", "dark", "vintage_radio"):
 
             hint_color = palette["hint_fg"]
 
@@ -635,6 +671,23 @@ class PlaylistScreen(Screen, HelpableScreen):
         self._playback = playback_controller
 
         self._focus = "playlists"
+
+        # Round 226: port of RadioBrowserScreen's own round 215/218/
+        # 222 state -- see PAGE_JUMP_RELEASE_MS's own comment above
+        # for the full reasoning.
+        self._page_jump_start_focus = None
+
+        self._page_jump_release_timer = eTimer()
+
+        self._page_jump_release_timer.callback.append(self._clearPageJumpFocus)
+
+        self._playlists_drift_timer = eTimer()
+
+        self._playlists_drift_timer.callback.append(self._correctPlaylistsDrift)
+
+        self._playlists_drift_baseline = None
+
+        self._playlists_nudge_direction = 0
 
         # Combined local playlists + radio favorite lists (Build 0007,
         # device test round 3), each entry ("local", name) or
@@ -1224,53 +1277,331 @@ class PlaylistScreen(Screen, HelpableScreen):
         Clamped so it stops at the top of the list instead of
         wrapping around when fewer than PAGE_STEP entries remain
         (round 80, per direct request).
+
+        Round 226: port of RadioBrowserScreen's own round 215/218/
+        220/222/223 mechanism -- see PAGE_JUMP_RELEASE_MS's own
+        comment above for the full reasoning. Pins the page-jump to
+        whichever panel was focused when the burst started, and
+        (when that panel isn't "playlists" itself) arms the drift-
+        correction timer/watch to keep "playlists" from silently
+        stealing the rest of a held key's repeat events.
         """
 
-        logger.verbose("[Playlist] CH+ pressed. focus=%s", self._focus)
+        fresh_lock = self._page_jump_start_focus is None
 
-        widget = self[self._focus]
+        if fresh_lock:
+
+            self._page_jump_start_focus = self._focus
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose("[Playlist] CH+ pressed. focus=%s", panel)
+
+        self._logPanelIndices("CH+ before")
+
+        widget = self[panel]
 
         steps = min(PAGE_STEP, widget.getSelectedIndex())
 
-        if self._focus == "playlists":
+        for _step in range(steps):
 
-            for _step in range(steps):
+            widget.up()
 
-                widget.up()
+        if panel == "playlists":
 
             self._onPlaylistSelectionChanged()
 
+        self._logPanelIndices("CH+ after up()")
+
+        if fresh_lock and panel != "playlists":
+
+            self._armPlaylistsDriftWatch("up")
+
+            self._armPlaylistsDriftTimer()
+
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
         else:
 
-            for _step in range(steps):
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
 
-                widget.up()
+        self._logPanelIndices("CH+ after lock handling")
 
     # ------------------------------------------------------------------
 
     def pageDown(self) -> None:
+        """
+        CH- -- see pageUp()'s own comment.
+        """
 
-        logger.verbose("[Playlist] CH- pressed. focus=%s", self._focus)
+        fresh_lock = self._page_jump_start_focus is None
 
-        widget = self[self._focus]
+        if fresh_lock:
+
+            self._page_jump_start_focus = self._focus
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose("[Playlist] CH- pressed. focus=%s", panel)
+
+        self._logPanelIndices("CH- before")
+
+        widget = self[panel]
 
         entries = widget.list or []
 
         steps = min(PAGE_STEP, max(0, len(entries) - 1 - widget.getSelectedIndex()))
 
-        if self._focus == "playlists":
+        for _step in range(steps):
 
-            for _step in range(steps):
+            widget.down()
 
-                widget.down()
+        if panel == "playlists":
 
             self._onPlaylistSelectionChanged()
 
+        if fresh_lock and panel != "playlists":
+
+            self._armPlaylistsDriftWatch("down")
+
+            self._armPlaylistsDriftTimer()
+
+        self._logPanelIndices("CH- after down()")
+
+        if fresh_lock and panel != "playlists":
+
+            self._page_jump_release_timer.start(DRIFT_WATCHDOG_INITIAL_MS, True)
+
         else:
+
+            self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
+        self._logPanelIndices("CH- after lock handling")
+
+    # ------------------------------------------------------------------
+
+    def _logPanelIndices(self, label: str) -> None:
+        """
+        Round 226: port of RadioBrowserScreen's own round 216
+        diagnostic helper -- logs every panel's own current
+        getSelectedIndex() in one line. Never raises.
+        """
+
+        try:
+            indices = {name: self[name].getSelectedIndex() for name in PANELS}
+
+        except Exception as error:
+
+            logger.verbose(f"[Playlist] {label}: unable to read panel indices ({error}).")
+
+            return
+
+        logger.verbose(
+            f"[Playlist] {label}: playlists={indices['playlists']} "
+            f"tracks={indices['tracks']}"
+        )
+
+    # ------------------------------------------------------------------
+
+    def _clearPageJumpFocus(self) -> None:
+        """
+        Round 226: port of RadioBrowserScreen's own round 215/218/222/
+        223 release handler -- see _clearPageJumpFocus()'s own comment
+        there for the full reasoning.
+        """
+
+        self._page_jump_start_focus = None
+
+        self._playlists_drift_timer.stop()
+
+        self._playlists_drift_baseline = None
+
+        if self._playlists_nudge_direction:
+
+            steps = abs(self._playlists_nudge_direction)
+
+            if self._playlists_nudge_direction < 0:
+
+                for _step in range(steps):
+
+                    self["playlists"].down()
+
+            else:
+
+                for _step in range(steps):
+
+                    self["playlists"].up()
+
+            self._playlists_nudge_direction = 0
+
+            self._onPlaylistSelectionChanged()
+
+    # ------------------------------------------------------------------
+
+    def _armPlaylistsDriftWatch(self, direction: str) -> None:
+        """
+        Round 226: port of RadioBrowserScreen's own round 222/223
+        boundary nudge -- see _armStationsDriftWatch()'s own comment
+        there for the full reasoning. Nudges "playlists" off a
+        boundary it's already sitting on (in the opposite direction
+        from the held key) so the native drift mechanism has room to
+        register a full page-jump, rather than silently doing
+        nothing.
+        """
+
+        entries = self["playlists"].list or []
+
+        nudge = 0
+
+        if entries:
+
+            current = self["playlists"].getSelectedIndex()
+
+            if direction == "down" and current >= len(entries) - 1:
+
+                steps = min(PAGE_STEP, current)
+
+                for _step in range(steps):
+
+                    self["playlists"].up()
+
+                actual_steps = current - self["playlists"].getSelectedIndex()
+
+                if actual_steps:
+
+                    nudge = -actual_steps
+
+            elif direction == "up" and current <= 0:
+
+                steps = min(PAGE_STEP, max(0, len(entries) - 1 - current))
+
+                for _step in range(steps):
+
+                    self["playlists"].down()
+
+                actual_steps = self["playlists"].getSelectedIndex() - current
+
+                if actual_steps:
+
+                    nudge = actual_steps
+
+        self._playlists_nudge_direction = nudge
+
+        self._playlists_drift_baseline = self["playlists"].getSelectedIndex()
+
+    # ------------------------------------------------------------------
+
+    def _armPlaylistsDriftTimer(self) -> None:
+        """
+        Round 226: port of RadioBrowserScreen's own round 219
+        diagnostic helper.
+        """
+
+        try:
+            self._playlists_drift_timer.start(DRIFT_CORRECTION_INTERVAL_MS, False)
+
+            logger.verbose(
+                f"[Playlist] Drift timer armed (interval={DRIFT_CORRECTION_INTERVAL_MS}ms, "
+                f"baseline={self._playlists_drift_baseline})."
+            )
+
+        except Exception as error:
+
+            logger.verbose(f"[Playlist] Drift timer failed to arm: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctPlaylistsDrift(self) -> None:
+        """
+        Round 226: port of RadioBrowserScreen's own round 218/219
+        drift-correction tick -- see _correctStationsDrift()'s own
+        comment there for the full reasoning.
+        """
+
+        try:
+
+            self._correctPlaylistsDriftImpl()
+
+        except Exception as error:
+
+            logger.verbose(f"[Playlist] _correctPlaylistsDrift tick raised: {error}")
+
+    # ------------------------------------------------------------------
+
+    def _correctPlaylistsDriftImpl(self) -> None:
+
+        panel = self._page_jump_start_focus
+
+        logger.verbose(
+            f"[Playlist] drift tick: panel={panel} "
+            f"playlists={self['playlists'].getSelectedIndex()} "
+            f"baseline={self._playlists_drift_baseline}"
+        )
+
+        if panel is None or panel == "playlists":
+
+            self._playlists_drift_timer.stop()
+
+            self._playlists_drift_baseline = None
+
+            return
+
+        if self._playlists_drift_baseline is None:
+
+            self._playlists_drift_baseline = self["playlists"].getSelectedIndex()
+
+            return
+
+        current = self["playlists"].getSelectedIndex()
+
+        delta = current - self._playlists_drift_baseline
+
+        if delta == 0:
+
+            return
+
+        logger.verbose(
+            f"[Playlist] Playlists drifted by {delta} while locked to "
+            f"{panel} -- redirecting."
+        )
+
+        if delta > 0:
+
+            for _step in range(delta):
+
+                self["playlists"].up()
+
+        else:
+
+            for _step in range(-delta):
+
+                self["playlists"].down()
+
+        widget = self[panel]
+
+        entries = widget.list or []
+
+        if delta > 0:
+
+            steps = min(delta, max(0, len(entries) - 1 - widget.getSelectedIndex()))
 
             for _step in range(steps):
 
                 widget.down()
+
+        else:
+
+            steps = min(-delta, widget.getSelectedIndex())
+
+            for _step in range(steps):
+
+                widget.up()
+
+        self._playlists_drift_baseline = self["playlists"].getSelectedIndex()
+
+        self._page_jump_release_timer.start(PAGE_JUMP_RELEASE_MS, True)
+
+        self._logPanelIndices("drift-corrected")
 
     # ------------------------------------------------------------------
 

@@ -411,6 +411,14 @@ class PlaybackController:
         # playStream(); read via isPlayingStream().
         self._is_stream = False
 
+        # Round 233: debounce state for seeks inside network (http/
+        # https) files such as podcast episodes -- see _requestSeek().
+        self._pending_seek_target = None
+
+        self._pending_seek_file = None
+
+        self._pending_seek_timer = None
+
         self._initialized = False
 
         self._initialize()
@@ -1176,12 +1184,7 @@ class PlaybackController:
             target,
         )
 
-        succeeded = self._service.seekTo(target)
-
-        if succeeded:
-            self._rebaselineAfterSeek(target)
-
-        return succeeded
+        return self._requestSeek(target)
 
     # ------------------------------------------------------------------
 
@@ -1212,12 +1215,99 @@ class PlaybackController:
             target,
         )
 
-        succeeded = self._service.seekTo(target)
+        return self._requestSeek(target)
 
-        if succeeded:
+    # ------------------------------------------------------------------
+
+    # Round 233: quiet time (ms) after the last seek request before a
+    # seek inside a network file is actually sent to GStreamer.
+    REMOTE_SEEK_DEBOUNCE_MS = 700
+
+    def _requestSeek(self, target) -> bool:
+        """
+        Round 233: a device log showed the whole UI freezing ("Main
+        thread is busy", log ends) right after several seeks within
+        about a second inside a podcast episode played from an http(s)
+        URL -- each seek there makes GStreamer's HTTP source reconnect
+        with a new range request, blocking Enigma2's main thread, and
+        one RIGHT key press even produces two seeks (+30s and +10s,
+        ~50 ms apart; see MainScreen). For local files the seek is
+        sent immediately, exactly as before. For http(s) files the
+        displayed position still moves at once, but the actual seek is
+        debounced: repeated requests only move the target, and one
+        single seekTo() is sent once no new request has arrived for
+        REMOTE_SEEK_DEBOUNCE_MS.
+        """
+
+        current_file = self._current_file or ""
+
+        if not current_file.startswith(("http://", "https://")):
+
+            succeeded = self._service.seekTo(target)
+
+            if succeeded:
+                self._rebaselineAfterSeek(target)
+
+            return succeeded
+
+        try:
+            from enigma import eTimer
+
+            if self._pending_seek_timer is None:
+
+                self._pending_seek_timer = eTimer()
+
+                self._pending_seek_timer.callback.append(self._performPendingSeek)
+
+        except Exception as error:
+
+            logger.verbose(f"[Playback] Seek debounce unavailable ({error}); seeking immediately.")
+
+            succeeded = self._service.seekTo(target)
+
+            if succeeded:
+                self._rebaselineAfterSeek(target)
+
+            return succeeded
+
+        self._pending_seek_target = target
+
+        self._pending_seek_file = current_file
+
+        self._rebaselineAfterSeek(target)
+
+        self._pending_seek_timer.start(self.REMOTE_SEEK_DEBOUNCE_MS, True)
+
+        logger.verbose("[Playback] Remote seek to %ss deferred %sms (debounce).", target, self.REMOTE_SEEK_DEBOUNCE_MS)
+
+        return True
+
+    # ------------------------------------------------------------------
+
+    def _performPendingSeek(self) -> None:
+
+        target = self._pending_seek_target
+
+        pending_file = self._pending_seek_file
+
+        self._pending_seek_target = None
+
+        self._pending_seek_file = None
+
+        if target is None:
+            return
+
+        if pending_file != self._current_file or self._state not in (self.STATE_PLAYING, self.STATE_PAUSED):
+
+            logger.verbose("[Playback] Deferred seek dropped: playback changed meanwhile.")
+
+            return
+
+        logger.verbose("[Playback] Performing deferred remote seek to %ss.", target)
+
+        if self._service.seekTo(target):
+
             self._rebaselineAfterSeek(target)
-
-        return succeeded
 
     # ------------------------------------------------------------------
 

@@ -80,7 +80,7 @@ from .config import config_manager
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
-from .localization import _
+from .localization import _, getCurrentLanguage
 from .logger import logger
 from .paths import BUTTON_ICON_PATH
 from .playlist_manager import playlist_manager
@@ -159,6 +159,40 @@ PODCAST_SKIN_PALETTES["vintage_radio"] = {
     "info_label_fg": "#FFC978",
     "selected_row_bg": "#C08A45",
     "selected_row_fg": "#1A1206",
+}
+
+
+# Round 230: languages offered by the BLUE language picker. Names are
+# shown in each language's own name (so they need no translation).
+# Codes match Podcast Index's own "lang" values.
+PODCAST_LANGUAGE_CHOICES = (
+    ("en", "English"),
+    ("fi", "Suomi"),
+    ("sv", "Svenska"),
+    ("no", "Norsk"),
+    ("da", "Dansk"),
+    ("de", "Deutsch"),
+    ("es", "Español"),
+    ("fr", "Français"),
+    ("it", "Italiano"),
+    ("nl", "Nederlands"),
+    ("pt", "Português"),
+    ("pl", "Polski"),
+    ("et", "Eesti"),
+    ("ru", "Русский"),
+)
+
+
+# Round 235, per direct request ("Kun tulee podcast luetteloon takaisin
+# ... siellä voisi näkyä sama hakutulos kuin edellisellä kerralla,
+# kuten radiollakin toimii"): the Available column's last list is kept
+# for the rest of the session (module-level, like RadioBrowserScreen's
+# own _last_search_name) and restored when the screen is opened again.
+_last_available_state = {
+    "podcasts": [],
+    "query": "",
+    "popular_label": "",
+    "index": 0,
 }
 
 
@@ -324,7 +358,15 @@ class PodcastScreen(Screen, HelpableScreen):
         # asked for it to be removed only once both Light's and
         # Dark's new two-row layouts are confirmed working on a
         # real device.
-        if self._skin_variant in ("light", "dark"):
+        # Round 229, per direct request ("Korvataan Vintagen
+        # taustakuvat light skinin taustakuvilla ... ja lisätään
+        # toinen alareunan ohjerivi käyttöön, kuten light skinissä"):
+        # Vintage Radio now takes this same two-row hint bar branch
+        # as Light/Dark -- its own resources/skins/vintage_radio/
+        # background images were replaced this round with the Dark
+        # skin's (the two-row-layout derivation of Light's, already
+        # recoloured to the exact colours Vintage's own images had).
+        if self._skin_variant in ("light", "dark", "vintage_radio"):
 
             hint_color = palette["hint_fg"]
 
@@ -426,6 +468,8 @@ class PodcastScreen(Screen, HelpableScreen):
             {buttonTemplatePanel("green", x_menu, 881)}
 
             {buttonTemplatePanel("yellow", x_info, 881)}
+
+            {buttonTemplatePanel("blue", x_help, 881, width=260)}
 
             {bundledIcon("ok", x_icon_ok, 881)}
 
@@ -627,7 +671,15 @@ class PodcastScreen(Screen, HelpableScreen):
 
         self._search_query = ""
 
-        self._available_podcasts = []
+        # Round 230: status text while the Available column shows a
+        # "popular podcasts" list rather than search results.
+        self._popular_label = ""
+
+        self._available_podcasts = list(_last_available_state["podcasts"])
+
+        self._search_query = _last_available_state["query"]
+
+        self._popular_label = _last_available_state["popular_label"]
 
         self._subscribed_podcasts = []
 
@@ -723,6 +775,9 @@ class PodcastScreen(Screen, HelpableScreen):
         self["key_red"] = StaticText(_("Unsubscribe"))
         self["key_green"] = StaticText(_("Subscribe/Add"))
         self["key_yellow"] = StaticText(_("Search"))
+        # Round 230, per direct request: BLUE picks the language used
+        # for popular podcasts and search results.
+        self["key_blue"] = StaticText(_("Language"))
 
         # Round 192: see browserscreen.py's own round 192 comment --
         # mainscreen.py's own round 167 precedent (a skin.SkinError
@@ -749,7 +804,8 @@ class PodcastScreen(Screen, HelpableScreen):
             # search directly; moved to YELLOW so EPG/INFO can
             # consistently open this screen's own help content
             # instead, matching every other screen.
-            "yellow": self.searchPressed,
+            "yellow": self.yellowPressed,
+            "blue": self.bluePressed,
             # Round 146, per direct request (colour-button audit):
             # GREEN subscribes (Available column) or adds to a
             # playlist (Episodes column); RED unsubscribes (Subscribed
@@ -805,7 +861,8 @@ class PodcastScreen(Screen, HelpableScreen):
             self.menuPressed: _("open settings"),
             self.pageUp: _("page up"),
             self.pageDown: _("page down"),
-            self.searchPressed: _("search"),
+            self.yellowPressed: _("search or fetch popular podcasts"),
+            self.bluePressed: _("choose the podcast language"),
             self.greenPressed: _("subscribe, or add episode to a playlist"),
             self.redPressed: _("unsubscribe"),
             self.infoPressed: _("show information about this screen"),
@@ -827,6 +884,15 @@ class PodcastScreen(Screen, HelpableScreen):
             self["actions"] = ActionMap(contexts, actions, -1)
 
         self._updateDisplay()
+
+        # Round 235: put the selection back where it was last time.
+        restored_index = _last_available_state["index"]
+
+        if self._available_podcasts and 0 < restored_index < len(self._available_podcasts):
+
+            self["available_list"].moveToIndex(restored_index)
+
+            self._updateDisplay()
 
         self._initialized = True
 
@@ -851,7 +917,7 @@ class PodcastScreen(Screen, HelpableScreen):
         )
 
         titles = {
-            "available": _("Available Podcasts"),
+            "available": _("Available"),
             "subscribed": _("Subscribed Podcasts"),
             "episodes": _("Episodes"),
         }
@@ -874,7 +940,13 @@ class PodcastScreen(Screen, HelpableScreen):
 
         if self._search_query:
 
-            self["status"].setText(_("Search: %s") % self._search_query)
+            self["status"].setText(
+                _("Search: {0} ({1} podcasts)").format(self._search_query, len(self._available_podcasts))
+            )
+
+        elif self._popular_label:
+
+            self["status"].setText(self._popular_label)
 
         else:
 
@@ -913,7 +985,7 @@ class PodcastScreen(Screen, HelpableScreen):
 
         if source and 0 <= index < len(source):
 
-            description = (source[index].get("description") or "").strip()
+            description = podcast_manager.cleanDescription(source[index].get("description") or "")
 
         if description:
 
@@ -921,7 +993,7 @@ class PodcastScreen(Screen, HelpableScreen):
 
         else:
 
-            self["info"].setText(_("Press EPG/INFO to search"))
+            self["info"].setText(_("Press YELLOW to search"))
 
     # ------------------------------------------------------------------
 
@@ -1392,13 +1464,28 @@ class PodcastScreen(Screen, HelpableScreen):
 
         self._search_query = text
 
+        self._popular_label = ""
+
         self["status"].setText(_("Searching..."))
 
-        results = podcast_manager.searchPodcasts(text)
+        # Round 230: results follow the selected podcast language.
+        language = self._podcastLanguage()
+
+        raw_results = podcast_manager.searchPodcasts(text)
+
+        results = podcast_manager.filterByLanguage(raw_results, language)
+
+        # Round 235: counts to the log, as for Internet Radio.
+        self._log(
+            f"Search '{text}': API returned {len(raw_results)}, "
+            f"{len(results)} kept (language filter '{language or 'all'}')."
+        )
 
         self._available_podcasts = results
 
         self._focus = "available"
+
+        self._rememberAvailableState()
 
         self._updateDisplay()
 
@@ -1413,6 +1500,138 @@ class PodcastScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
     # Actions (PODCAST_SCREEN_SPEC.md "Podcast Actions")
+    # ------------------------------------------------------------------
+
+    def _rememberAvailableState(self) -> None:
+        """
+        Round 235: stores the Available column's list for the next
+        time this screen is opened (see _last_available_state).
+        """
+
+        _last_available_state["podcasts"] = list(self._available_podcasts)
+
+        _last_available_state["query"] = self._search_query
+
+        _last_available_state["popular_label"] = self._popular_label
+
+        try:
+            _last_available_state["index"] = self["available_list"].getSelectedIndex()
+
+        except Exception:
+
+            pass
+
+    # ------------------------------------------------------------------
+
+    def _podcastLanguage(self) -> str:
+        """
+        Round 230: effective podcast language code, "" meaning no
+        filter. Stored setting: "" = follow the receiver's system
+        language (default), "all" = no filter, otherwise a code.
+        """
+
+        stored = (config_manager.get("podcast.language", "") or "").strip().lower()
+
+        if stored == "all":
+            return ""
+
+        return stored or getCurrentLanguage()
+
+    # ------------------------------------------------------------------
+
+    def _languageLabel(self, code: str) -> str:
+
+        if not code:
+            return _("All languages")
+
+        return dict(PODCAST_LANGUAGE_CHOICES).get(code, code)
+
+    # ------------------------------------------------------------------
+
+    def bluePressed(self) -> None:
+
+        logger.verbose("[Podcast] BLUE pressed.")
+
+        stored = (config_manager.get("podcast.language", "") or "").strip().lower()
+
+        system_code = getCurrentLanguage()
+
+        def mark(code_value, text):
+
+            return ("* " if stored == code_value else "") + text
+
+        choices = [
+            (mark("", "%s (%s)" % (_("System language"), self._languageLabel(system_code))), ""),
+            (mark("all", _("All languages")), "all"),
+        ]
+
+        for code, name in PODCAST_LANGUAGE_CHOICES:
+
+            choices.append((mark(code, name), code))
+
+        self.session.openWithCallback(
+            self._languageChosen,
+            ChoiceBox,
+            title=_("Language"),
+            list=choices,
+        )
+
+    # ------------------------------------------------------------------
+
+    def _languageChosen(self, choice) -> None:
+
+        if choice is None:
+            return
+
+        config_manager.set("podcast.language", choice[1])
+
+        config_manager.save()
+
+        logger.verbose(f"[Podcast] Language set to {choice[1]!r} (effective {self._podcastLanguage()!r}).")
+
+        # Re-fetch the popular list in the new language if that is
+        # what the Available column is currently showing.
+        if self._popular_label:
+
+            self._fetchPopular()
+
+        else:
+
+            self._updateDisplay()
+
+    # ------------------------------------------------------------------
+
+    def _fetchPopular(self) -> None:
+
+        language = self._podcastLanguage()
+
+        self["status"].setText(_("Searching..."))
+
+        results = podcast_manager.getTrendingPodcasts(language)
+
+        self._search_query = ""
+
+        self._available_podcasts = results
+
+        self._popular_label = "%s: %s (%d)" % (_("Popular podcasts"), self._languageLabel(language), len(results))
+
+        self._log(f"Popular podcasts: {len(results)} returned (language '{language or 'all'}').")
+
+        self._focus = "available"
+
+        self._rememberAvailableState()
+
+        self._updateDisplay()
+
+        if not results:
+
+            self.session.open(
+                MessageBox,
+                _("No popular podcasts found."),
+                MessageBox.TYPE_INFO,
+                timeout=4,
+            )
+
     # ------------------------------------------------------------------
 
     def okPressed(self) -> None:
@@ -1433,32 +1652,53 @@ class PodcastScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
-    def _availablePodcastMenu(self) -> None:
+    def yellowPressed(self) -> None:
+        """
+        Round 231, per direct request: YELLOW opens the same query OK
+        opens in the Available column (Fetch popular / Search; plus
+        the selected podcast's own Subscribe/Open there). From the
+        other columns it offers just Fetch popular / Search.
+        """
 
-        podcast = self._selectedPodcast()
+        logger.verbose("[Podcast] YELLOW pressed.")
 
-        if podcast is None:
-            return
+        self._availablePodcastMenu(include_podcast=(self._focus == "available"))
 
-        podcast_id = podcast.get("podcast_id")
+    # ------------------------------------------------------------------
+
+    def _availablePodcastMenu(self, include_podcast: bool = True) -> None:
+
+        podcast = self._selectedPodcast() if include_podcast else None
 
         choices = []
 
-        if podcast_manager.isSubscribed(podcast_id):
+        if podcast is not None:
 
-            choices.append((_("Already subscribed"), "__noop__"))
+            if podcast_manager.isSubscribed(podcast.get("podcast_id")):
 
-        else:
+                choices.append((_("Already subscribed"), "__noop__"))
 
-            choices.append((_("Subscribe"), "subscribe"))
+            else:
 
-        choices.append((_("Open podcast"), "open"))
+                choices.append((_("Subscribe"), "subscribe"))
+
+            choices.append((_("Open podcast"), "open"))
+
+        # Round 230, per direct request ("OK-napille voisi laittaa
+        # toiminnoksi Hae suosituimmat"): always offered, so OK is
+        # useful even before anything has been searched.
+        choices.append((_("Fetch popular podcasts"), "popular"))
+
+        # Round 231, per direct request ("OK-napille voisi laittaa
+        # toiseksi vaihtoehdoksi hae"): the text search that YELLOW
+        # used to open directly.
+        choices.append((_("Search"), "search"))
         choices.append((_("Cancel"), "cancel"))
 
         self.session.openWithCallback(
             lambda choice: self._availableMenuChosen(choice, podcast),
             ChoiceBox,
-            title=podcast.get("title", "?"),
+            title=podcast.get("title", "?") if podcast is not None else _("Available"),
             list=choices,
         )
 
@@ -1467,6 +1707,18 @@ class PodcastScreen(Screen, HelpableScreen):
     def _availableMenuChosen(self, choice, podcast) -> None:
 
         if choice is None or choice[1] in ("cancel", "__noop__"):
+            return
+
+        if choice[1] == "popular":
+
+            self._fetchPopular()
+
+            return
+
+        if choice[1] == "search":
+
+            self.searchPressed()
+
             return
 
         if choice[1] == "subscribe":
@@ -1626,7 +1878,17 @@ class PodcastScreen(Screen, HelpableScreen):
 
         self._log(f"Playback requested: {episode.get('title', '?')}")
 
+        # Round 231: remember the description so MainScreen can show it.
+        podcast_manager.rememberEpisode(
+            playback_url,
+            episode.get("title", ""),
+            self._current_podcast_title,
+            episode.get("description", ""),
+        )
+
         if self._playback.playQueue([playback_url], start_index=0):
+
+            self._rememberAvailableState()
 
             self.close("played")
 
@@ -1709,6 +1971,14 @@ class PodcastScreen(Screen, HelpableScreen):
         # so there's no reason to derive a worse one from the URL.
         episode_title = episode.get("title", "?")
 
+        # Round 231: remember the description so MainScreen can show it.
+        podcast_manager.rememberEpisode(
+            playback_url,
+            episode_title,
+            self._current_podcast_title,
+            episode.get("description", ""),
+        )
+
         display_title = f"{episode_title} ({_('Podcast')})"
 
         if playlist_manager.addTrack(playlist_name, playback_url, title=display_title, artist=self._current_podcast_title):
@@ -1762,6 +2032,8 @@ class PodcastScreen(Screen, HelpableScreen):
         logger.verbose("[Podcast] EXIT pressed.")
 
         self._log("Closing")
+
+        self._rememberAvailableState()
 
         self.close(None)
 

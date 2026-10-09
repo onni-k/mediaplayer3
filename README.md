@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.2.000 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.3.000 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external
@@ -20,7 +20,10 @@ Python dependencies beyond the standard library.
 - **Internet Radio** &mdash; search and browse via [RadioBrowser](https://www.radio-browser.info/),
   with a local station database (works offline, updates automatically),
   Favorites, and listening history.
-- **Podcasts** &mdash; search, subscribe, and listen via [Podcast Index](https://podcastindex.org/).
+- **Podcasts** &mdash; search (up to 1000 results), fetch popular
+  podcasts, choose the podcast language, subscribe, and listen via
+  [Podcast Index](https://podcastindex.org/); episode descriptions are
+  shown on the main screen, also fullscreen.
 - **Playlists** &mdash; build and manage playlists from local files,
   podcast episodes, or radio stations, all in the same list.
 - **Finland Radio EPG** &mdash; programme schedules for Yle and Bauer
@@ -88,6 +91,7 @@ Settings (press MENU from the main player screen) covers:
 - Skin (Light/Dark/Vintage Radio), Theme, show/hide the upper hint row
 - Radio: default country/language, navigation mode, history size,
   automatic station-database updates, resume/auto-play behaviour
+- Podcast search limit (default 1000)
 - Your own Podcast Index or Yle EPG API key, if you'd rather not use
   the bundled default
 - Show MediaPlayer3 in Enigma2's own Main Menu (restart required)
