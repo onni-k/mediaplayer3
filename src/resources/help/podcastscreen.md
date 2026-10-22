@@ -24,6 +24,11 @@ this screen.
 - BLUE: choose the podcast language -- your receiver's language by
   default, all languages, or one of several others. It applies to
   popular podcasts and to search results.
+- OK on an episode also offers "Record episode": downloads the episode
+  in the background into the recording folder (Settings) and adds it
+  to the "Recordings (Podcast)" playlist when finished. Progress shows
+  on the top line. The podcast name, episode title and description are
+  saved next to the file and shown again when you play it.
 - GREEN: subscribe to the selected podcast (Available Podcasts
   column), or add the selected episode to a playlist (Episodes
   column) -- without opening the OK menu first.

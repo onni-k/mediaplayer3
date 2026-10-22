@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.3.000 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.4.001 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external
@@ -24,6 +24,18 @@ Python dependencies beyond the standard library.
   podcasts, choose the podcast language, subscribe, and listen via
   [Podcast Index](https://podcastindex.org/); episode descriptions are
   shown on the main screen, also fullscreen.
+- **Radio time shift** &mdash; the playing station (also HLS streams) is
+  buffered on disk, so you can pause, rewind and jump back to live; the
+  buffer can be recorded afterwards.
+- **Radio recording** &mdash; record a station from now or from the time
+  shift buffer, including HLS (.m3u8) streams.
+- **Identify song** &mdash; OK menu &gt; *Identify song* recognises the
+  playing song from the radio broadcast or a local file via
+  [AcoustID](https://acoustid.org/) (Chromaprint fingerprint).
+- **Track details in playlists** &mdash; artist, album, title and length
+  (files), podcast episode info, or the radio station details.
+- **Front panel text** &mdash; the receiver's front display (also
+  lcd4linux) shows the artist and title that is playing.
 - **Playlists** &mdash; build and manage playlists from local files,
   podcast episodes, or radio stations, all in the same list.
 - **Finland Radio EPG** &mdash; programme schedules for Yle and Bauer
@@ -76,10 +88,16 @@ then restart Enigma2's GUI.
   images).
 - No external Python packages required &mdash; MediaPlayer3 uses only
   the standard library and Enigma2's own built-in modules.
+- *Identify song* additionally needs an audio decoder on the receiver:
+  `gst-launch-1.0` (present on the standard images) or `ffmpeg`. The
+  fingerprint tool itself is included in the released .ipk (ARM, MIPS,
+  AArch64; the source tree has none &mdash; build them with
+  `tools/fpraw/build.sh`, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 ## Tested on
 
-OpenViX, OpenATV, OpenPLI, OpenBH &mdash; on Vu+ Duo2 and Vu+ Uno4K SE.
+OpenViX 6.9, OpenPLI 9.2, OpenATV 8.0, OpenBH 5.6 &mdash; on Vu+ Duo2 and
+Vu+ Uno4K SE.
 See [CHANGELOG.md](docs/CHANGELOG.md) for the full device-testing
 history.
 
@@ -92,9 +110,23 @@ Settings (press MENU from the main player screen) covers:
 - Radio: default country/language, navigation mode, history size,
   automatic station-database updates, resume/auto-play behaviour
 - Podcast search limit (default 1000)
+- Radio time shift on/off and its length (5-480 minutes; the buffer is
+  kept in the recording folder, so a disk or USB stick is needed)
+- AcoustID application key (optional; a default key is bundled) and the
+  path of an own `fpcalc` (optional)
 - Your own Podcast Index or Yle EPG API key, if you'd rather not use
   the bundled default
 - Show MediaPlayer3 in Enigma2's own Main Menu (restart required)
+
+## Known limitations
+
+- Radio time shift needs a recording folder on a disk or USB stick.
+- On OpenATV, starting a station with time shift on can take about 6 s
+  before the sound starts (the image's player buffers the stream first).
+- *Identify song* works best when the sample starts at the beginning of the
+  song (press it right after the song changes; it waits for ~30 s of the
+  song). Broadcast audio is recognised less reliably than studio
+  recordings, and an internet connection is required.
 
 ## Documentation
 

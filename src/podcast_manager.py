@@ -106,6 +106,9 @@ class PodcastManager:
         # at EPISODE_INFO_LIMIT entries (oldest dropped first).
         self._episode_info: Dict[str, Dict[str, str]] = {}
 
+        # Round 242: cache of downloaded-episode information files.
+        self._episode_file_cache: Dict[str, Optional[Dict[str, str]]] = {}
+
         self._log("Created")
 
         self._initialize()
@@ -318,7 +321,60 @@ class PodcastManager:
         if not playback_url:
             return None
 
-        return self._episode_info.get(playback_url)
+        info = self._episode_info.get(playback_url)
+
+        if info is not None:
+            return info
+
+        # Round 242: a downloaded episode (local file) has its
+        # information in a "<file>.json" saved next to it.
+        if "://" in playback_url:
+            return None
+
+        return self._readEpisodeInfoFile(playback_url)
+
+    def _readEpisodeInfoFile(self, audio_path: str) -> Optional[Dict[str, str]]:
+        """
+        Information file of a downloaded episode, cleaned like a
+        remembered one; None if there is none. Results (also misses)
+        are cached, since this is asked about every second.
+        """
+
+        if audio_path in self._episode_file_cache:
+
+            return self._episode_file_cache[audio_path]
+
+        info = None
+
+        info_path = os.path.splitext(audio_path)[0] + ".json"
+
+        try:
+
+            if os.path.isfile(info_path):
+
+                with open(info_path, "r", encoding="utf-8") as handle:
+
+                    data = json.load(handle)
+
+                if isinstance(data, dict):
+
+                    info = {
+                        "title": str(data.get("title") or ""),
+                        "podcast": str(data.get("podcast") or ""),
+                        "description": self.cleanDescription(str(data.get("description") or "")),
+                    }
+
+        except (OSError, ValueError) as error:
+
+            self._log(f"Could not read episode information file {info_path}: {error}")
+
+        if len(self._episode_file_cache) >= 200:
+
+            self._episode_file_cache.clear()
+
+        self._episode_file_cache[audio_path] = info
+
+        return info
 
     # ------------------------------------------------------------------
     # Subscriptions (PODCAST_MANAGER_SPEC.md "Subscription")

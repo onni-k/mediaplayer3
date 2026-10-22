@@ -414,7 +414,7 @@ restructure any Core module. See CHANGELOG.md's two "BUILD 0010"
 closing notes and Claude_notes_build0010.txt for the full, round-by-
 round record.
 
-Releases after the redesign (1.0.0 to 1.3.000), all still within Build
+Releases after the redesign (1.0.0 to 1.4.000), all still within Build
 0010, were driven by device testing on four Enigma2 images and kept to
 the same layering: lyrics download and a lyrics display overhaul
 (1.0.0), the Test Skin / Vintage Radio skins and standard Enigma2
@@ -429,6 +429,14 @@ InformationPanel that remembers the kind of page the user chose and
 falls back to the best available page when a track or station changes.
 No Core module was added or restructured; each change stayed inside
 its own Screen or Controller.
+
+1.4.000 (public release, 2026-10-22) added, through the 1.3.001-1.3.024
+test series: radio recording (also HLS), radio time shift (a local relay
+with a disk ring buffer, TimeshiftSession), track details in the playlist,
+front panel text, and song identification (bundled Chromaprint tool plus
+AcoustID). Two new modules, timeshift_manager.py / hls_support.py /
+song_identifier.py, sit beside the existing managers; PlaybackController
+and MainScreen only call them. See TIMESHIFT_AND_SONG_ID_SPEC.md.
 
 ---
 

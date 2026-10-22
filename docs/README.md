@@ -2,11 +2,11 @@
 
 Modern Media Player for Enigma2
 
-Version: 1.3.000
+Version: 1.4.001
 
 Current Build: 0010
 
-Status: Public release 1.3.000 -- device tested across four Enigma2 images (OpenViX, OpenATV, openPLI, OpenBH). See CHANGELOG.md for the release history; the Build 0007 status text below is historical.
+Status: Public release 1.4.001 (radio time shift, HLS recording, song identification, front panel text) -- device tested across four Enigma2 images (OpenViX, OpenATV, openPLI, OpenBH). See CHANGELOG.md for the release history; the Build 0007 status text below is historical.
 
 ---
 
@@ -93,6 +93,8 @@ PLAYLIST_MANAGER_SPEC.md
 INTERNETRADIO_MANAGER_SPEC.md
 
 Controllers
+
+TIMESHIFT_AND_SONG_ID_SPEC.md
 
 PLAYBACK_CONTROLLER_SPEC.md
 

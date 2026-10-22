@@ -7,7 +7,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=1ebbd3e34237af26da5dc08a4e440464"
 HOMEPAGE = "https://github.com/onni-k/mediaplayer3"
 BUGTRACKER = "https://github.com/onni-k/mediaplayer3/issues"
 
-PV = "1.3.000"
+PV = "1.4.001"
 PR = "r0"
 
 SRC_URI = "git://github.com/onni-k/mediaplayer3.git;branch=main;protocol=https"
@@ -19,6 +19,10 @@ S = "${WORKDIR}/git"
 # both architecture-independent, so this still builds once for all
 # architectures.
 inherit allarch
+
+# 1.4.001: the prebuilt song identification tools (fpraw-<cpu>) are not part of
+# the source tree, so this allarch recipe packages none. They are included in the
+# released .ipk only; build them with tools/fpraw/build.sh if needed (src/bin/README.txt).
 
 # Round 135, per direct programmer feedback ("*.mo files should not be
 # in the repo. These are added by the bitbake recipe. *.po files

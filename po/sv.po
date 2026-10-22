@@ -896,8 +896,8 @@ msgstr "Ingen sångtext tillgänglig."
 msgid "No cover art available."
 msgstr "Ingen omslagsbild tillgänglig."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
-msgstr "OK / EXIT / VÄNSTER / HÖGER: Stäng -- UPP / NER: Justera tidsinställning"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / GUL / VÄNSTER / HÖGER: Stäng -- UPP / NER: Justera tidsinställning"
 
 msgid "Download cover art"
 msgstr "Ladda ner omslagsbild"
@@ -1103,8 +1103,8 @@ msgstr "Visa beskrivning i helskärm"
 msgid "No description available."
 msgstr "Ingen beskrivning tillgänglig."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
-msgstr "OK / EXIT / VÄNSTER / HÖGER: Stäng -- UPP / NER: Scrolla"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / GUL / VÄNSTER / HÖGER: Stäng -- UPP / NER: Scrolla"
 
 msgid "show lyrics or episode description fullscreen"
 msgstr "visa sångtext eller avsnittsbeskrivning i helskärm"
@@ -1121,3 +1121,198 @@ msgstr "Gräns för podcastsökning"
 
 msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
 msgstr "Högsta antal podcaster som hämtas från Podcast Index per sökning eller hämtning av populära (10-1000, standard 1000)."
+
+msgid "Start recording"
+msgstr "Starta inspelning"
+
+msgid "Stop recording"
+msgstr "Stoppa inspelning"
+
+msgid "Recording started: {0}"
+msgstr "Inspelningen startade: {0}"
+
+msgid "No recording folder available. Set one in Settings, or connect a disk/USB."
+msgstr "Ingen inspelningsmapp tillgänglig. Ange en i inställningarna eller anslut en disk/USB."
+
+msgid "Not enough free disk space for recording."
+msgstr "Inte tillräckligt med ledigt diskutrymme för inspelning."
+
+msgid "Recording is already in progress."
+msgstr "Inspelning pågår redan."
+
+msgid "No stream to record."
+msgstr "Ingen ström att spela in."
+
+msgid "Recording could not be started."
+msgstr "Inspelningen kunde inte startas."
+
+msgid "Recording is not supported for this stream type (HLS)."
+msgstr "Inspelning stöds inte för den här strömtypen (HLS)."
+
+msgid "This stream address is a playlist, not a direct stream, so it cannot be recorded."
+msgstr "Den här adressen är en spellista, inte en direkt ström, och kan inte spelas in."
+
+msgid "This address did not return an audio stream, so it cannot be recorded."
+msgstr "Adressen returnerade ingen ljudström och kan inte spelas in."
+
+msgid "Recording stopped: the stream connection was lost."
+msgstr "Inspelningen avbröts: strömanslutningen bröts."
+
+msgid "Recording stopped: disk space ran out."
+msgstr "Inspelningen avbröts: diskutrymmet tog slut."
+
+msgid "Recording failed: the file could not be written."
+msgstr "Inspelningen misslyckades: filen kunde inte skrivas."
+
+msgid "Recording failed: nothing was received."
+msgstr "Inspelningen misslyckades: inget togs emot."
+
+msgid "Recording stopped early."
+msgstr "Inspelningen avslutades i förtid."
+
+msgid "Recording failed."
+msgstr "Inspelningen misslyckades."
+
+msgid "Recording saved: {0}"
+msgstr "Inspelning sparad: {0}"
+
+msgid "Added to playlist: {0}"
+msgstr "Tillagd i spellistan: {0}"
+
+msgid "Recordings"
+msgstr "Inspelningar"
+
+msgid "Recording folder"
+msgstr "Inspelningsmapp"
+
+msgid "Folder where radio recordings are saved (a Radio sub-folder is used). Leave empty for the default: a Recordings folder in MediaPlayer3's own data folder on disk/USB."
+msgstr "Mapp där radioinspelningar sparas (undermappen Radio används). Lämna tomt för standard: en Recordings-mapp i MediaPlayer3:s egen datamapp på disk/USB."
+
+msgid "Record episode"
+msgstr "Spela in avsnitt"
+
+msgid "Downloading episode: {0}"
+msgstr "Laddar ner avsnitt: {0}"
+
+msgid "A podcast download is already in progress."
+msgstr "En podcastnedladdning pågår redan."
+
+msgid "Episode saved: {0}"
+msgstr "Avsnitt sparat: {0}"
+
+msgid "Download failed: the connection was lost."
+msgstr "Nedladdningen misslyckades: anslutningen bröts."
+
+msgid "Download stopped: disk space ran out."
+msgstr "Nedladdningen avbröts: diskutrymmet tog slut."
+
+msgid "Download failed."
+msgstr "Nedladdningen misslyckades."
+
+msgid "Downloading: {0} - {1}"
+msgstr "Laddar ner: {0} - {1}"
+
+msgid "Update"
+msgstr "Uppdatera"
+
+msgid "Delete file"
+msgstr "Ta bort filen"
+
+msgid "Delete the file \"{0}\" from the disk?"
+msgstr "Ta bort filen \"{0}\" från disken?"
+
+msgid "The file could not be deleted."
+msgstr "Filen kunde inte tas bort."
+
+msgid "No new recordings found."
+msgstr "Inga nya inspelningar hittades."
+
+msgid "{0} recordings added to the playlist."
+msgstr "{0} inspelningar tillagda i spellistan."
+
+msgid "Radio time shift"
+msgstr "Radio-tidsskift"
+
+msgid "If yes, the playing radio station is buffered on disk (in the recording folder) so you can pause and rewind it; the total time grows while you listen and the remaining time shows the delay behind live. Needs a recording folder on a disk or USB stick (default: yes)."
+msgstr "Om ja, buffras den spelande radiokanalen på disk (i inspelningsmappen) så att du kan pausa och spola tillbaka den. Totaltiden växer medan du lyssnar och återstående tid visar fördröjningen mot live. Kräver en inspelningsmapp på disk eller USB-minne (standard: ja)."
+
+msgid "Time shift length (minutes)"
+msgstr "Tidsskiftets längd (minuter)"
+
+msgid "How much of the station is kept in the buffer. Older audio is deleted automatically (default: 120, 5-480). 120 minutes of a 128 kbit/s station needs about 120 MB."
+msgstr "Hur mycket av kanalen som sparas i bufferten. Äldre ljud tas bort automatiskt (standard: 120, 5-480). 120 minuter av en 128 kbit/s-kanal kräver cirka 120 MB."
+
+msgid "Jump to live"
+msgstr "Hoppa till live"
+
+msgid "From the start of the time shift ({0})"
+msgstr "Från tidsskiftets början ({0})"
+
+msgid "From now"
+msgstr "Från nu"
+
+msgid "Time shift stopped: disk space ran out. Playing the stream directly."
+msgstr "Tidsskiftet avslutades: diskutrymmet tog slut. Kanalen spelas direkt."
+
+msgid "Time shift stopped: the connection was lost. Playing the stream directly."
+msgstr "Tidsskiftet avslutades: anslutningen bröts. Kanalen spelas direkt."
+
+msgid "This HLS stream is encrypted, so it cannot be recorded."
+msgstr "Den här HLS-strömmen är krypterad och kan inte spelas in."
+
+msgid "Episode"
+msgstr "Avsnitt"
+
+msgid "Duration"
+msgstr "Längd"
+
+msgid "Recording length"
+msgstr "Inspelningens längd"
+
+msgid "Identify song"
+msgstr "Identifiera låt"
+
+msgid "Identifying the song..."
+msgstr "Identifierar låten..."
+
+msgid "Match"
+msgstr "Träff"
+
+msgid "Set your AcoustID application key in Settings first (free at acoustid.org/new-application)."
+msgstr "Ange först din AcoustID-programnyckel i inställningarna (gratis på acoustid.org/new-application)."
+
+msgid "No tool for making an audio fingerprint was found on this receiver."
+msgstr "Inget verktyg för ljudfingeravtryck hittades på den här mottagaren."
+
+msgid "The bundled fingerprint tool does not run on this receiver's processor. See the log for details."
+msgstr "Det medföljande fingeravtrycksverktyget fungerar inte på den här mottagarens processor. Se loggen för detaljer."
+
+msgid "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver for song identification."
+msgstr "Ingen ljudavkodare (ffmpeg eller gst-launch-1.0) hittades på den här mottagaren för låtigenkänning."
+
+msgid "Could not get an audio sample to identify (HLS streams need Radio time shift to be on)."
+msgstr "Det gick inte att få ett ljudprov att identifiera (HLS-strömmar kräver att radions tidsskift är på)."
+
+msgid "The song was not recognized."
+msgstr "Låten kändes inte igen."
+
+msgid "Song identification failed: the AcoustID service could not be reached."
+msgstr "Låtidentifieringen misslyckades: AcoustID-tjänsten kunde inte nås."
+
+msgid "Song identification is already running."
+msgstr "Låtidentifiering pågår redan."
+
+msgid "Song identification failed."
+msgstr "Låtidentifieringen misslyckades."
+
+msgid "AcoustID application key"
+msgstr "AcoustID-programnyckel"
+
+msgid "fpcalc path (empty = automatic)"
+msgstr "fpcalc-sökväg (tom = automatisk)"
+
+msgid "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own free key at https://acoustid.org/new-application (register an application, copy its API key here)."
+msgstr "Används av OK-menyn > Identifiera låt. Lämna tomt för att använda nyckeln som följer med pluginet, eller skaffa en egen gratis nyckel på https://acoustid.org/new-application (registrera en applikation, kopiera API-nyckeln hit)."
+
+msgid "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
+msgstr "Låtigenkänningen använder fingeravtrycksverktyget som följer med pluginet. Ange full sökväg endast om Chromaprints fpcalc är installerat och du vill använda det; tomt = automatiskt."

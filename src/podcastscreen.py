@@ -85,6 +85,7 @@ from .logger import logger
 from .paths import BUTTON_ICON_PATH
 from .playlist_manager import playlist_manager
 from .podcast_manager import podcast_manager
+from .recording_manager import recording_manager
 from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 COLUMNS = ("available", "subscribed", "episodes")
@@ -709,6 +710,18 @@ class PodcastScreen(Screen, HelpableScreen):
 
         self._episode_codec_revert_timer.callback.append(self._hideEpisodeWarning)
 
+        # Round 242: shows an episode download's progress on the top
+        # line while one runs (restores the normal line when it ends).
+        self._download_status_shown = False
+
+        self._download_timer = eTimer()
+
+        self._download_timer.callback.append(self._onDownloadTick)
+
+        self._download_timer.start(1000, False)
+
+        self.onClose.append(self._download_timer.stop)
+
         self._initialized = False
 
         self._log("Created")
@@ -937,6 +950,13 @@ class PodcastScreen(Screen, HelpableScreen):
         self._updateColumnHighlighting()
 
         self._updateInfoDescription()
+
+        self._refreshStatusLine()
+
+    # ------------------------------------------------------------------
+
+    def _refreshStatusLine(self) -> None:
+        """The top line: search/popular result summary, or the screen's name."""
 
         if self._search_query:
 
@@ -1824,6 +1844,8 @@ class PodcastScreen(Screen, HelpableScreen):
         choices = [
             (_("Play"), "play"),
             (_("Add to playlist"), "add_to_playlist"),
+            # Round 241, per direct request: download the episode.
+            (_("Record episode"), "record"),
             (_("Cancel"), "cancel"),
         ]
 
@@ -1848,6 +1870,91 @@ class PodcastScreen(Screen, HelpableScreen):
         elif choice[1] == "add_to_playlist":
 
             self._choosePlaylistForEpisode(episode)
+
+        elif choice[1] == "record":
+
+            self._recordEpisode(episode)
+
+    # ------------------------------------------------------------------
+
+    def _onDownloadTick(self) -> None:
+        """Once a second: download progress on the top line."""
+
+        status = recording_manager.getDownloadStatus()
+
+        if status["active"]:
+
+            percent = status["percent"]
+
+            amount = f"{percent}%" if percent >= 0 else f"{status['bytes'] // (1024 * 1024)} MB"
+
+            self["status"].setText(_("Downloading: {0} - {1}").format(amount, status["title"]))
+
+            self._download_status_shown = True
+
+        elif self._download_status_shown:
+
+            self._download_status_shown = False
+
+            self._refreshStatusLine()
+
+    # ------------------------------------------------------------------
+
+    def _recordEpisode(self, episode) -> None:
+        """
+        Round 241: downloads the whole episode in the background into
+        "<recording folder>/Podcast/<podcast>_<episode>.<ext>"
+        (RecordingManager); MainScreen reports the result and the file
+        is added to the "Recordings (Podcast)" playlist.
+        """
+
+        playback_url = episode.get("playback_url")
+
+        if not playback_url:
+
+            self.session.open(MessageBox, _("This episode has no playable audio."), MessageBox.TYPE_ERROR)
+
+            return
+
+        title = episode.get("title", "") or _("Podcast")
+
+        ok, result = recording_manager.startPodcastDownload(
+            self._current_podcast_title or "",
+            title,
+            playback_url,
+            episode.get("description", ""),
+        )
+
+        if ok:
+
+            self._log(f"Episode download started: {title} -> {result}")
+
+            self._onDownloadTick()
+
+            self.session.open(
+                MessageBox,
+                _("Downloading episode: {0}").format(title),
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+            return
+
+        self._log(f"Episode download not started: {result}")
+
+        messages = {
+            "no_folder": "No recording folder available. Set one in Settings, or connect a disk/USB.",
+            "no_space": "Not enough free disk space for recording.",
+            "already": "A podcast download is already in progress.",
+            "no_url": "This episode has no playable audio.",
+        }
+
+        self.session.open(
+            MessageBox,
+            _(messages.get(result, "Recording could not be started.")),
+            MessageBox.TYPE_ERROR,
+            timeout=6,
+        )
 
     # ------------------------------------------------------------------
     # Playback (PODCAST_SCREEN_SPEC.md "Playback Integration")

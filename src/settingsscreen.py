@@ -835,6 +835,11 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             getConfigListEntry(_("Yle EPG app_id"), cfg.epg.yle_app_id),
             getConfigListEntry(_("Yle EPG app_key"), cfg.epg.yle_app_key),
             getConfigListEntry(_("Podcast search limit"), cfg.podcast.search_limit),
+            getConfigListEntry(_("Recording folder"), cfg.recording.folder),
+            getConfigListEntry(_("AcoustID application key"), cfg.recognition.acoustid_key),
+            getConfigListEntry(_("fpcalc path (empty = automatic)"), cfg.recognition.fpcalc_path),
+            getConfigListEntry(_("Radio time shift"), cfg.radio.timeshift),
+            getConfigListEntry(_("Time shift length (minutes)"), cfg.radio.timeshift_minutes),
             getConfigListEntry(_("Podcast Index API key"), cfg.podcast.podcastindex_api_key),
             getConfigListEntry(_("Podcast Index API secret"), cfg.podcast.podcastindex_api_secret),
             getConfigListEntry(_("Log station codec info (Internet Radio)"), cfg.logging.log_station_codecs),
@@ -944,6 +949,27 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
         ),
         _("Yle EPG app_key"): _(
             "If you want radio EPG for Yle's own stations, put your app_key here, from https://developer.yle.fi/"
+        ),
+        _("AcoustID application key"): _(
+            "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own "
+            "free key at https://acoustid.org/new-application (register an application, copy its API key here)."
+        ),
+        _("fpcalc path (empty = automatic)"): _(
+            "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's "
+            "fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
+        ),
+        _("Radio time shift"): _(
+            "If yes, the playing radio station is buffered on disk (in the recording folder) so you can pause and "
+            "rewind it; the total time grows while you listen and the remaining time shows the delay behind live. "
+            "Needs a recording folder on a disk or USB stick (default: yes)."
+        ),
+        _("Time shift length (minutes)"): _(
+            "How much of the station is kept in the buffer. Older audio is deleted automatically "
+            "(default: 120, 5-480). 120 minutes of a 128 kbit/s station needs about 120 MB."
+        ),
+        _("Recording folder"): _(
+            "Folder where radio recordings are saved (a Radio sub-folder is used). "
+            "Leave empty for the default: a Recordings folder in MediaPlayer3's own data folder on disk/USB."
         ),
         _("Podcast search limit"): _(
             "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch "

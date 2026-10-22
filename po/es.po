@@ -896,8 +896,8 @@ msgstr "No hay letra disponible."
 msgid "No cover art available."
 msgstr "No hay carátula disponible."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
-msgstr "OK / EXIT / IZQ / DER: Cerrar -- ARRIBA / ABAJO: Ajustar tiempo"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / AMARILLO / IZQ / DER: Cerrar -- ARRIBA / ABAJO: Ajustar tiempo"
 
 msgid "Download cover art"
 msgstr "Descargar carátula"
@@ -1103,8 +1103,8 @@ msgstr "Mostrar descripción a pantalla completa"
 msgid "No description available."
 msgstr "No hay descripción disponible."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
-msgstr "OK / EXIT / IZQ / DER: Cerrar -- ARRIBA / ABAJO: Desplazar"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / AMARILLO / IZQ / DER: Cerrar -- ARRIBA / ABAJO: Desplazar"
 
 msgid "show lyrics or episode description fullscreen"
 msgstr "mostrar letra o descripción del episodio a pantalla completa"
@@ -1121,3 +1121,198 @@ msgstr "Límite de búsqueda de podcasts"
 
 msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
 msgstr "Número máximo de podcasts solicitados a Podcast Index por búsqueda o por consulta de populares (10-1000, por defecto 1000)."
+
+msgid "Start recording"
+msgstr "Iniciar grabación"
+
+msgid "Stop recording"
+msgstr "Detener grabación"
+
+msgid "Recording started: {0}"
+msgstr "Grabación iniciada: {0}"
+
+msgid "No recording folder available. Set one in Settings, or connect a disk/USB."
+msgstr "No hay carpeta de grabación disponible. Defina una en Ajustes o conecte un disco/USB."
+
+msgid "Not enough free disk space for recording."
+msgstr "No hay espacio libre suficiente en el disco para grabar."
+
+msgid "Recording is already in progress."
+msgstr "Ya hay una grabación en curso."
+
+msgid "No stream to record."
+msgstr "No hay ninguna transmisión que grabar."
+
+msgid "Recording could not be started."
+msgstr "No se pudo iniciar la grabación."
+
+msgid "Recording is not supported for this stream type (HLS)."
+msgstr "La grabación no es compatible con este tipo de transmisión (HLS)."
+
+msgid "This stream address is a playlist, not a direct stream, so it cannot be recorded."
+msgstr "Esta dirección es una lista de reproducción y no una transmisión directa, por lo que no se puede grabar."
+
+msgid "This address did not return an audio stream, so it cannot be recorded."
+msgstr "La dirección no devolvió una transmisión de audio, por lo que no se puede grabar."
+
+msgid "Recording stopped: the stream connection was lost."
+msgstr "Grabación detenida: se perdió la conexión con la transmisión."
+
+msgid "Recording stopped: disk space ran out."
+msgstr "Grabación detenida: se agotó el espacio en disco."
+
+msgid "Recording failed: the file could not be written."
+msgstr "La grabación falló: no se pudo escribir el archivo."
+
+msgid "Recording failed: nothing was received."
+msgstr "La grabación falló: no se recibió nada."
+
+msgid "Recording stopped early."
+msgstr "La grabación terminó antes de tiempo."
+
+msgid "Recording failed."
+msgstr "La grabación falló."
+
+msgid "Recording saved: {0}"
+msgstr "Grabación guardada: {0}"
+
+msgid "Added to playlist: {0}"
+msgstr "Añadido a la lista: {0}"
+
+msgid "Recordings"
+msgstr "Grabaciones"
+
+msgid "Recording folder"
+msgstr "Carpeta de grabación"
+
+msgid "Folder where radio recordings are saved (a Radio sub-folder is used). Leave empty for the default: a Recordings folder in MediaPlayer3's own data folder on disk/USB."
+msgstr "Carpeta donde se guardan las grabaciones de radio (se usa la subcarpeta Radio). Déjela vacía para usar la predeterminada: una carpeta Recordings en la carpeta de datos de MediaPlayer3 en disco/USB."
+
+msgid "Record episode"
+msgstr "Grabar episodio"
+
+msgid "Downloading episode: {0}"
+msgstr "Descargando episodio: {0}"
+
+msgid "A podcast download is already in progress."
+msgstr "Ya hay una descarga de podcast en curso."
+
+msgid "Episode saved: {0}"
+msgstr "Episodio guardado: {0}"
+
+msgid "Download failed: the connection was lost."
+msgstr "La descarga falló: se perdió la conexión."
+
+msgid "Download stopped: disk space ran out."
+msgstr "Descarga detenida: se agotó el espacio en disco."
+
+msgid "Download failed."
+msgstr "La descarga falló."
+
+msgid "Downloading: {0} - {1}"
+msgstr "Descargando: {0} - {1}"
+
+msgid "Update"
+msgstr "Actualizar"
+
+msgid "Delete file"
+msgstr "Eliminar archivo"
+
+msgid "Delete the file \"{0}\" from the disk?"
+msgstr "¿Eliminar el archivo \"{0}\" del disco?"
+
+msgid "The file could not be deleted."
+msgstr "No se pudo eliminar el archivo."
+
+msgid "No new recordings found."
+msgstr "No se encontraron grabaciones nuevas."
+
+msgid "{0} recordings added to the playlist."
+msgstr "{0} grabaciones añadidas a la lista."
+
+msgid "Radio time shift"
+msgstr "Retardo de radio (timeshift)"
+
+msgid "If yes, the playing radio station is buffered on disk (in the recording folder) so you can pause and rewind it; the total time grows while you listen and the remaining time shows the delay behind live. Needs a recording folder on a disk or USB stick (default: yes)."
+msgstr "Si es sí, la emisora de radio en reproducción se almacena en el disco (en la carpeta de grabaciones) para poder pausarla y rebobinarla. El tiempo total crece mientras escuchas y el tiempo restante muestra el retraso respecto al directo. Requiere una carpeta de grabaciones en un disco o memoria USB (predeterminado: sí)."
+
+msgid "Time shift length (minutes)"
+msgstr "Duración del retardo (minutos)"
+
+msgid "How much of the station is kept in the buffer. Older audio is deleted automatically (default: 120, 5-480). 120 minutes of a 128 kbit/s station needs about 120 MB."
+msgstr "Cuánto de la emisora se conserva en el búfer. El audio más antiguo se elimina automáticamente (predeterminado: 120, 5-480). 120 minutos de una emisora de 128 kbit/s necesitan unos 120 MB."
+
+msgid "Jump to live"
+msgstr "Ir al directo"
+
+msgid "From the start of the time shift ({0})"
+msgstr "Desde el inicio del retardo ({0})"
+
+msgid "From now"
+msgstr "Desde ahora"
+
+msgid "Time shift stopped: disk space ran out. Playing the stream directly."
+msgstr "El retardo se detuvo: se agotó el espacio en disco. La emisora se reproduce directamente."
+
+msgid "Time shift stopped: the connection was lost. Playing the stream directly."
+msgstr "El retardo se detuvo: se perdió la conexión. La emisora se reproduce directamente."
+
+msgid "This HLS stream is encrypted, so it cannot be recorded."
+msgstr "Esta emisión HLS está cifrada, por lo que no se puede grabar."
+
+msgid "Episode"
+msgstr "Episodio"
+
+msgid "Duration"
+msgstr "Duración"
+
+msgid "Recording length"
+msgstr "Duración de la grabación"
+
+msgid "Identify song"
+msgstr "Identificar canción"
+
+msgid "Identifying the song..."
+msgstr "Identificando la canción..."
+
+msgid "Match"
+msgstr "Coincidencia"
+
+msgid "Set your AcoustID application key in Settings first (free at acoustid.org/new-application)."
+msgstr "Primero indique su clave de aplicación de AcoustID en los ajustes (gratis en acoustid.org/new-application)."
+
+msgid "No tool for making an audio fingerprint was found on this receiver."
+msgstr "No se encontró ninguna herramienta de huella de audio en este receptor."
+
+msgid "The bundled fingerprint tool does not run on this receiver's processor. See the log for details."
+msgstr "La herramienta de huella incluida no funciona en el procesador de este receptor. Consulte el registro para más detalles."
+
+msgid "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver for song identification."
+msgstr "No se encontró ningún decodificador de audio (ffmpeg o gst-launch-1.0) en este receptor para identificar canciones."
+
+msgid "Could not get an audio sample to identify (HLS streams need Radio time shift to be on)."
+msgstr "No se pudo obtener una muestra de audio para identificar (las emisiones HLS requieren el retardo de radio activado)."
+
+msgid "The song was not recognized."
+msgstr "No se reconoció la canción."
+
+msgid "Song identification failed: the AcoustID service could not be reached."
+msgstr "Falló la identificación: no se pudo contactar con el servicio AcoustID."
+
+msgid "Song identification is already running."
+msgstr "La identificación de la canción ya está en curso."
+
+msgid "Song identification failed."
+msgstr "Falló la identificación de la canción."
+
+msgid "AcoustID application key"
+msgstr "Clave de aplicación de AcoustID"
+
+msgid "fpcalc path (empty = automatic)"
+msgstr "Ruta de fpcalc (vacío = automática)"
+
+msgid "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own free key at https://acoustid.org/new-application (register an application, copy its API key here)."
+msgstr "Lo usa el menú OK > Identificar canción. Déjelo vacío para usar la clave incluida en el plugin, u obtenga su propia clave gratuita en https://acoustid.org/new-application (registre una aplicación y copie aquí su clave API)."
+
+msgid "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
+msgstr "La identificación de canciones usa la herramienta de huella incluida en el plugin. Indique la ruta completa solo si tiene instalado fpcalc de Chromaprint y quiere usarlo; vacío = automático."

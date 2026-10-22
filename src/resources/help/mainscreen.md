@@ -50,7 +50,8 @@ Radio), the current one highlighted.
   Music / Music Library / Playlists / Podcasts). Otherwise, opens a
   small menu: Back (return to wherever playback was started from),
   Stop/Resume, Cancel -- plus, while listening to Internet Radio:
-  Clear history, Add to Favorites, Remove from Favorites.
+  Clear history, Add to Favorites, Remove from Favorites, Start
+  recording / Stop recording (records the station to a file; see Notes).
 - PLAY / PAUSE / STOP: control playback directly.
 - LEFT / RIGHT: seek a short step back/forward for local files (Player
   view), or switch between Information pages (Information view).
@@ -67,7 +68,8 @@ Radio), the current one highlighted.
   open the Playlist screen to edit playlists.
 - GREEN: open the source menu (the same as PVR).
 - YELLOW: show lyrics fullscreen -- or, for a podcast episode, its
-  description fullscreen (scrolled with UP / DOWN).
+  description fullscreen (scrolled with UP / DOWN). YELLOW, OK or
+  EXIT closes the fullscreen view again.
 - BLUE: switch between the Player view and the Information view.
 - EPG / INFO: open this guide.
 - MENU: open Settings.
@@ -76,6 +78,30 @@ Radio), the current one highlighted.
   returns to live TV.
 
 ## Notes
+
+Radio recording: Start recording copies the playing station's stream to
+a file (name YYYY-MM-DD-hh.mm_station) in the recording folder set in
+Settings, and adds it to the "Recordings (Radio)" playlist when it
+ends. Recording stops when you change station, stop playback or close
+MediaPlayer3. While recording, the status line shows REC and the
+elapsed time.
+
+HLS (.m3u8) stations can be recorded too; the audio is saved as a plain
+.aac / .mp3 file. Encrypted streams cannot be recorded.
+
+Identify song: OK menu > Identify song fingerprints a sample of the
+playing station (or the current file) and looks it up from AcoustID. It
+uses a fingerprint tool bundled with the plugin and needs an audio
+decoder on the receiver (ffmpeg or gst-launch-1.0). A bundled AcoustID key
+is used unless you enter your own in Settings.
+
+Radio time shift: while a station plays it is buffered on disk (in the
+recording folder), so the total time grows and the remaining time shows
+how far behind live you are. PAUSE freezes the playhead, FF / RW move
+through the buffer, and OK menu > Jump to live returns to live. Start
+recording while behind live asks whether to record from the start of
+the time shift or from now. Turn it off or change its length in
+Settings (Radio time shift, Time shift length).
 
 Internet Radio stations resume automatically from your most recent
 history entry when you choose Internet Radio from the startup

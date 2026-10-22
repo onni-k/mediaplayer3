@@ -896,8 +896,8 @@ msgstr "Kein Songtext verfügbar."
 msgid "No cover art available."
 msgstr "Kein Cover verfügbar."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
-msgstr "OK / EXIT / LINKS / RECHTS: Schließen -- HOCH / RUNTER: Zeitsteuerung anpassen"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / GELB / LINKS / RECHTS: Schließen -- HOCH / RUNTER: Zeitsteuerung anpassen"
 
 msgid "Download cover art"
 msgstr "Cover herunterladen"
@@ -1103,8 +1103,8 @@ msgstr "Beschreibung im Vollbild anzeigen"
 msgid "No description available."
 msgstr "Keine Beschreibung verfügbar."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
-msgstr "OK / EXIT / LINKS / RECHTS: Schließen -- HOCH / RUNTER: Scrollen"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / GELB / LINKS / RECHTS: Schließen -- HOCH / RUNTER: Scrollen"
 
 msgid "show lyrics or episode description fullscreen"
 msgstr "Songtext oder Episodenbeschreibung im Vollbild anzeigen"
@@ -1121,3 +1121,198 @@ msgstr "Podcast-Suchlimit"
 
 msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
 msgstr "Höchstzahl der Podcasts, die pro Suche oder Abruf der beliebtesten von Podcast Index angefordert werden (10-1000, Standard 1000)."
+
+msgid "Start recording"
+msgstr "Aufnahme starten"
+
+msgid "Stop recording"
+msgstr "Aufnahme beenden"
+
+msgid "Recording started: {0}"
+msgstr "Aufnahme gestartet: {0}"
+
+msgid "No recording folder available. Set one in Settings, or connect a disk/USB."
+msgstr "Kein Aufnahmeordner verfügbar. Legen Sie in den Einstellungen einen fest oder schließen Sie eine Festplatte/USB an."
+
+msgid "Not enough free disk space for recording."
+msgstr "Nicht genügend freier Speicherplatz für die Aufnahme."
+
+msgid "Recording is already in progress."
+msgstr "Eine Aufnahme läuft bereits."
+
+msgid "No stream to record."
+msgstr "Kein Stream zum Aufnehmen."
+
+msgid "Recording could not be started."
+msgstr "Die Aufnahme konnte nicht gestartet werden."
+
+msgid "Recording is not supported for this stream type (HLS)."
+msgstr "Aufnahme wird für diesen Stream-Typ (HLS) nicht unterstützt."
+
+msgid "This stream address is a playlist, not a direct stream, so it cannot be recorded."
+msgstr "Diese Stream-Adresse ist eine Playlist und kein direkter Stream und kann nicht aufgenommen werden."
+
+msgid "This address did not return an audio stream, so it cannot be recorded."
+msgstr "Diese Adresse lieferte keinen Audio-Stream und kann nicht aufgenommen werden."
+
+msgid "Recording stopped: the stream connection was lost."
+msgstr "Aufnahme beendet: Die Stream-Verbindung wurde unterbrochen."
+
+msgid "Recording stopped: disk space ran out."
+msgstr "Aufnahme beendet: Der Speicherplatz ist aufgebraucht."
+
+msgid "Recording failed: the file could not be written."
+msgstr "Aufnahme fehlgeschlagen: Die Datei konnte nicht geschrieben werden."
+
+msgid "Recording failed: nothing was received."
+msgstr "Aufnahme fehlgeschlagen: Es wurde nichts empfangen."
+
+msgid "Recording stopped early."
+msgstr "Die Aufnahme wurde vorzeitig beendet."
+
+msgid "Recording failed."
+msgstr "Aufnahme fehlgeschlagen."
+
+msgid "Recording saved: {0}"
+msgstr "Aufnahme gespeichert: {0}"
+
+msgid "Added to playlist: {0}"
+msgstr "Zur Playlist hinzugefügt: {0}"
+
+msgid "Recordings"
+msgstr "Aufnahmen"
+
+msgid "Recording folder"
+msgstr "Aufnahmeordner"
+
+msgid "Folder where radio recordings are saved (a Radio sub-folder is used). Leave empty for the default: a Recordings folder in MediaPlayer3's own data folder on disk/USB."
+msgstr "Ordner, in dem Radioaufnahmen gespeichert werden (Unterordner Radio). Leer lassen für den Standard: ein Ordner Recordings im eigenen Datenordner von MediaPlayer3 auf Festplatte/USB."
+
+msgid "Record episode"
+msgstr "Folge aufnehmen"
+
+msgid "Downloading episode: {0}"
+msgstr "Folge wird heruntergeladen: {0}"
+
+msgid "A podcast download is already in progress."
+msgstr "Ein Podcast-Download läuft bereits."
+
+msgid "Episode saved: {0}"
+msgstr "Folge gespeichert: {0}"
+
+msgid "Download failed: the connection was lost."
+msgstr "Download fehlgeschlagen: Die Verbindung wurde unterbrochen."
+
+msgid "Download stopped: disk space ran out."
+msgstr "Download abgebrochen: Der Speicherplatz ist aufgebraucht."
+
+msgid "Download failed."
+msgstr "Download fehlgeschlagen."
+
+msgid "Downloading: {0} - {1}"
+msgstr "Download: {0} - {1}"
+
+msgid "Update"
+msgstr "Aktualisieren"
+
+msgid "Delete file"
+msgstr "Datei löschen"
+
+msgid "Delete the file \"{0}\" from the disk?"
+msgstr "Datei \"{0}\" von der Festplatte löschen?"
+
+msgid "The file could not be deleted."
+msgstr "Die Datei konnte nicht gelöscht werden."
+
+msgid "No new recordings found."
+msgstr "Keine neuen Aufnahmen gefunden."
+
+msgid "{0} recordings added to the playlist."
+msgstr "{0} Aufnahmen zur Playlist hinzugefügt."
+
+msgid "Radio time shift"
+msgstr "Radio-Zeitversatz"
+
+msgid "If yes, the playing radio station is buffered on disk (in the recording folder) so you can pause and rewind it; the total time grows while you listen and the remaining time shows the delay behind live. Needs a recording folder on a disk or USB stick (default: yes)."
+msgstr "Wenn ja, wird der laufende Radiosender auf der Festplatte (im Aufnahmeordner) zwischengespeichert, sodass er pausiert und zurückgespult werden kann. Die Gesamtzeit wächst beim Hören, die Restzeit zeigt die Verzögerung zum Live-Stream. Benötigt einen Aufnahmeordner auf Festplatte oder USB-Stick (Standard: ja)."
+
+msgid "Time shift length (minutes)"
+msgstr "Länge des Zeitversatzes (Minuten)"
+
+msgid "How much of the station is kept in the buffer. Older audio is deleted automatically (default: 120, 5-480). 120 minutes of a 128 kbit/s station needs about 120 MB."
+msgstr "Wie viel vom Sender im Puffer behalten wird. Älteres Audio wird automatisch gelöscht (Standard: 120, 5-480). 120 Minuten eines 128-kbit/s-Senders benötigen etwa 120 MB."
+
+msgid "Jump to live"
+msgstr "Zu Live springen"
+
+msgid "From the start of the time shift ({0})"
+msgstr "Ab Beginn des Zeitversatzes ({0})"
+
+msgid "From now"
+msgstr "Ab jetzt"
+
+msgid "Time shift stopped: disk space ran out. Playing the stream directly."
+msgstr "Zeitversatz beendet: Speicherplatz erschöpft. Der Sender wird direkt abgespielt."
+
+msgid "Time shift stopped: the connection was lost. Playing the stream directly."
+msgstr "Zeitversatz beendet: Die Verbindung wurde unterbrochen. Der Sender wird direkt abgespielt."
+
+msgid "This HLS stream is encrypted, so it cannot be recorded."
+msgstr "Dieser HLS-Stream ist verschlüsselt und kann nicht aufgenommen werden."
+
+msgid "Episode"
+msgstr "Folge"
+
+msgid "Duration"
+msgstr "Dauer"
+
+msgid "Recording length"
+msgstr "Aufnahmelänge"
+
+msgid "Identify song"
+msgstr "Titel erkennen"
+
+msgid "Identifying the song..."
+msgstr "Titel wird erkannt..."
+
+msgid "Match"
+msgstr "Treffer"
+
+msgid "Set your AcoustID application key in Settings first (free at acoustid.org/new-application)."
+msgstr "Legen Sie zuerst Ihren AcoustID-Anwendungsschlüssel in den Einstellungen fest (kostenlos unter acoustid.org/new-application)."
+
+msgid "No tool for making an audio fingerprint was found on this receiver."
+msgstr "Auf diesem Receiver wurde kein Werkzeug für Audio-Fingerabdrücke gefunden."
+
+msgid "The bundled fingerprint tool does not run on this receiver's processor. See the log for details."
+msgstr "Das mitgelieferte Fingerabdruck-Werkzeug läuft nicht auf dem Prozessor dieses Receivers. Details stehen im Log."
+
+msgid "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver for song identification."
+msgstr "Für die Titelerkennung wurde auf diesem Receiver kein Audiodecoder (ffmpeg oder gst-launch-1.0) gefunden."
+
+msgid "Could not get an audio sample to identify (HLS streams need Radio time shift to be on)."
+msgstr "Es konnte kein Audiobeispiel zur Erkennung gewonnen werden (HLS-Streams benötigen den eingeschalteten Radio-Zeitversatz)."
+
+msgid "The song was not recognized."
+msgstr "Der Titel wurde nicht erkannt."
+
+msgid "Song identification failed: the AcoustID service could not be reached."
+msgstr "Titelerkennung fehlgeschlagen: Der AcoustID-Dienst war nicht erreichbar."
+
+msgid "Song identification is already running."
+msgstr "Die Titelerkennung läuft bereits."
+
+msgid "Song identification failed."
+msgstr "Titelerkennung fehlgeschlagen."
+
+msgid "AcoustID application key"
+msgstr "AcoustID-Anwendungsschlüssel"
+
+msgid "fpcalc path (empty = automatic)"
+msgstr "fpcalc-Pfad (leer = automatisch)"
+
+msgid "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own free key at https://acoustid.org/new-application (register an application, copy its API key here)."
+msgstr "Wird von OK-Menü > Titel erkennen verwendet. Leer lassen, um den im Plugin enthaltenen Schlüssel zu nutzen, oder einen eigenen kostenlosen Schlüssel unter https://acoustid.org/new-application holen (Anwendung registrieren, API-Schlüssel hier eintragen)."
+
+msgid "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
+msgstr "Die Titelerkennung nutzt das im Plugin enthaltene Fingerabdruck-Werkzeug. Den vollständigen Pfad nur eingeben, wenn Chromaprints fpcalc installiert ist und verwendet werden soll; leer = automatisch."

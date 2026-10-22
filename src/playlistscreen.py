@@ -159,8 +159,11 @@ from .guide_screen import GuideScreen
 from .internetradio_manager import internetradio_manager
 from .localization import _
 from .logger import logger
+from .metadata import metadata_reader
 from .paths import BUTTON_ICON_PATH
 from .playlist_manager import playlist_manager
+from .podcast_manager import podcast_manager
+from .recording_manager import recording_manager
 from .skin import resolve_skin_asset_path, to_opaque_skin_color
 
 # Device test round 58 -- background-image variant/tier system, a
@@ -641,7 +644,7 @@ class PlaylistScreen(Screen, HelpableScreen):
 
             <widget name="info"
                     {rect(60, 702, 1550, 130)}
-                    {font(28)}
+                    {font(24)}
                     halign="center"
                     valign="center"
                     foregroundColor="{palette['info_label_fg']}"
@@ -1167,6 +1170,118 @@ class PlaylistScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
+    def _selectedTrackInfoText(self) -> str:
+        """
+        Round 253, per direct request: details of the highlighted entry
+        in the information area while the Tracks column has focus --
+        station details for radio lists, podcast / episode / duration for
+        podcast tracks, station and length for radio recordings, and
+        artist / album / title / duration for files.
+        """
+
+        try:
+            index = self["tracks"].getSelectedIndex()
+        except Exception:
+            return ""
+
+        if not (0 <= index < len(self._current_tracks)):
+            return ""
+
+        entry = self._current_tracks[index]
+
+        if self._current_entry_type == "radio":
+
+            return "\n".join(
+                [
+                    entry.get("name", _("Unknown")),
+                    f"{_('Codec')}: {entry.get('codec', _('Unknown'))}   {_('Bitrate')}: {entry.get('bitrate', _('Unknown'))}",
+                    f"{_('Country')}: {entry.get('country', _('Unknown'))}   {_('Language')}: {entry.get('language', _('Unknown'))}",
+                    f"{_('Tags')}: {entry.get('tags', _('Unknown'))}",
+                ]
+            )
+
+        path = entry.get("path") or ""
+
+        title = entry.get("title") or entry.get("file_name") or _("Unknown")
+
+        is_remote = "://" in path
+
+        details = None if is_remote else self._trackDetails(path)
+
+        seconds = entry.get("duration")
+
+        if not seconds and details:
+            seconds = details.get("duration_seconds")
+
+        duration_text = _formatPlaylistDuration(int(seconds)) if seconds else ""
+
+        duration_text = duration_text or "--:--"
+
+        kind = recording_manager.kindOfPlaylist(self._current_playlist)
+
+        episode = podcast_manager.getEpisodeInfo(path)
+
+        if episode or kind == "podcast":
+
+            show = (episode or {}).get("podcast") or entry.get("artist") or _("Unknown")
+
+            name = (episode or {}).get("title") or title
+
+            return "\n".join(
+                [f"{_('Podcast')}: {show}", f"{_('Episode')}: {name}", f"{_('Duration')}: {duration_text}"]
+            )
+
+        if kind == "radio":
+
+            return "\n".join(
+                [
+                    f"{_('Station')}: {entry.get('artist') or _('Unknown')}",
+                    title,
+                    f"{_('Recording length')}: {duration_text}",
+                ]
+            )
+
+        def known(value):
+            return value if value and value != "Unknown" else _("Unknown")
+
+        artist = known((details or {}).get("artist")) if details else known(entry.get("artist"))
+
+        album = known((details or {}).get("album")) if details else known(entry.get("album"))
+
+        name = known((details or {}).get("title")) if details else title
+
+        if name == _("Unknown"):
+            name = title
+
+        return "\n".join(
+            [
+                f"{_('Artist')}: {artist}",
+                f"{_('Album')}: {album}",
+                f"{_('Title')}: {name}",
+                f"{_('Duration')}: {duration_text}",
+            ]
+        )
+
+    def _trackDetails(self, path: str):
+        """Metadata of a local file, cached (the info area asks on every move)."""
+
+        cache = self.__dict__.setdefault("_track_details_cache", {})
+
+        if path in cache:
+            return cache[path]
+
+        try:
+            result = metadata_reader.read(path) if path and os.path.isfile(path) else None
+        except Exception:
+            result = None
+
+        if len(cache) > 300:
+            cache.clear()
+
+        cache[path] = result
+
+        return result
+
     def _updatePlaylistInfo(self) -> None:
         """
         Device test round 58 -- shows the current playlist's own
@@ -1185,6 +1300,16 @@ class PlaylistScreen(Screen, HelpableScreen):
             return
 
         count = len(self._current_tracks)
+
+        if self._focus == "tracks":
+
+            detail = self._selectedTrackInfoText()
+
+            if detail:
+
+                self["info"].setText(detail)
+
+                return
 
         if self._current_entry_type == "radio":
 
@@ -1251,6 +1376,8 @@ class PlaylistScreen(Screen, HelpableScreen):
 
             self["tracks"].up()
 
+            self._updatePlaylistInfo()
+
     # ------------------------------------------------------------------
 
     def moveDown(self) -> None:
@@ -1266,6 +1393,8 @@ class PlaylistScreen(Screen, HelpableScreen):
         else:
 
             self["tracks"].down()
+
+            self._updatePlaylistInfo()
 
     # ------------------------------------------------------------------
 
@@ -1310,6 +1439,10 @@ class PlaylistScreen(Screen, HelpableScreen):
         if panel == "playlists":
 
             self._onPlaylistSelectionChanged()
+
+        elif panel == "tracks":
+
+            self._updatePlaylistInfo()
 
         self._logPanelIndices("CH+ after up()")
 
@@ -1359,6 +1492,10 @@ class PlaylistScreen(Screen, HelpableScreen):
         if panel == "playlists":
 
             self._onPlaylistSelectionChanged()
+
+        elif panel == "tracks":
+
+            self._updatePlaylistInfo()
 
         if fresh_lock and panel != "playlists":
 
@@ -1676,6 +1813,14 @@ class PlaylistScreen(Screen, HelpableScreen):
 
             choices = [
                 (_("Play"), "play"),
+            ]
+
+            # Round 243: Recordings playlists can be refilled from their folder.
+            if recording_manager.kindOfPlaylist(self._current_playlist):
+
+                choices.append((_("Update"), "update"))
+
+            choices += [
                 (_("Rename"), "rename"),
                 (_("Delete"), "delete"),
                 (_("Clear"), "clear"),
@@ -1704,6 +1849,10 @@ class PlaylistScreen(Screen, HelpableScreen):
         if action == "play":
 
             self._playCurrentPlaylist()
+
+        elif action == "update":
+
+            self._updateRecordingsPlaylist()
 
         elif action == "rename":
 
@@ -2160,6 +2309,80 @@ class PlaylistScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
+    def _updateRecordingsPlaylist(self) -> None:
+        """Round 243: adds recordings found in the folder back to the playlist."""
+
+        added = recording_manager.refreshPlaylist(self._current_playlist)
+
+        if added < 0:
+
+            text = _("No recording folder available. Set one in Settings, or connect a disk/USB.")
+
+        elif added == 0:
+
+            text = _("No new recordings found.")
+
+        else:
+
+            text = _("{0} recordings added to the playlist.").format(added)
+
+        self._reloadTracks()
+
+        self.session.open(MessageBox, text, MessageBox.TYPE_INFO, timeout=4)
+
+    # ------------------------------------------------------------------
+
+    def _recordedFilePath(self, entry) -> str:
+        """Path of a track in a Recordings playlist if its file exists, else ''."""
+
+        if self._current_entry_type == "radio" or not recording_manager.kindOfPlaylist(self._current_playlist):
+            return ""
+
+        path = entry.get("path") or ""
+
+        return path if path and os.path.isfile(path) else ""
+
+    # ------------------------------------------------------------------
+
+    def _recordingRemoveChosen(self, choice, index: int) -> None:
+
+        if choice is None or choice[1] == "cancel":
+            return
+
+        if choice[1] == "remove":
+
+            self._removeTrackConfirmed(True, index)
+
+        elif choice[1] == "delete" and 0 <= index < len(self._current_tracks):
+
+            name = self._current_tracks[index].get("title") or self._current_tracks[index].get("file_name", "?")
+
+            self.session.openWithCallback(
+                lambda confirmed: self._deleteRecordedFileConfirmed(confirmed, index),
+                MessageBox,
+                _('Delete the file "{0}" from the disk?').format(name),
+                MessageBox.TYPE_YESNO,
+            )
+
+    # ------------------------------------------------------------------
+
+    def _deleteRecordedFileConfirmed(self, confirmed, index: int) -> None:
+
+        if not confirmed or not (0 <= index < len(self._current_tracks)):
+            return
+
+        path = self._recordedFilePath(self._current_tracks[index])
+
+        if path and not recording_manager.deleteRecordingFile(path):
+
+            self.session.open(MessageBox, _("The file could not be deleted."), MessageBox.TYPE_ERROR, timeout=5)
+
+            return
+
+        self._removeTrackConfirmed(True, index)
+
+    # ------------------------------------------------------------------
+
     def _confirmRemoveTrack(self, index: int) -> None:
         """
         Round 147, per direct request ("lisätään myös kysely haluatko
@@ -2178,6 +2401,23 @@ class PlaylistScreen(Screen, HelpableScreen):
         entry = self._current_tracks[index]
 
         name = entry.get("name") if self._current_entry_type == "radio" else entry.get("title", entry.get("file_name", "?"))
+
+        # Round 243, per direct request: a recorded file can also be
+        # deleted from the disk, not only removed from the playlist.
+        if self._recordedFilePath(entry):
+
+            self.session.openWithCallback(
+                lambda choice: self._recordingRemoveChosen(choice, index),
+                ChoiceBox,
+                title=name,
+                list=[
+                    (_("Remove from Playlist"), "remove"),
+                    (_("Delete file"), "delete"),
+                    (_("Cancel"), "cancel"),
+                ],
+            )
+
+            return
 
         self.session.openWithCallback(
             lambda confirmed: self._removeTrackConfirmed(confirmed, index),

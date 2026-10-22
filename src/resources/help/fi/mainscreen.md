@@ -51,7 +51,8 @@ nykyinen korostettuna.
   Muussa tapauksessa avaa pienen valikon: Takaisin (palaa sinne mistä
   toisto aloitettiin), Pysäytä/Jatka, Peruuta -- sekä
   internetradiota kuunnellessa: Tyhjennä historia, Lisää suosikkeihin,
-  Poista suosikeista.
+  Poista suosikeista, Aloita tallennus / Lopeta tallennus (tallentaa
+  aseman tiedostoon; katso Huomioita).
 - PLAY / PAUSE / STOP: hallitse toistoa suoraan.
 - VASEN / OIKEA: siirry lyhyt askel taakse/eteen paikallisissa
   tiedostoissa (Soitin-tila), tai vaihda Tiedot-sivujen välillä
@@ -71,7 +72,8 @@ nykyinen korostettuna.
   varten.
 - VIHREÄ: avaa lähdevalikon (sama kuin PVR).
 - KELTAINEN: näyttää sanoitukset koko ruudulla -- tai podcast-jaksolla
-  sen kuvauksen koko ruudulla (vieritys YLÖS / ALAS).
+  sen kuvauksen koko ruudulla (vieritys YLÖS / ALAS). KELTAINEN, OK tai
+  EXIT sulkee koko ruudun näkymän.
 - SININEN: vaihtaa paneelia Soitin-tilan ja Tiedot-tilan välillä.
 - EPG / INFO: avaa tämän ohjeen.
 - MENU: avaa asetukset.
@@ -80,6 +82,31 @@ nykyinen korostettuna.
   palaa suoraan lähetykseen.
 
 ## Huomioita
+
+Radiotallennus: Aloita tallennus kopioi toistettavan aseman lähetyksen
+tiedostoon (nimi VVVV-KK-PP-hh.mm_kanava) asetuksissa valittuun
+tallennuskansioon ja lisää sen "Tallennukset (Radio)" -soittolistalle
+tallennuksen päätyttyä. Tallennus päättyy, kun vaihdat asemaa,
+pysäytät toiston tai suljet MediaPlayer3:n. Tallennuksen aikana
+tilarivillä näkyy REC ja kulunut aika.
+
+HLS (.m3u8) -asemat voi myös tallentaa; ääni tallentuu tavalliseksi
+.aac / .mp3 -tiedostoksi. Salattuja lähetyksiä ei voi tallentaa.
+
+Tunnista kappale: OK-valikon Tunnista kappale ottaa näytteen soivasta
+kanavasta (tai tiedostosta) ja hakee tiedot AcoustID-palvelusta. Se
+käyttää pluginin mukana tulevaa sormenjälkityökalua ja tarvitsee
+vastaanottimessa äänidekooderin (ffmpeg tai gst-launch-1.0). Mukana tulevaa
+AcoustID-avainta käytetään, ellet anna omaa avainta asetuksissa.
+
+Radion ajansiirto: soiva asema puskuroidaan levylle (tallennuskansioon),
+jolloin kokonaisaika kasvaa ja jäljellä oleva aika näyttää viiveen
+livestä. PAUSE pysäyttää toiston, kelauspainikkeet (FF / RW) liikkuvat
+puskurissa ja OK-valikon "Siirry live-tilaan" palaa suoraan lähetykseen.
+Tallennuksen aloitus viiveen ollessa päällä kysyy, tallennetaanko
+ajansiirron alusta vai nykyisestä kohdasta. Toiminnon voi poistaa
+käytöstä ja pituutta muuttaa asetuksista (Radion ajansiirto, Ajansiirron
+pituus).
 
 Internetradioasemat jatkuvat automaattisesti viimeisimmästä
 historiamerkinnästä, kun valitset Internetradion aloitusvalitsimesta.

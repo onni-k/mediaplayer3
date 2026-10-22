@@ -458,13 +458,13 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
             self["content"] = ScrollLabel(self._static_text)
 
-            self["hint"] = Label(_("OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"))
+            self["hint"] = Label(_("OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Scroll"))
 
         else:
 
             self["content"] = Label(self._static_text)
 
-            self["hint"] = Label(_("OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"))
+            self["hint"] = Label(_("OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"))
 
         for row_index in range(len(self.LYRICS_WINDOW_ROWS)):
 
@@ -475,13 +475,16 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
         actions = {
             "ok": self.closePressed,
             "cancel": self.closePressed,
+            # Round 239, per direct request: YELLOW (which opened this
+            # view) also closes it.
+            "yellow": self.closePressed,
             "left": self.closePressed,
             "right": self.closePressed,
             "up": self.scrollUp,
             "down": self.scrollDown,
         }
 
-        contexts = ["OkCancelActions", "DirectionActions"]
+        contexts = ["OkCancelActions", "DirectionActions", "ColorActions"]
 
         help_text_by_handler = {
             self.closePressed: _("close the fullscreen lyrics view"),

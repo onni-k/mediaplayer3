@@ -251,6 +251,7 @@ from .config import config_manager
 from .logger import logger
 from .metadata import metadata_reader
 from .service_controller import ServiceController
+from . import timeshift_manager
 
 
 class PlaybackController:
@@ -411,6 +412,13 @@ class PlaybackController:
         # playStream(); read via isPlayingStream().
         self._is_stream = False
 
+        # Round 244 (1.3.006): radio timeshift -- see timeshift_manager.py.
+        # `_current_file` stays the station URL while the service plays
+        # the local relay URL of this session.
+        self._timeshift = None
+        self._timeshift_seek_timer = None
+        self._timeshift_buffers_purged = False
+
         # Round 233: debounce state for seeks inside network (http/
         # https) files such as podcast episodes -- see _requestSeek().
         self._pending_seek_target = None
@@ -461,6 +469,8 @@ class PlaybackController:
             self._log("Playback start failed.")
 
             return False
+
+        self._stopTimeshift()
 
         self._current_file = filename
         self._current_service = self._service.getCurrentService()
@@ -546,11 +556,23 @@ class PlaybackController:
 
         use_exteplayer3 = bool(config_manager.get("radio.use_exteplayer3", False))
 
-        if not self._service.play(url, use_exteplayer3=use_exteplayer3):
+        self._stopTimeshift()
+
+        play_url = url
+
+        session = self._startTimeshift(url)
+
+        if session is not None:
+
+            play_url = session.playUrl(None)
+
+        if not self._service.play(play_url, use_exteplayer3=use_exteplayer3):
 
             self._error_state = "Playback failed"
 
             self._log("Stream playback start failed.")
+
+            self._stopTimeshift()
 
             return False
 
@@ -602,6 +624,251 @@ class PlaybackController:
 
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Radio timeshift (Round 244, 1.3.006)
+    # ------------------------------------------------------------------
+
+    def _startTimeshift(self, url: str):
+        """Create and start a buffer session for `url`, or return None."""
+
+        if not url.startswith(("http://", "https://")):
+            return None
+
+        if not bool(config_manager.get("radio.timeshift", True)):
+            return None
+
+        try:
+
+            from .recording_manager import recording_manager
+
+            folder = timeshift_manager.timeshiftFolder(recording_manager.getRecordingFolder())
+
+            if folder is None:
+                self._log("Timeshift unavailable: no usable recording folder.")
+                return None
+
+            if not self._timeshift_buffers_purged:
+                self._timeshift_buffers_purged = True
+                timeshift_manager.purgeStaleBuffers(folder)
+
+            minutes = int(config_manager.get("radio.timeshift_minutes", 120) or 120)
+
+            session = timeshift_manager.TimeshiftSession(url, folder, max(5, minutes) * 60)
+
+            if not session.start():
+                return None
+
+        except Exception as error:
+
+            self._log(f"Timeshift start failed: {error}")
+
+            return None
+
+        self._timeshift = session
+
+        return session
+
+    def _stopTimeshift(self) -> None:
+
+        session = self._timeshift
+
+        self._timeshift = None
+
+        if self._timeshift_seek_timer is not None:
+            try:
+                self._timeshift_seek_timer.stop()
+            except Exception:
+                pass
+
+        if session is not None:
+            try:
+                session.stop()
+            except Exception as error:
+                self._log(f"Timeshift stop error: {error}")
+
+    def isTimeshiftActive(self) -> bool:
+        """True while the station plays through a working timeshift buffer."""
+
+        session = self._timeshift
+
+        return session is not None and self._is_stream and session.state == timeshift_manager.STATE_OK
+
+    def getTimeshiftDelay(self) -> float:
+        """Seconds the playhead is behind the live edge (0 when not timeshifting)."""
+
+        if not self.isTimeshiftActive():
+            return 0.0
+
+        return self._timeshift.delay()
+
+    def getTimeshiftBufferedSeconds(self) -> float:
+
+        if not self.isTimeshiftActive():
+            return 0.0
+
+        return self._timeshift.bufferedSeconds()
+
+    def exportTimeshiftSample(self, path: str, seconds: float) -> bool:
+        """Write the most recent buffered audio to `path` (song identification)."""
+
+        session = self._timeshift
+
+        if session is None or not self.isTimeshiftActive():
+            return False
+
+        return session.exportSample(path, seconds)
+
+    def exportTimeshiftSong(self, path: str, stop=None) -> bool:
+        """Sample from the start of the current song (blocks up to ~45 s)."""
+
+        session = self._timeshift
+
+        if session is None or not self.isTimeshiftActive():
+            return False
+
+        return session.exportSong(path, stop=stop)
+
+    def getTimeshiftRecordingUrl(self, from_start: bool):
+        """One-shot relay URL that feeds a recording, or None."""
+
+        if not self.isTimeshiftActive():
+            return None
+
+        return self._timeshift.recordingUrl(from_start)
+
+    def _restartTimeshiftService(self) -> bool:
+        """(Re)start the service on the relay at the playhead position."""
+
+        session = self._timeshift
+
+        if session is None:
+            return False
+
+        offset = session.startOffsetForPlayhead()
+
+        use_exteplayer3 = bool(config_manager.get("radio.use_exteplayer3", False))
+
+        if not self._service.play(session.playUrl(offset), use_exteplayer3=use_exteplayer3):
+
+            self._error_state = "Playback failed"
+
+            return False
+
+        self._current_service = self._service.getCurrentService()
+
+        self._error_state = None
+
+        return True
+
+    def _timeshiftSeek(self, seconds: float) -> bool:
+
+        session = self._timeshift
+
+        if session is None or self._state not in (self.STATE_PLAYING, self.STATE_PAUSED):
+            return False
+
+        target = session.clampTarget(session.playheadT() + seconds)
+
+        # Forward seek that would reach (or pass) the live edge: go live.
+        if seconds > 0 and session.nowT() - (session.playheadT() + seconds) <= session.live_margin:
+            target = session.nowT()
+
+        session.setPlayhead(target)
+
+        self._scheduleTimeshiftRestart()
+
+        logger.verbose("[Playback] Timeshift seek %+ds -> playhead %.1fs (delay %.1fs)", seconds, target, session.delay())
+
+        return True
+
+    def timeshiftGoLive(self) -> bool:
+        """Jump to the live edge."""
+
+        session = self._timeshift
+
+        if not self.isTimeshiftActive() or self._state not in (self.STATE_PLAYING, self.STATE_PAUSED):
+            return False
+
+        session.setPlayhead(session.nowT())
+
+        if self._state == self.STATE_PAUSED:
+            return True
+
+        self._performTimeshiftRestart()
+
+        return True
+
+    def _scheduleTimeshiftRestart(self) -> None:
+
+        if self._state != self.STATE_PLAYING:
+
+            return  # paused: resume() starts at the new playhead
+
+        try:
+            from enigma import eTimer
+
+            if self._timeshift_seek_timer is None:
+                self._timeshift_seek_timer = eTimer()
+                self._timeshift_seek_timer.callback.append(self._performTimeshiftRestart)
+
+            self._timeshift_seek_timer.start(600, True)
+
+        except Exception:
+
+            self._performTimeshiftRestart()
+
+    def _performTimeshiftRestart(self) -> None:
+
+        if not self.isTimeshiftActive() or self._state != self.STATE_PLAYING:
+            return
+
+        session = self._timeshift
+
+        was = session.playheadT()
+
+        if self._restartTimeshiftService():
+
+            session.setPlayhead(was)
+
+    def _tickTimeshift(self) -> None:
+
+        session = self._timeshift
+
+        if session is None:
+            return
+
+        if session.state != timeshift_manager.STATE_FAILED:
+            return
+
+        reason = session.fail_reason
+
+        self._log(f"Timeshift ended ({reason}); continuing without buffer.")
+
+        was_buffering = session.bufferedSeconds() > 0
+
+        self._stopTimeshift()
+
+        self._timeshift_failure = reason
+
+        # The station itself was redirected to the direct URL for
+        # unsupported streams; for a lost buffer restart the direct stream.
+        if was_buffering and self._state == self.STATE_PLAYING and self._current_file:
+
+            use_exteplayer3 = bool(config_manager.get("radio.use_exteplayer3", False))
+
+            self._service.play(self._current_file, use_exteplayer3=use_exteplayer3)
+
+            self._current_service = self._service.getCurrentService()
+
+    def popTimeshiftFailure(self) -> str:
+        """Reason the buffer was dropped since the last call, or ''."""
+
+        reason = getattr(self, "_timeshift_failure", "")
+
+        self._timeshift_failure = ""
+
+        return reason
+
     def isPlayingStream(self) -> bool:
         """
         Return True if the currently playing (or last played) media
@@ -623,6 +890,8 @@ class PlaybackController:
 
         if not self._service.stop():
             return False
+
+        self._stopTimeshift()
 
         self._setState(self.STATE_STOPPED)
 
@@ -649,7 +918,15 @@ class PlaybackController:
 
             return False
 
-        if not self._service.pause():
+        if self.isTimeshiftActive():
+
+            # Deterministic pause: the playhead is frozen and the
+            # service stopped; resume() restarts it from the buffer.
+            self._timeshift.pausePlayhead()
+
+            self._service.stop()
+
+        elif not self._service.pause():
             return False
 
         self._setState(self.STATE_PAUSED)
@@ -675,7 +952,14 @@ class PlaybackController:
 
             return False
 
-        if not self._service.resume():
+        if self.isTimeshiftActive():
+
+            if not self._restartTimeshiftService():
+                return False
+
+            self._timeshift.resumePlayhead()
+
+        elif not self._service.resume():
             return False
 
         self._setState(self.STATE_PLAYING)
@@ -1034,6 +1318,9 @@ class PlaybackController:
         (e.g. MainScreen's periodic refresh) should call tick() first.
         """
 
+        if self.isTimeshiftActive():
+            return self._timeshift.playheadT()
+
         return self._position
 
     # ------------------------------------------------------------------
@@ -1057,6 +1344,9 @@ class PlaybackController:
         never worse than the pre-existing behaviour in that case.
         """
 
+        if self.isTimeshiftActive():
+            return self._timeshift.playheadT()
+
         if self._estimated_position is not None:
             return self._estimated_position
 
@@ -1070,7 +1360,14 @@ class PlaybackController:
 
         Value is refreshed by tick() -- see PLAYBACK_CONTROLLER_SPEC.md
         section 4 (Playback Progress).
+
+        Round 244: with radio timeshift active this is the time since
+        the station was tuned in (it grows while listening), so the
+        remaining time shown by MainScreen equals the delay behind live.
         """
+
+        if self.isTimeshiftActive():
+            return self._timeshift.nowT()
 
         return self._duration
 
@@ -1169,6 +1466,9 @@ class PlaybackController:
 
         if self._is_stream:
 
+            if self.isTimeshiftActive():
+                return self._timeshiftSeek(abs(seconds))
+
             logger.verbose("[Playback] Seek forward ignored: not seekable while streaming.")
 
             return False
@@ -1199,6 +1499,9 @@ class PlaybackController:
             return False
 
         if self._is_stream:
+
+            if self.isTimeshiftActive():
+                return self._timeshiftSeek(-abs(seconds))
 
             logger.verbose("[Playback] Seek backward ignored: not seekable while streaming.")
 
@@ -1386,6 +1689,12 @@ class PlaybackController:
         discarded -- caught by the user asking directly whether pause
         was accounted for.)
         """
+
+        if self._timeshift is not None:
+
+            self._tickTimeshift()
+
+            return
 
         if self._state != self.STATE_PLAYING:
             return
@@ -1641,6 +1950,8 @@ class PlaybackController:
         self._metadata = None
 
         self._is_stream = False
+
+        self._stopTimeshift()
 
     # ------------------------------------------------------------------
 

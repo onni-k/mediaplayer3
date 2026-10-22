@@ -1714,6 +1714,368 @@ known since 1.0.0 and unrelated to this release.
 
 ---
 
+### 1.4.001 (2026-10-22)
+
+Packaging only. The source tree / zip contains no prebuilt binaries any more
+(`src/bin/README.txt` explains how to build them with `tools/fpraw/build.sh`);
+the released .ipk contains the three fingerprint tools as plain files in
+`bin/` (fpraw-arm, fpraw-mipsel, fpraw-aarch64). This also fixes the Yocto
+`[arch]` QA error of the allarch recipe, since the recipe builds from the
+source tree. The plugin still accepts both plain and `.gz` tools and reports
+a missing tool in the "Identify song" message.
+
+### 1.4.000 (2026-10-22) -- public release
+
+First release of the 1.4 series, built from the 1.3.001-1.3.024 test
+series (all confirmed on OpenViX 6.9, OpenPLI 9.2, OpenATV 8.0 and
+OpenBH 5.6 on a Vu+ Uno4K SE). Compared with 1.3.000:
+- **Radio recording** (also HLS .m3u8 streams) and **radio time shift**
+  (pause, rewind, jump to live, record from the buffer; FLAC/Ogg/HLS
+  supported).
+- **Identify song** (OK menu): Chromaprint fingerprint + AcoustID. A tiny
+  static fingerprint tool is bundled for ARM, MIPS and AArch64
+  (`src/bin/fpraw-*`, source and build script in `tools/fpraw/`,
+  licences in THIRD_PARTY_NOTICES.md); audio decoded with gst-launch-1.0
+  (ffmpeg as a fallback). Bundled default AcoustID key (obfuscated).
+- **Playlist track details**, radio chooser opens the radio browser,
+  **front panel text** (artist - title), favicon/station info fixes.
+- (1.4.000 packaging was reworked in 1.4.001, see above.) The x86 test build
+  of the fingerprint tool is not shipped.
+- Known: OpenATV starts time-shifted stations about 6 s later (image
+  player buffering).
+
+### 1.3.024 (2026-10-22)
+
+Tuned from the 1.3.023 device log (radio matches: Spice Girls / Sam Brown
+"Stop", Miley Cyrus): all matches came from the first window with 23-41 s of
+audio and scored the same (86 % at 23 s and 41 s), the shifted windows never
+matched and cost ~8 s of failed lookups each. Radio sample is now 28-38 s
+from the song start and a single window is fingerprinted.
+
+### 1.3.023 (2026-10-22)
+
+Radio song identification: the sample from the song start is now up to
+90 s long and is fingerprinted in up to three windows (start offsets 0, 12
+and 24 s, 60 s each); each window is looked up with the guessed track
+lengths. Helps when the start of the sample contains the end of the previous
+song or a jingle. The sample provider now receives the stop event.
+
+### 1.3.022 (2026-10-22)
+
+Device log (1.3.021): files are identified correctly (Ace of Base, 97-99 %).
+Radio failed: the sample was the last N seconds, so it began mid-song or at
+the end of the previous one, and AcoustID matches best from the song start.
+Now the radio sample starts at the last Icy title change (2 s earlier),
+is waited for until 25 s of the song are buffered (max 45 s wait) and lasts
+up to 60 s. Without an Icy title change (HLS etc.) the last 40 s are used.
+
+### 1.3.021 (2026-10-22)
+
+Device log (1.3.020): fingerprints were made correctly and AcoustID answered
+"ok" but with no results. Cause: the `duration` sent to AcoustID must be the
+length of the whole track, not of the sample. Files now send the real track
+length; for radio (unknown length) typical song lengths 120-420 s are tried
+one after another. Radio sample lengthened to 40 s.
+
+### 1.3.020 (2026-10-22)
+
+Device log (1.3.019, Vu+ Uno4K SE) showed: bundled fpraw-arm runs, gst-launch-1.0
+decodes, but this ffmpeg has no raw `s16le` muxer. Decoder order is now gst
+first, then ffmpeg (WAV output, header stripped). The log also shows the
+fingerprint head and the AcoustID reply (scores / recording counts, API
+errors) to find out why nothing was matched.
+
+### 1.3.019 (2026-10-22)
+
+Song identification diagnostics: the decoder output is now read by the
+plugin itself; the log shows the sample size, the PCM byte count, the
+decoder's exit code and its stderr, so a "not recognized" result can be
+traced to the failing step. ffmpeg runs with `-v error`.
+
+### 1.3.018 (2026-10-22)
+
+**Song identification without fpcalc.** Receivers have no `fpcalc` or
+Chromaprint package, so the plugin now bundles its own fingerprint tool.
+- `src/bin/fpraw-arm`, `fpraw-mipsel`, `fpraw-aarch64` (+ `fpraw-x86` for
+  testing): static Chromaprint builds reading raw 11025 Hz mono PCM from
+  stdin. Output verified identical to fpcalc's under qemu on all targets.
+  The right build is picked from the ELF header and test-run (`-v`); the
+  executable bit is set at first use.
+- PCM comes from ffmpeg when present, otherwise `gst-launch-1.0`
+  (decodebin ! audioconvert ! audioresample ! S16LE/11025/mono ! fdsink).
+  A real `fpcalc` (configured path / PATH) is still used first if found.
+- Bundled default AcoustID key (obfuscated like the other bundled keys);
+  a key in Settings overrides it.
+- New messages for "tool does not run" and "no decoder"; the log
+  ([SongID]) names the build, CPU and decoder used.
+- Pure-Python fallback not implemented (only if the binaries fail on a
+  real device).
+- Recipe: package is no longer pure noarch in content (binaries inside).
+
+### 1.3.017 (2026-10-22)
+
+**Song identification (test build).** Per direct request, modelled on
+pyacoustid. OK menu > "Identify song" (while a station or a local file
+plays) fingerprints an audio sample with Chromaprint's `fpcalc` tool and
+looks it up from the AcoustID service; the result (artist - title,
+album, match percentage) is shown in a message.
+- Radio: the last ~25 s of the time shift buffer (works for HLS too), or
+  a fresh 25 s capture of the stream when time shift is off (not HLS).
+- Local files: the file itself (first 60 s). Remote podcast episodes are
+  not supported.
+- Needs the user's own free AcoustID application key (Settings:
+  "AcoustID application key", from acoustid.org/new-application) and the
+  `fpcalc` tool installed on the receiver (found automatically, or set
+  "fpcalc path"). No Python dependencies (urllib only). The receiver
+  needs internet access to api.acoustid.org.
+
+---
+
+### 1.3.016 (2026-10-21)
+
+**Front panel text.** Per direct request. The receiver's front display
+(which shows the screen title) now shows what is playing instead of the
+plugin name and version: "Artist - Title" for files and podcasts,
+"Station: now playing" for radio, prefixed with "|| " while paused and
+"REC " while recording. With nothing playing it shows the plugin name and
+version as before. Implemented by keeping MainScreen's title equal to
+this text (MainScreen._setFrontPanelText). A custom front-panel layout
+per display model is not included.
+
+---
+
+### 1.3.015 (2026-10-21)
+
+**Track details in the playlist view; Internet Radio choice opens the
+station browser while a station plays.** Per direct request.
+- Playlists: with the Tracks column focused, the information area at the
+  bottom shows the highlighted entry's details: for files artist, album,
+  title and duration; for podcast episodes podcast, episode and duration;
+  for radio recordings station, file name and recording length; for
+  radio favorites the same station details as the station browser
+  (codec, bitrate, country, language, tags).
+- Source menu (the "What would you like to open?" choice): choosing
+  Internet Radio while a station is already playing opens the station
+  browser instead of restarting the last station.
+
+---
+
+### 1.3.014 (2026-10-20)
+
+**Cover art stopped loading after playing from the playlist.** The
+1.3.013 log showed every later decode failing: when a queued decode was
+started in the loader's callback, the finished result had not been
+collected with getData(), and ePicLoad refuses new work until it is.
+The callback now collects (and discards) the old result before starting
+the newer decode.
+
+---
+
+### 1.3.013 (2026-10-20)
+
+**Cover art disappeared (regression of 1.3.012).** The queued decode
+was started from inside ePicLoad's own callback, which the loader
+rejects, and the failure hid the cover (also for local music). A queued
+or rejected decode is now retried 200 ms later, up to 8 times, before the
+cover is hidden.
+
+---
+
+### 1.3.012 (2026-10-20)
+
+**Cover art decode race and station index.** The 1.3.011 log showed the
+real causes:
+- Two cover-art decodes started within milliseconds (once when playback
+  starts, once after the playlist/search screen closes) and ePicLoad
+  rejected the second ("startDecode() reported failure"), so the new
+  favicon never appeared. A decode is now queued while one is running.
+- The station boxes and the information panel show
+  `_radio_list[_radio_index]`; after playing from a favorites list the
+  index still pointed at the previous station. It now points at the
+  station that is playing (History is used if it is not in the active
+  list).
+
+---
+
+### 1.3.011 (2026-10-20)
+
+**Station details and favicon after playing from other screens.**
+- Starting a station from a radio favorites list in the playlist view
+  changed the audio but not the station details on the main screen;
+  MainScreen now learns which station is playing (the active list is
+  kept).
+- After choosing a station in the Internet Radio search the details were
+  updated but the favicon could be the previous station's; MainScreen
+  now uses the fully prepared station (InternetRadioManager.
+  getLastPrepared()) instead of the lighter history entry, and reloads
+  the cover.
+
+---
+
+### 1.3.010 (2026-10-20)
+
+**Time shift: FLAC and Ogg stations resume after pause.** The 1.3.009
+log showed GStreamer rejecting a FLAC stream started from the middle of
+the buffer ("Could not determine type of stream"). The time shift now
+remembers the stream header (FLAC metadata blocks / Ogg header pages)
+and sends it first whenever playback or a recording starts from the
+middle of the buffer; Ogg streams are also started at a page boundary.
+HLS pause/rewind confirmed working.
+
+---
+
+### 1.3.009 (2026-10-19)
+
+**Time shift for HLS stations.** Per direct request. The HLS follower
+moved to its own module (hls_support.py) and is shared by recording and
+time shift. HLS stations are now buffered like other stations: pause,
+rewind, jump to live and recording from the time shift all work. The
+live edge is held back by about one segment so playback does not run dry
+between segments.
+
+---
+
+### 1.3.008 (2026-10-19)
+
+**HLS radio recording; FF goes live.** Per direct request.
+- Start recording now works for HLS (.m3u8) stations. MediaPlayer3
+  follows the playlist itself (no ffmpeg needed on the receiver):
+  picks the audio-only variant of a master playlist, downloads the
+  segments as they appear and writes the audio into one .aac / .mp3 (or
+  .m4a) file, which is added to "Recordings (Radio)". MPEG-TS segments
+  are unpacked to plain audio. Encrypted HLS streams (AES-128 /
+  SAMPLE-AES) are refused with a message.
+- Time shift: pressing FF when the delay is not more than the seek step
+  (e.g. under 30 s) now jumps straight to live (delay 0) instead of
+  stopping at 3 seconds.
+- Time shift itself still does not buffer HLS stations (they play
+  directly).
+
+---
+
+### 1.3.007 (2026-10-18)
+
+**Time shift: pause and rewind keys now work.** The 1.3.006 device log
+showed MainScreen still blocking both for radio: PAUSE stopped the
+stream (ending the time shift) and the seek keys returned early.
+Both now go to the time shift buffer while it is active. Also, stopping
+a time shift no longer blocks the UI for a few seconds on https streams
+(the connection is closed in the background).
+
+---
+
+### 1.3.006 (2026-10-18)
+
+**Radio time shift (test build, not yet confirmed on a device).** Per
+direct request; the version stays in the 1.3 series until everything has
+been tested on the other image types too.
+- While an Internet Radio station plays, the stream is buffered on disk
+  (hidden `.timeshift` folder inside the recording folder) and the player
+  plays it through a small local relay. The buffer is limited by length
+  (setting "Time shift length (minutes)", default 120) and deleted when
+  playback stops or the station changes.
+- The main view's total time grows while you listen; the remaining time
+  shows the delay behind live. PAUSE stops the playhead (and the audio);
+  the delay grows meanwhile. FF / RW (the seek keys) move through the
+  buffer; LEFT / RIGHT still change the radio list.
+- OK menu: "Jump to live" appears when you are more than 3 seconds
+  behind.
+- Start recording with time shift history asks: from the start of the
+  time shift, or from now. The recording is read from the buffer.
+- Stream titles (Icy) are kept in sync with the playhead.
+- Streams that cannot be buffered (HLS, playlists) play directly as
+  before. If the buffer fails (disk full, connection lost), a message is
+  shown and the station continues directly.
+- New settings: "Radio time shift" (default yes) and "Time shift length
+  (minutes)". Needs a recording folder on disk/USB (not /tmp).
+
+---
+
+### 1.3.005 (2026-10-18)
+
+**Deleting recorded files and refreshing the Recordings playlists.**
+Per direct request.
+- In the "Recordings (Radio)" / "Recordings (Podcast)" playlists,
+  removing a track (RED, or Remove from Playlist in the track menu)
+  now asks: "Remove from Playlist" or "Delete file". Delete file asks
+  for confirmation and removes the recording and its information file
+  from the disk, and the track from the playlist. Only files in a
+  Radio or Podcast recording folder can be deleted this way.
+- OK on one of these playlists has a new "Update" choice that adds the
+  files found in the recording folder (Radio or Podcast) that are not
+  in the playlist, e.g. ones removed from it earlier. Podcast files get
+  their title and podcast name from the information file.
+
+---
+
+### 1.3.004 (2026-10-18)
+
+**Podcast download progress and episode information file.** Per direct
+request after device testing of 1.3.003.
+- The download's progress now shows on the Podcasts screen's top line
+  ("Downloading: 45% - <episode>") while you are in that screen (the
+  "DL n%" on the main screen's status line was not visible there), and
+  on the main screen also when nothing is loaded.
+- A downloaded episode gets a small information file next to it
+  (same name, `.json`) holding the podcast name, episode title and
+  description. When the recording is played, the main screen shows
+  them as for a streamed episode: podcast name and episode title in
+  the top boxes, the description as the Information panel's first
+  page, and YELLOW shows it fullscreen.
+
+---
+
+### 1.3.003 (2026-10-18)
+
+**Podcast episode recording.** Per direct request, following the
+confirmed radio recording of 1.3.002.
+- In the Podcasts screen, OK on an episode offers "Record episode".
+  The whole episode is downloaded in the background (the same
+  recording folder as radio, `Podcast` sub-folder) while you keep
+  listening or browsing; the main screen's status line shows "DL n%".
+- File names: `<podcast>_<episode>.<ext>`.
+- A dropped connection is resumed from where it stopped when the
+  server allows it; an incomplete episode is deleted and reported.
+- The finished file is added to the local playlist "Recordings
+  (Podcast)" (created automatically) with the podcast name, so it can
+  be played from the Playlist screen. One download at a time; it
+  continues if you leave MediaPlayer3.
+
+---
+
+### 1.3.002 (2026-10-17)
+
+**Internet Radio recording.** Per direct request.
+- While a radio station plays, the OK menu offers "Start recording" /
+  "Stop recording". The stream is copied to a file by a background
+  thread as received (mp3/aac/ogg, no re-encoding); listening is not
+  affected. The status line shows "REC h:mm:ss <station>" meanwhile.
+- File names: `YYYY-MM-DD-hh.mm_<station>.<ext>` (a number is added if
+  the name is taken), in the `Radio` sub-folder of the recording
+  folder.
+- New setting "Recording folder". Empty (default) = a `Recordings`
+  folder in MediaPlayer3's own data folder on disk/USB; with no disk
+  (data folder in /tmp) recording is refused with a message. Needs
+  100 MB free to start and stops when less than 20 MB is left.
+- A finished recording is added to the local playlist "Recordings
+  (Radio)" (created automatically; "Tallennukset (Radio)" etc. in the
+  other languages), so it can be played from the Playlist screen like
+  any playlist.
+- Recording ends when the station is changed, playback is stopped or
+  MediaPlayer3 is closed. A dropped connection is retried a few times.
+  HLS (m3u8) and playlist-type addresses are reported as not
+  supported. Podcast recording and timeshift come later.
+
+---
+
+### 1.3.001 (2026-10-17)
+
+**YELLOW also closes the fullscreen lyrics/description view.** Per
+direct request: the button that opens the fullscreen view now closes
+it too (OK, EXIT, LEFT and RIGHT still do). The hint line shows it.
+
+---
+
 ### 1.3.000 (2026-10-08)
 
 Public release. Roughly 23 further internal test builds since

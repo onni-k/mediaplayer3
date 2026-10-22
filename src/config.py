@@ -740,6 +740,26 @@ cfg.radio.use_exteplayer3 = ConfigYesNoLocalized(
 # database_update_interval_days is that interval, only consulted
 # when auto-update is on. See internetradio_manager.py's
 # shouldAutoUpdateDatabase() for how these are used together.
+# Round 244 (1.3.006): radio timeshift -- the playing station is
+# buffered on disk so it can be paused and rewound. The buffer lives in
+# a hidden ".timeshift" folder inside the recording folder.
+cfg.radio.timeshift = ConfigYesNoLocalized(
+    default=True
+)
+
+cfg.radio.timeshift_minutes = ConfigInteger(
+    default=120,
+    limits=(5, 480),
+)
+
+# Round 255 (1.3.017): song identification (AcoustID). The key is the
+# user's own application key from https://acoustid.org/new-application .
+cfg.recognition = ConfigSubsection()
+
+cfg.recognition.acoustid_key = ConfigText(default="", fixed_size=False)
+
+cfg.recognition.fpcalc_path = ConfigText(default="", fixed_size=False)
+
 cfg.radio.database_auto_update = ConfigYesNoLocalized(
     default=True
 )
@@ -809,6 +829,16 @@ cfg.podcast.language = ConfigText(
 cfg.podcast.search_limit = ConfigInteger(
     default=1000,
     limits=(10, 1000),
+)
+
+# Round 240, per direct request: folder for recorded radio streams.
+# "" (default) = "<MediaPlayer3 data folder>/Recordings" (disk/USB
+# only; no recording is offered when the data folder is non-persistent).
+cfg.recording = ConfigSubsection()
+
+cfg.recording.folder = ConfigText(
+    default="",
+    fixed_size=False,
 )
 
 # ------------------------------------------------------------------------------
@@ -904,6 +934,10 @@ _ENTRIES: Dict[str, Any] = {
     "radio.resume_on_start": cfg.radio.resume_on_start,
     "radio.auto_resume_on_select": cfg.radio.auto_resume_on_select,
     "radio.use_exteplayer3": cfg.radio.use_exteplayer3,
+    "radio.timeshift": cfg.radio.timeshift,
+    "recognition.acoustid_key": cfg.recognition.acoustid_key,
+    "recognition.fpcalc_path": cfg.recognition.fpcalc_path,
+    "radio.timeshift_minutes": cfg.radio.timeshift_minutes,
     "radio.database_auto_update": cfg.radio.database_auto_update,
     "radio.database_update_interval_days": cfg.radio.database_update_interval_days,
 
@@ -913,6 +947,7 @@ _ENTRIES: Dict[str, Any] = {
     "podcast.podcastindex_api_secret": cfg.podcast.podcastindex_api_secret,
     "podcast.language": cfg.podcast.language,
     "podcast.search_limit": cfg.podcast.search_limit,
+    "recording.folder": cfg.recording.folder,
 
     "logging.developer_level": cfg.logging.developer_level,
     "logging.keep_log_files": cfg.logging.keep_log_files,

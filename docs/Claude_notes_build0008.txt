@@ -1,0 +1,1038 @@
+Claude_notes_build0008.txt
+MediaPlayer3 -- Build 0008 development session notes
+
+Tama tiedosto tayttaa saman roolin kuin Claude_notes_build0007.txt
+mutta Build 0008:lle. Build 0007 oli lopulta VAHVISTETTU VALMIIKSI
+13 laitetestikierroksen jalkeen nelja eri Enigma2-ymparistossa
+(OpenViX, OpenATV, openPLI, OpenBH) -- katso
+docs/Claude_notes_build0007.txt taydelta tarinalta.
+
+Build 0008: alkuperainen toteutus (2026-07-28)
+------------------------------------------------------------------------
+
+Kayttajan pyynto: "Nyt voidaan jatkaa päivitttämistä Build_0008, joka
+tuo mukanaan tuen sanoituksille, Internetradio-ikkunan tyylisen
+musiikkikirjaston hakutoiminnoilla sekä jokaiselle ikkunalle oman
+help-napin takaa aukeavan ohje-ikkunan." Mukana kattava dokumentaatio
+(BUILD_0008_PLAN.md + 5 uutta spec-dokumenttia).
+
+Kolme paaosa-aluetta, toteutettu tassa jarjestyksessa:
+
+1) HELP-jarjestelma (HelpManager + HelpScreen + jokaiselle ruudulle)
+------------------------------------------------------------------------
+
+- HelpManager: lataa resources/help/<screen_id>.md -tiedostot,
+  renderöi kevyen Markdown-osajoukon (otsikot/listat/koodilohkot)
+  luettavaksi tavalliseksi tekstiksi, koska Enigma2:n Label-widgetit
+  eivat osaa oikeaa Markdown-muotoilua. Testattu erikseen: otsikoiden
+  poiminta, listat, koodilohkot, tyhjien rivien tiivistys, puuttuvan
+  dokumentin varafallback.
+- HelpScreen: yleiskayttoinen, vieritettava dokumenttikatselin,
+  rakennettu SUORAAN DeveloperScreenin jo toimivaksi todistetun
+  vieritysmallin paalle (UP/DOWN rivi, LEFT/RIGHT sivu,
+  "(eka-vika / yhteensa)" -indikaattori).
+- HELP-nappi kytketty JOKAISEEN kahdeksaan ruutuun: MainScreen,
+  BrowserScreen, PlaylistScreen, RadioBrowserScreen, SettingsScreen,
+  DeveloperScreen, MainMenu, (myohemmin) MusicLibraryScreen.
+- UUSI HELP_KEY_ACTIONS compatibility.py:hyn -- REHELLISESTI merkitty
+  ALUSTAVAKSI/VARMISTAMATTOMAKSI, koska Build 0008:lla EI OLE VIELA
+  YHTAAN laitetestikierrosta. Odotetaan tarvitsevan korjausta oikean
+  laitelokin perusteella, aivan kuten RADIO/CH+/CH-/INFO tarvitsivat
+  build 0007:ssa (jopa kaksi-kolme kierrosta per nappain).
+- Testattu KATTAVASTI: kaikki 7 (myohemmin 8) ruutua vahvistettu
+  sisaltavan oikean HelpActions-kontekstin JA oman, todellisen
+  (ei-fallback) ohjedokumenttinsa.
+
+2) LyricsManager + MainScreenin infopaneeli
+------------------------------------------------------------------------
+
+- metadata.py laajennettu: ID3v2 USLT-kehykset (MP3) JA FLAC/Ogg
+  Vorbis "LYRICS"/"UNSYNCEDLYRICS" -kommenttikentat molemmat
+  taytt avat UUDEN metadata["lyrics"]-kentan. EI lisatty FIELDS-
+  listaan (ei nayteta yleisessa metadata-nakymassa). USLT
+  uudelleenkaytti OLEMASSA OLEVAA _decodeCommentFrame()-funktiota,
+  koska USLT ja COMM jakavat saman
+  encoding+language+description+text-rakenteen.
+- Testattu SYNTEETTISELLA binaaridatalla molemmat polut (Vorbis-
+  kommentit JA ID3v2 USLT) -- molemmat vahvistettu oikein toimiviksi.
+- LyricsManager: getLyrics(filepath) -- prioriteettijarjestys
+  TASMALLEEN spekin mukaan: upotettu -> .lrc -> .txt -> "ei
+  saatavilla". LRC-jasennin tukee OIKEITA aikaleimoja
+  ([mm:ss.xx]-muoto, vaihteleva desimaalien maara normalisoitu
+  oikein), ohittaa metadata-tagit ([ar:...] tyyliset) OIKEIN.
+  getCurrentLine() loytaa aktiivisen rivin annetulla
+  toistoajalla. Testattu KATTAVASTI: LRC-jasennys, rivihaku eri
+  ajanhetkilla, TXT-varajarjestely, "ei saatavilla" -tapaus, tyhja
+  polku.
+- MainScreeniin UUSI infopaneeli (alaoikea): TEXT-nappi kiertaa
+  Lyrics -> Metadata -> Codec Information -> Lyrics... UUSI
+  TEXT_KEY_ACTIONS (myos alustava/varmistamaton).
+- MainScreeniin UUSI queue-esikatselu (alavasen): edellinen/seuraava
+  kappale (paikallinen, UUSI
+  PlaybackController.getAdjacentFiles()-metodi) TAI edellinen/
+  seuraava asema (radio, kayttaa olemassa olevaa
+  _radio_list/_radio_index-tilaa).
+- TARKEA MUISTUTUS KIERROS 13:STA: molemmat uudet widgetit
+  (queue_preview, info_panel) rekisteroitiin HUOLELLISESTI seka
+  skin-XML:aan ETTA Python-puolelle (self["queue_preview"] =
+  Label("")) -- vältettiin uusintaminen Build 0007 kierros 13:n
+  header_background-virheesta (widget skin-XML:ssa mutta ei
+  Python-rekisterointia).
+- Testattu KATTAVASTI: infopaneelin kierto kaikkien kolmen nakyman
+  lapi, queue-esikatselu SEKA paikalliselle etta radio-tapaukselle
+  (loydettiin ja korjattiin yksi TESTI-eristysongelma:
+  playRadioStation() paivittaa _radio_list:n OIKEASTA
+  suosikkivarastosta, ei testissa manuaalisesti asetetusta --
+  EI TODELLINEN BUGI, korjattu testin omassa toteutuksessa).
+
+3) LibraryManager + MusicLibraryScreen (suurin osa-alue)
+------------------------------------------------------------------------
+
+- UUSI cfg.library.scan_directory -asetus, TARKOITUKSELLA erillinen
+  Browserin general.startup_directory:sta (spekin oma vaatimus:
+  "Music Library is intentionally separated from Browser"),
+  oletuksena sama kansio kuitenkin kayttajan mukavuudeksi.
+- LibraryManager: skannaa scan_directory:n rekursiivisesti,
+  lukee JOKAISEN tuetun audiotiedoston metadatan OLEMASSA OLEVALLA
+  metadata.py-lukijalla (EI kolmannen osapuolen riippuvuutta,
+  kuten koko projektin periaate on ollut alusta lahtien). Indeksoi
+  artisti/albumi/kappale/genre/vuosi -tasoilla, tukee
+  osamerkkijonohakua, generoi PlaybackQueue-listoja (VAIN
+  tiedostopolkuja, EI koskaan soita itse -- BrowserScreen/
+  PlaylistScreen/RadioBrowserScreen -kaytannon mukaisesti).
+- LOYDETTY JA KORJATTU BUGI TESTAUKSEN AIKANA: tagittomat tiedostot
+  nayttivat yleisen "Unknown"-arvon (metadata.py:n oma
+  paikkamerkki, joka on EI-TYHJA merkkijono) OMIEN
+  "Unknown Artist"/"Unknown Album"-nimikkeiden SIJASTA, koska
+  `value or default` ei koskaan laukea kun `value` on jo
+  totuusarvoisesti "tosi" (ei-tyhja). Lisatty _orDefault()-
+  apumetodi joka tarkistaa SEKA tyhjyyden ETTA metadata.UNKNOWN-
+  arvon eksplisiittisesti. Testattu MOLEMMAT polut: tagittomat
+  tiedostot (nayttavat nyt oikein "Unknown Artist" jne.) JA
+  syntetisoitu OIKEASTI tagitettu FLAC-tiedosto (todellinen
+  ARTIST/ALBUM/TITLE/GENRE/DATE-data VORBIS_COMMENT-lohkossa) --
+  vahvistettu etta korjaus EI riko oikean metadatan poimintaa.
+- MusicLibraryScreen: kolmipaneelinen (Artistit/Albumit/Kappaleet)
+  selain, navigointimalli SUORAAN RadioBrowserScreenilta kopioitu
+  (LEFT/RIGHT paneelin vaihto, UP/DOWN liike, CH+/CH- 10 kerrallaan,
+  OK soittaa valinnan tasolla, INFO hakee nimella, MENU avaa
+  kirjaston paivityksen/paavalikon). Alkulataus JA jokainen
+  uudelleenskannaus kayttaa SAMAA "odota hetki" -viesti + viivastetty
+  ajastin -mallia joka korjasi RadioBrowserScreenin OIKEAN
+  kilpailutilanteen build 0007:ssa -- sovellettu tassä ENNAKOIVASTI,
+  koska koko musiikkikirjaston skannaus on VIELA selvemmin hidas/
+  salpaava operaatio kuin verkkohaku.
+- Lisatty "Music Library" -valikkokohta PAAVALIKKOON (Soittolistojen
+  ja Internetradion valiin, spekin oman jarjestyksen mukaisesti) SEKA
+  MainScreenin kaynnistysvalikkoon.
+- Testattu KATTAVASTI: koko kirjastonluku-/selailu-/soittoketju,
+  HELP-nappi, MENU-toiminnot, navigointi paneelien valilla.
+
+Kattava lopputesti
+------------------------------------------------------------------------
+
+Ajettiin YHTEINEN end-to-end-regressiosarja joka kattaa KAIKKI kolme
+osa-aluetta SAMANAIKAISESTI: kaynnistysvalikko (nyt sisaltaa Music
+Libraryn), paavalikko (nyt sisaltaa Music Libraryn), koko
+MusicLibraryScreen-kierto, TEXT-nappin kierto MainScreenilla, HELP-
+nappi KAIKISSA kahdeksassa ruudussa yhdessa istunnossa, seka koko
+plugin.main()-savellys. KAIKKI lapaisty ilman virheita.
+
+REHELLINEN, TARKEA HUOMIO KOKO BUILD 0008:STA
+------------------------------------------------------------------------
+
+TOISIN KUIN build 0007 (13 laitetestikierrosta, nelja vahvistettua
+ymparistoa), BUILD 0008 EI OLE VIELA SAANUT YHTAAN OIKEAA
+LAITETESTAUSTA. Kaikki tama on todennettu VAIN laajassa mutta
+SIMULOIDUSSA stub-ymparistossa. Erityisesti:
+
+    - HELP-nappaimen ja TEXT-nappaimen OIKEAT toimintonimet ovat
+      PARHAITA ARVAUKSIA established-naming-konventioiden pohjalta
+      (RADIO->"RADIO" jne.), EIVAT vahvistettuja. Build 0007:n
+      kokemus (RADIO/CH+/CH-/INFO tarvitsivat KAIKKI 2-3 kierrosta
+      oikeaa laitelokia ennen kuin edes OIKEAT nimet loytyivat) antaa
+      vahvan syyn olettaa etta sama tapahtuu tassakin.
+    - LRC-synkronoitujen sanoitusten korostus on testattu VAIN
+      syntetisoidulla aikaleimadatalla, ei OIKEAN .lrc-tiedoston
+      kanssa OIKEAN, aidosti etenevan toistoaseman kanssa
+      laitteella.
+    - LibraryManager-skannaus on YKSINKERTAINEN, ei-inkrementaalinen
+      rekursiivinen kavely -- suuri kokoelma voi olla HIDAS
+      skannata; tama on TIETOISESTI rajattu pois taman buildin
+      laajuudesta (spekin oma "Library Updates"-kohta mainitsee
+      taman selvasti tulevaisuuden laajennuksena).
+
+Seuraava askel on kayttajan laitetestaus, jonka jalkeen odotetaan
+SAMANLAISTA korjauskierrosten sarjaa kuin build 0007:ssa.
+
+Laitetestin kierros 1 (2026-07-29, test1.log + test1.jpg + .lrc-tiedosto)
+------------------------------------------------------------------------
+
+Kayttajan palaute: sanoitukset nakyvat ja vaihtuvat LRC-muodossa,
+MUTTA kulkevat 10 sek EDELLA. Kun kappale alkaa, progressbar lahtee
+10 sek kohdalta ja kappale kuulostaa loppuvan kesken. HELP/TEXT-
+nappien nimet loytyivat lokista mutta eivat toimineet. Music library
+aukeaa mutta siihen ei saa lisattya kappaleita. Ehdotus: asetuksiin
+kansiovalitsin Music Librarylle, samaan tapaan kuin Browserilla.
+
+1) SANOITUSTEN 10 SEKUNNIN VIIVE -- TUTKITTU PERUSTEELLISESTI,
+   JUURISYY LOYDETTY: EI OLE UUSI BUILD 0008 -BUGI
+
+   Lokianalyysi: kappaleen OIKEA soittotila-siirtyma
+   (PAUSED -> PLAYING) tapahtuu ajanhetkella 83227.519695. ENSIMMAINEN
+   asemakysely ("Elapsed: 10") tapahtuu VAIN ~0.58 SEKUNTIA
+   MYOHEMMIN, ajanhetkella 83228.096503. Tama tarkoittaa etta
+   PALVELU ITSE raportoi asemaksi 10 sekuntia LAHES VALITTOMASTI
+   soiton alkaessa -- EI etta 10 oikeaa sekuntia olisi kulunut.
+   Seuraavat kyselyt (11, 12, 13...) nousevat NORMAALISTI yhden
+   sekunnin valein, mika vahvistaa etta VAIN ENSIMMAINEN arvo on
+   virheellinen +10 sekunnin verran, ei koko kello.
+
+   VAHVISTUS ETTA TAMA ON YLEINEN AIKA-/ASEMASEURANTA-BUGI, EI
+   SANOITUSTEN OMA VIKA: kayttajan kuvakaappaus nayttaa Elapsed=00:32
+   JA sanoitusrivin "Never could imagine there were only" --
+   tarkistin OIKEAN .lrc-tiedoston: tama rivi on ajastettu
+   [00:29.73]:lle. LyricsManager.getCurrentLine() valitsee OIKEIN
+   VIIMEISEN rivin jonka aikaleima <= annettu elapsed-arvo -- eli
+   JOS elapsed=32 (sellaisena kuin PlaybackController sen
+   RAPORTOI), OIKEA rivi ON juuri tama ("29.73 <= 32", seuraava rivi
+   34.26 > 32). SANOITUSTEN OMA SYNKRONOINTILOGIIKKA ON SIIS TAYSIN
+   OIKEIN -- se vain saa VAARAN elapsed-arvon syotteena.
+
+   JUURISYY ON `compatibility.py`:n `_ptsToSeconds()`/
+   `getPlayPosition()`-ketjussa (PYSYNYT MUUTTUMATTOMANA Build
+   0005:sta lahtien!), EI missaan Build 0008:ssa lisatyssa koodissa.
+   Sanoitusominaisuus VAIN PALJASTI taman ENNESTAAN OLEMASSA OLLEEN
+   epatarkkuuden, koska aiemmin progressbar/aikanaytto olivat AINOAT
+   kayttajat talle arvolle, eika kukaan huomannut ~10 sekunnin
+   poikkeamaa ilman itsenaista, tarkkaa vertailukohtaa (kuten
+   sanoitusten aikaleimat nyt tarjoavat).
+
+   EN TEHNYT SOKEAA KORJAUSTA (esim. vahentaa aina kiintea 10
+   sekuntia) koska: (a) tama saattaisi olla TIEDOSTOKOHTAINEN ilmio
+   (FLAC-tiedostot jotka on puretty CUE-tiedoston avulla albumi-
+   ripista sisaltavat joskus jaannos-SEEKTABLE-metadataa jonka
+   GStreamer voi tulkita OMANA alkupisteenaan), jolloin kiintea
+   -10s korjaus RIKKOISI kaikki MUUT tiedostot jotka EIVAT karsi
+   tasta ilmiosta; (b) en voi olla varma etta TASMALLEEN 10
+   sekuntia on YLEINEN vakio kaikille tiedostoille. Suosittelin
+   kayttajalle testaamaan TOISELLA, eri tavalla koodatulla
+   paikallisella tiedostolla nahdakseen esiintyyko sama ilmio
+   yleisesti vai VAIN tallä tietylla FLAC-tiedostolla.
+
+2) HELP/TEXT-NAPPAIMET EIVAT TOIMI -- TUTKITTU, JUURISYY OSITTAIN
+   SELVILLA, EI VIELA RATKAISTU
+
+   Lokista LOYTYI vahvistus: KEY_HELP -> Binding='('HELP',)' --
+   TASMALLEEN sama nimi jonka olin JO asettanut ENSIMMAISEKSI
+   ehdokkaaksi HELP_KEY_ACTIONS-listassa! Toimintonimi ON siis
+   OIKEIN. SILTI yksikaan "[MainScreen] HELP pressed."
+   -lokirivi EI ilmesty missaan (tarkistettu koko lokista) --
+   TASMALLEEN sama oire kuin build 0007:n CH+/CH-tapauksessa:
+   OIKEA toimintonimi vahvistettu, mutta OMA ActionMap EI SILTI
+   koskaan laukea.
+
+   TAMA VIITTAA VAHVASTI VAARAAN/PUUTTUVAAN KONTEKSTIRYHMAAN
+   ("HelpActions" oli OMA ARVAUKSENI, todennakoisesti EI OLE
+   olemassa oleva Enigma2-konteksti). Toisin kuin CH+/CH- (jolla oli
+   SELVA arkkitehtoninen selitys etuoikeutettuna InfoBarGenerics-
+   tason toimintona), HELP-nappaimella EI OLE vastaavaa ilmeista
+   syyta olla "saavuttamattomissa" -- todennakoisin selitys on
+   YKSINKERTAISESTI etta OIKEAA kontekstinimea EI OLE VIELA LOYDETTY.
+
+   EI YRITETTY LISAA SOKEITA ARVAUKSIA tallä kierroksella, koska
+   build 0007:n kokemus (RADIO/CH+/CH-/INFO) osoitti etta
+   LUOTETTAVA ratkaisu vaatii OIKEAN, RAA'AN eActionMap/
+   InfoBarGenerics-kontekstidumpin (ei pelkkaa yksittaisen
+   nappainpainalluksen Binding-riviä) -- tallä kierroksella
+   saatavilla ollut loki EI sisaltanyt taman tasoista
+   yksityiskohtaa. Pyydetty kayttajalta jos mahdollista.
+
+   TEXT-nappainta EI naytetty painetun lokissa lainkaan -- ei voida
+   viela sanoa mitaan sen kaytoksesta.
+
+3) MUSIC LIBRARY "EI SAA LISATTYA KAPPALEITA"
+
+   TODENNAKOISIN SELITYS: cfg.library.scan_directory oletuksena
+   SAMA kuin Browserin oma general.startup_directory, mutta
+   kayttajalla EI OLLUT MITAAN TAPAA MUUTTAA sita omaan
+   musiikkikansioonsa (vain tekstikentta asetuksissa, ei
+   kansioselainta). Kayttaja EHDOTTI ITSE ratkaisun: "Asetuksissa
+   voisi olla music library kansion valinta samalla tavalla kuin on
+   browserilla."
+
+   KORJAUS: lisatty "Music Library directory" -asetusrivi
+   SettingsScreeniin, kayttaen TASMALLEEN samaa LocationBox-
+   kansioselainta kuin Startup directory jo kaytti.
+   Yleistettiin _openDirectoryPicker()/_directoryPicked() toimimaan
+   KUMMANKIN asetuksen kanssa (aiemmin kovakoodattu vain Startup
+   directorylle).
+
+   Testattu KATTAVASTI: uusi asetusrivi nakyy listassa oikeassa
+   kohdassa, OK-nappi avaa kansioselaimen OIKEALLE kohteelle,
+   valinta paivittaa cfg.library.scan_directory:n oikein, JA
+   Startup directory -toiminnallisuus VAHVISTETTU ETTA SAILYI
+   MUUTTUMATTOMANA (ei regressiota).
+
+   HUOM: taman lisaksi kayttajan on VIELA erikseen kaytettava
+   MusicLibraryScreenin MENU-toimintoa "Update Library" (tai
+   ensimmainen avaus skannaa automaattisesti) jotta uusi kansio
+   OIKEASTI skannataan -- pelkka kansion ASETTAMINEN ei viela tuo
+   kappaleita nakyviin ilman skannausta. Tama saattaa olla OSA
+   kayttajan kokemaa "ei saa lisattya kappaleita" -ongelmaa, VAIKKA
+   kansiovalitsin nyt korjaakin ITSE VALINNAN puutteen.
+
+Testaus
+-------
+
+Koko regressiosarja + plugin.main() ajettiin lapi ilman virheita.
+Music Library -kansiovalitsin testattu erikseen paasta paahan,
+mukaan lukien Startup directory -regressiotesti.
+
+Laitetestin kierros 2 (2026-07-29, test2_openvix.log + test2_openatv.log + kuvakaappaus)
+------------------------------------------------------------------------------------------
+
+Kayttajan palaute: OpenATV-puolella ajoitusvirhe TOISEEN suuntaan
+(progressbar jaa nayttamaan 1 sek kun kappale loppuu). Kelaus menee
+joskus yli minuutin vaikka pitaisi mennä 30 sek. TEXT- ja HELP-
+nappaimet eivat toimineet kummassakaan ymparistossa; OpenATV:lla
+HELP toi esiin virtuaalinaeppäimiston. Music library ei loydä mitaan
+vaikka hakemisto on valittu. Music Library/Lyrics eivat tuota
+lokimerkintoja -- pyydetty verbose-tason lokitusta.
+
+1) HELP/TEXT-NAPPAIMET -- TAYSIN RATKAISTU, TAYDELLA VARMUUDELLA
+
+   OpenATV-loki sisalsi TAYDELLISEN, RAA'AN staattisen ActionMap-
+   kontekstidumpin (kuten build 0007:n RADIO/CH+/CH-/INFO-tapaukset
+   lopulta ratkaisseet lokit). Tama antoi LOPULLISEN vastauksen:
+
+   HELP: 'HelpActions'-konteksti (kierros 1:n oma arvaukseni) ON
+   OIKEIN OLEMASSA, mutta TOIMINTONIMI OLI VAARIN -- oikea nimi on
+   "displayHelp" (ja "displayHelpLong" pitkalle painallukselle), EI
+   "HELP". Tama selittaa TAYDELLISESTI kierros 1:n epaonnistumisen:
+   InfoBarGenericsin oma "Binding='('HELP',)'" -rivi oli VAIN sen
+   OMA sisainen resoluutiotaulu, EI todiste siita mita MIKAAN
+   ActionMap-konteksti OIKEASTI maarittelee -- SAMA erottelu joka
+   vei useita kierroksia RADIO/CH+/CH- -tapauksissa build 0007:ssa.
+
+   TEXT: sama dumppi paljasti KYMMENIA eri konteksteja KEY_TEXT:lle,
+   JOKAINEN eri toimintonimella. Valitsin "MediaPlayerActions" ->
+   "subtitles" koska "MediaPlayerActions" ON JO VAHVISTETUSTI
+   AKTIIVINEN MainScreenin omassa ActionMapissa (kaytetaan PLAY/
+   PAUSE/STOP:lle) -- kaikki MUUT dumpin kontekstit (EPG, DVD-
+   soitin, Teletext, elokuvalistat) kuuluvat ruututyyppeihin joita
+   MediaPlayer3 EI KOSKAAN avaa.
+
+   Korjaus: HELP_KEY_ACTIONS ja TEXT_KEY_ACTIONS paivitetty
+   VAHVISTETUILLA nimilla ensimmaisiksi ehdokkaiksi. Testattu:
+   molemmat listat palauttavat oikeat arvot ensimmaisina.
+
+2) MUSIC LIBRARY "EI LOYDA MITAAN" -- TODELLINEN BUGI LOYDETTY JA
+   KORJATTU
+
+   Loki paljasti TASMALLISEN syyn: "[Config] Unknown configuration
+   key: library.scan_directory" -- KRIITTINEN LOYDOS. config.py:n
+   ConfigurationManager.get()/set() EIVAT hae arvoja dynaamisesti
+   cfg-objektin lapi, vaan ERILLISESTA `_ENTRIES`-hakurekisterista
+   (litteä dict). Kierros 1:ssa lisasin `cfg.library.scan_directory`
+   -asetuksen OIKEIN cfg-objektiin, MUTTA UNOHDIN lisata sen
+   `_ENTRIES`-rekisteriin -- pelkka cfg-attribuutin julistaminen EI
+   RIITA. `LibraryManager.scan()` kutsuu
+   `config_manager.get("library.scan_directory", "")`, joka EI
+   loytanyt merkintaa ja palautti VARAOLETUKSEN (tyhja
+   merkkijono) -- selittaen TAYDELLISESTI "Scan directory not
+   available: ''" -rivin ja sita seuraavan 0 loydetyn kappaleen.
+
+   Korjaus: lisatty "library.scan_directory" `_ENTRIES`-dictiin.
+   RISTIINTARKASTIN SYSTEMAATTISESTI kaikki cfg.*-julistukset koko
+   config.py:ssa `_ENTRIES`-rekisteria vasten skriptilla -- TAMA OLI
+   AINOA puuttuva merkinta, ei muita vastaavia bugeja loytynyt.
+
+   Testattu: config_manager.get("library.scan_directory") palauttaa
+   nyt OIKEAN arvon, ja koko skannausketju loytaa nyt kappaleet
+   oikein.
+
+3) VERBOSE-LOKITUS LISATTY (kayttajan pyynnosta)
+
+   LibraryManager.scan(): jokainen indeksoitu tiedosto lokitetaan
+   VERBOSE-tasolla (polku + artisti/albumi/genre/vuosi), ja
+   skannauksen lopuksi YHTEENVETO (kappale-/artisti-/albumi-/genre-/
+   vuosimaarat). LibraryManager.search(): hakusana + kentta + osuma-
+   maara. LyricsManager.getLyrics(): mika lahde loytyi (upotettu/lrc/
+   txt) + koko-/rivimaara, TAI selkea "ei loytynyt, tarkistettu
+   kaikki kolme lahdetta" -viesti. LyricsManager.getCurrentLine():
+   aktiivinen rivi + ajanhetki jokaisella haulla.
+
+   Testattu: kaikki neljä lokitustyyppia vahvistettu toimivan
+   oikein DEVELOPER_MODE_VERBOSE-tasolla.
+
+4) SEEK-/AJOITUSONGELMAT ("kelaus yli minuutin", "progressbar jaa 1
+   sek:iin") -- TUTKITTU, EI VIELA KORJATTU (TIETOISESTI)
+
+   OpenATV-loki sisalsi VAHINGOSSA arvokkaan LOYDON: Python-
+   sailojen (StackTrace-moduulin) tallennettu KUTSUPINO nayttaa
+   TARKALLEEN etta `seekForwardShortPressed()` -> `_seek()` ->
+   `self._playback.tick()` -> `_handleTrackFinished()` -> `stop()` on
+   OIKEA, olemassa oleva kutsuketju: `_seek()` kutsuu `tick()`:ia
+   VALITTOMASTI kelauksen jalkeen, ja `tick()` TARKISTAA aina onko
+   `elapsed >= duration` -- jos TAMA tapahtuu VAARIN LAHELLA kappaleen
+   loppua (esim. kelauksen seurauksena TAI kierros 1:ssa loydetyn
+   PTS-epatarkkuuden takia), se voi laukaista `_handleTrackFinished()`
+   -> `stop()`/`nextTrack()` ODOTTAMATTA kesken normaalin kelauksen.
+
+   TAMA SAATTAA selittaa MOLEMMAT tallä kierroksella raportoidut
+   oireet:
+     - "Kelaus yli minuutin": jos kelaus laukaisee VAHINGOSSA
+       track-finished-kasittelyn (koska elapsed/duration-tarkkuus on
+       epaluotettava, kuten kierros 1 osoitti), SEURAAVA kappale voi
+       alkaa soimaan VALITTOMASTI -- kayttaja nakee UUDEN kappaleen
+       ajan/tilan, joka voi NAYTTAA silta etta kelaus "hyppasi"
+       kauemmas kuin pyydettiin.
+     - "Progressbar jaa 1 sek:iin": jos `elapsed`/`duration`-arvot
+       EIVAT KOSKAAN TASMALLEEN tayta `elapsed >= duration` -ehtoa
+       ENNEN kuin GStreamer-putki ITSE lopettaa (esim. koska PTS-
+       muunnos on hieman epatarkka MOLEMMISSA paissa), UI JAA
+       nayttamaan VIIMEISEN onnistuneesti kysytyn arvon ikuisesti --
+       `tick()` on no-op heti kun `self._state != STATE_PLAYING`,
+       joten mikaan EI enaa paivita nakymaa.
+
+   EN TEHNYT SOKEAA KORJAUSTA (esim. `elapsed >= duration - 1`
+   -kynnysarvon lieventamista), koska tama VOISI PAHENTAA kierros
+   1:ssa loydettya "kappale loppuu ennenaikaisesti" -ongelmaa
+   TOISAALLA (koska elapsed ON JO todistetusti joskus liian SUURI,
+   kynnyksen lieventaminen laukaisisi lopetuksen VIELA AIKAISEMMIN).
+   Molemmat oireet nayttavat juontavan SAMASTA perusongelmasta kuin
+   kierros 1:n loydos: PTS-pohjainen asema-/kestoseuranta on
+   epatarkka, joskus +suuntaan (kierros 1, OpenViX), joskus
+   nayttaen JAAVAN JALKEEN (kierros 2, OpenATV) -- todennakoisesti
+   TIEDOSTO- tai LAITEKOHTAINEN vaihtelu GStreamerin oman PTS-
+   raportoinnin tarkkuudessa.
+
+   PYYDETTY kayttajalta lisatietoa: esiintyyko sama ilmio JOKAISELLA
+   kappaleella vai vain OSALLA (esim. onko kyse nimenomaan CUE-
+   puretuista FLAC-tiedostoista)? Toistuuko "kelaus yli minuutin"
+   -ilmio jos Auto Next -asetus on POIS PAALTA (eristaisi onko kyse
+   nimenomaan `_handleTrackFinished()`-laukeamisesta vai jostain
+   muusta)?
+
+Testaus
+-------
+
+Kaikki kolme VARMISTETTUA korjausta (HELP/TEXT-nappaimet, Music
+Library -asetusbugi) testattu erikseen JA yhdessa. Verbose-lokitus
+testattu molemmille moduuleille. Koko plugin.main()-regressiosarja
+ajettiin lapi ilman virheita.
+
+Laitetestin kierros 3 (2026-07-31/08-01, test3_openvix.log + ajoitus.txt)
+------------------------------------------------------------------------------
+
+Kayttaja testasi TOISELLA laitteella (VU+ Duo2, eri kaukosaadin).
+Kaikki muu toimi oikein. Aikaleimat hyppivat edelleen: kappale alkaa
+50 sek kohdalla ja loppuu kesken; kelaus hyppaa yli minuutin. Kayttaja
+lahetti myos "ajoitus.txt" -dokumentin loydettyaan sen "ohjeeksi"
+ajoitusongelmaan.
+
+AJOITUS.TXT:N ARVIOINTI -- EPALUOTETTAVA LAHDE, MUTTA IDEA OSUI OIKEAAN
+
+Tunnistin dokumentista SELVAN, todennettavan varoitusmerkin: koodi
+kayttaa JOHDONMUKAISESTI VAARAA tuontipolkua "from Enigma.Components...
+/ from Enigma.Core..." -- OIKEA, koko taman projektin lapi
+VARMISTETTU polku on "from Components... / from enigma import ...",
+EI mitaan "Enigma."-etuliitetta. Tama on vahva merkki etta dokumentti
+on generoitu (esim. tekoalyn toimesta) tarkistamatta oikeaa Enigma2-
+lahdekoodia vasten. Myos "config.plugins.configuration.gstreamer.
+ts_offset"-asetuspolku vaikuttaa keksitylta.
+
+KERROIN TAMAN KAYTTAJALLE SUORAAN JA REHELLISESTI, enka toteuttanut
+koodia sellaisenaan. KUITENKIN yksi KONSEPTI dokumentissa (event-
+pohjainen/validoiva lahestymistapa GStreamerin position-kyselyihin,
+"GStreamer streams get stuck" -ilmio) osoittautui MYOHEMMIN OIKEAKSI
+SUUNNAKSI kun uusi loki analysoitiin tarkemmin.
+
+UUDEN LOGIN ANALYYSI -- LOPULLINEN JUURISYY LOYDETTY
+
+Analysoin KAIKKI 9 kappaleenvaihtoa uudesta lokista Python-
+skriptilla, laskien jokaisen kappaleen "starting pipeline" -ajanhetken
+ja ENSIMMAISEN numeraalisen Elapsed-arvon valisen todellisen
+kelloaikaeron. Tulos oli RATKAISEVA: ensimmaiset elapsed-arvot
+olivat: 12, 0, 17, 49, 15, 41, 14, 42, 41 sekuntia -- TAYSIN
+EPAJOHDONMUKAISIA, EI kiintea siirtyma! Tama sulki pois aiemman
+"tiedostokohtainen CUE-metadata"-teorian (koska yksi kappale [#2]
+nayttaa TAYSIN OIKEIN, 0 sekuntia) ja osoitti TUNNETUN GStreamer/DVB-
+kilpailutilanne-luokan: tuore palvelu voi palauttaa ONNISTUMIS-
+koodin (error_code=0) YHDESSA edellisen soiton JAANNOSARVON kanssa,
+ENNEN kuin oma putkensa on nollannut oman asemaseurantansa.
+compatibility.py:n olemassa oleva error_code!=0 -tarkistus EI voinut
+koskaan havaita tata, koska koodi ON aidosti 0 -- vain ARVO on
+vanhentunut.
+
+KORJAUS (turvallinen, matemaattisesti perusteltu, PERUSTEELLISESTI
+TESTATTU):
+
+    PlaybackController.tick() hylkaa nyt lukeman joka rikkoo
+    yksinkertaisen, TODISTETTAVAN invariantin: kulunut aika EI VOI
+    KOSKAAN ylittaa oikeaa kelloaikaa kappaleen alusta (plus pieni
+    puskurointivara), MUTTA VAIN lyhyen "asettumisikkunan" ajan
+    (POSITION_SETTLING_WINDOW_SECONDS=5) kappaleen alussa. TAMA
+    RAJAUS ON KRIITTINEN: sama invariantti EI PADE yleisesti -- aito
+    eteenpain-kelaus VOI LAILLISESTI tyontaa elapsed-arvon kauas
+    kelloaika-kappaleen-alusta-arvon edelle MILLOIN TAHANSA
+    myohemmin kappaleessa, eika sita SAA KOSKAAN hylata. Rajoittamalla
+    tarkistus VAIN alkuhetkiin (ennen kuin kelaus tyypillisesti
+    tapahtuisi) valtetaan tama.
+
+    Testattu NELJA skenaariota erikseen: (1) vanhentunut roska-arvo
+    heti kappaleen alussa (kuten lokissa) -- OIKEIN hylatty; (2)
+    normaali, uskottava alkuarvo -- OIKEIN hyvaksytty; (3) AITO
+    eteenpain-kelaus asettumisikkunan ULKOPUOLELLA -- OIKEIN EI
+    hylatty (tama olisi ollut VAKAVA regressio jos vaarin toteutettu);
+    (4) pieni AITO kelaus asettumisikkunan SISALLA -- OIKEIN
+    hyvaksytty koska pysyy uskottavuusrajan sisalla.
+
+LAITTEEN/JARJESTELMAN TUNNISTUS KAYNNISTYSLOKIIN (kayttajan pyynnosta)
+
+    Loysin etta compatibility.py:ssa OLI JO valmiina
+    getImageName()/getImageVersion()/getReceiverModel() -metodit
+    (kayttavat Enigma2:n OMAA Components.SystemInfo.BoxInfo-
+    rajapintaa), MUTTA niita EI kaytetty MISSAAN koko koodikannassa!
+    Kytkin ne plugin.py:n kaynnistysbanneriin -- jokainen kaynnistys
+    kirjaa nyt laitemallin, imagen nimen/version ja alustan
+    tiedot, VAIKKA mikaan EI VIELA lue niita takaisin (juuri kuten
+    kayttaja pyysi: "vaikka niita tietoja ei muuten käytettäisiinkään").
+
+Laitetestin kierros 4 (2026-08-01, kayttajan oma diagnostinen ehdotus)
+------------------------------------------------------------------------------
+
+Kayttaja EHDOTTI ITSE erinomaisen diagnostisen parannuksen: "Lokiin
+voisi verbose asetuksella kirjata arvioidun kappaleen kohdan 1 sek
+välein, joka hyppää kelauksessa asetuksissa määritellyn ajan
+kelaussuuntaan. Näin nähdään tulevista lokeista paljonko aikavirhettä
+on jäljellä kun vertaa sitä gstreamerista saatavaan tietoon, jota
+kannattaa myös edelleen kirjata lokiin."
+
+TOTEUTETTU TASMALLEEN PYYDETYLLA TAVALLA:
+
+    - Uusi `_seek_offset_seconds`-tila PlaybackControllerissa,
+      nollataan jokaisen kappaleen/striimin alussa, KASVATETAAN/
+      VAHENNETAAN jokaisessa seekForward()/seekBackward()-kutsussa
+      TASMALLEEN pyydetylla sekuntimaaralla (jo olemassa oleva
+      asetuksista tuleva arvo, ei uutta koodia sille tarvittu).
+    - `tick()` laskee "arvioidun aseman" = (oikea kelloaika kappaleen
+      alusta) + (kertyneet kelaussiirtymat), TAYSIN RIIPPUMATTOMASTI
+      GStreamerin omasta raportoinnista.
+    - JOKAINEN tick()-kutsu kirjaa VERBOSE-tasolla SEKA arvioidun
+      etta GStreamerin OMAN raportoiman arvon RINNAKKAIN --
+      MYOS silloin kun GStreamerin arvo hylataan epauskottavana
+      (kierros 3:n tarkistus), koska JUURI SE on hyodyllisin
+      tapaus nahda vertailu.
+
+    Testattu KOLME skenaariota: normaali tick (arvioitu=5,
+    GStreamer=5, tasmaa), kelauksen jalkeinen tick (arvioitu=20
+    [5+15s kelaus], GStreamer=20, tasmaa), ja epauskottava lukema
+    (arvioitu=0, GStreamer=49 -- ero NAKYY SELVASTI lokissa, JA
+    hylkaysviesti tulostuu vieressa).
+
+Testaus (kierrokset 3-4 yhdessa)
+---------------------------------
+
+Koko plugin.main()-regressiosarja ajettiin lapi ilman virheita
+molempien kierrosten jalkeen. Kaikki position-tarkistuksen ja
+arvioidun-aseman-lokituksen skenaariot testattu erikseen ja
+yhdessa.
+
+Laitetestin kierros 5 (2026-08-01, test4_openvix.log)
+------------------------------------------------------------------------------
+
+Kayttaja kysyi SUORAAN: "Kokeilin myös pausea. Olikohan se huomioitu
+aikaseurannassa?" -- ERINOMAINEN kysymys joka paljasti TODELLISEN,
+vahvistetun aukon kierros 3-4:n toteutuksessa.
+
+LOYDOS 1: PAUSE EI OLLUT HUOMIOITU LAINKAAN
+
+    Tarkistin oman koodini: `_track_start_wall_time`-pohjainen
+    "arvioitu asema" laski PELKASTAAN "time.time() -
+    track_start_wall_time" -- EI VAHENTANYT tauolla vietettya aikaa
+    MITENKAAN. Jos kayttaja pysayttaa toiston N sekunniksi, OIKEA
+    kelloaika jatkaa etenemistaan mutta kappaleen OMA asema EI --
+    tarkoittaen etta "arvioitu asema" ajautuisi N sekuntia liian
+    SUUREKSI jokaisen tauon jalkeen, mika olisi voinut alkaa
+    VIRHEELLISESTI hylata TAYSIN OIKEITA GStreamer-lukemia tauon
+    jalkeen.
+
+    KORJAUS: lisatty `_paused_seconds_total`/`_pause_wall_time`-tila,
+    paivitetaan `pause()`/`resume()`-metodeissa. "Arvioitu asema"
+    -laskukaava vahentaa nyt kertyneen tauko-ajan.
+
+LOYDOS 2 (OMA, ITSENAINEN ANALYYSINI UUDESTA LOGISTA): KIINTEA
+5 SEKUNNIN "ASETTUMISIKKUNA" EI RIITTANYT
+
+    Ennen kuin vastasin kayttajan pause-kysymykseen, analysoin UUDEN
+    lokin "Estimated position" vs "GStreamer-reported" -rivit
+    yksityiskohtaisesti. LOYSIN etta YKSI kappale (alkoi ~5208.6)
+    nayti VAARAN ~52 sekunnin perustason JOKA PYSYI TAYSIN
+    MUUTTUMATTOMANA koko 5 sekunnin asettumisikkunan ajan (hylatty
+    OIKEIN joka kerta: "18s reported... 52s... 53s... 53s... 54s"),
+    mutta HETI kun ikkuna sulkeutui (wall_clock_elapsed >= 5.0s),
+    SEURAAVA lukema (55s) HYVAKSYTTIIN OIKEANA -- ja jai siita eteenpain
+    KANTAMAAN tata VAARAA ~50 sekunnin virhetta LOPUN kappaletta,
+    TOISTAEN TASMALLEEN saman "loppuu kesken" -oireen jota kierros 3
+    yritti korjata, VAIN 5 sekuntia viivastettyna.
+
+    TAMA PALJASTAA PERUSTAVANLAATUISEN RAJOITUKSEN: kun GStreamerin
+    OMA asemaseuranta "asettuu" VAARAAN perustasoon, se etenee siita
+    NORMAALISTI (n. +1s/sekunti) -- eika MIKAAN itsenaisyystarkastus
+    JOKA KATSOO VAIN gstreamer-arvoa VOI erottaa "vakaa mutta vaara"
+    -tilaa "vakaasta ja oikeasta" -tilasta, koska molemmat nayttavat
+    IDENTTISILTA IPTC-syotteen perusteella. AINOA tapa erottaa ne on
+    verrata RIIPPUMATTOMAAN vertailuarvoon (kelloaika) -- MUTTA se
+    pitaa tehda JOKAISELLA tick-kutsulla, EI VAIN alun
+    asettumisikkunassa.
+
+KORJAUS (kattava, molemmat loydokset kerralla):
+
+    Poistettu kiintea POSITION_SETTLING_WINDOW_SECONDS kokonaan.
+    tick() vertaa nyt elapsed-arvoa "arvioituun asemaan" (kelloaika -
+    kertynyt tauko-aika + kertynyt kelaussiirtyma) LOPUTTOMASTI, EI
+    VAIN alkuhetkilla. Tama on TURVALLISTA soveltaa loputtomasti
+    (toisin kuin PELKKA kelloaika-kappaleen-alusta -vertailu, joka
+    OLISI hylannyt aidot kelaukset), koska seek- ja tauko-siirtymat
+    PAIVITTYVAT VALITTOMASTI kun kayttaja toimii, EIVAT VASTA
+    kappaleen alussa.
+
+    Testattu PERUSTEELLISESTI NELJA skenaariota: (1) TASMALLEEN
+    lokista loytynyt bugi (52s virhe, pysyy VANHAN 5s-ikkunan
+    ULKOPUOLELLA) -- OIKEIN hylatty LOPUTTOMASTI, ei enaa "vuotoa"
+    ikkunan sulkeuduttua; (2) OIKEA pause()/resume()-sykli OIKEALLA
+    julkisella API:lla (mukaan lukien AITO time.sleep(0.2)
+    todellisen kelloajan kuluttamiseksi) -- position pysyy oikeana
+    lyhyen tauon jalkeen; (3) aito eteenpain-kelaus SYVALLA
+    kappaleessa -- EI hylatty (tarkistettu ettei regressiota
+    tullut); (4) normaali jatkuva toisto ilman taukoa/kelausta --
+    toimii edelleen.
+
+    HUOM: ENSIMMAINEN testiyritys pause-skenaariolle EPAONNISTUI --
+    mutta debuggauksen jalkeen totesin etta VIKA OLI OMASSA
+    TESTISKRIPTISSANI (simuloin tauon KESTOA ilman etta
+    SAMANAIKAISESTI siirsin myos `_track_start_wall_time`-ankkuria
+    vastaavasti taaksepain, jolloin laskennasta tuli sisaisesti
+    epajohdonmukainen) -- EI itse toteutuksessa. Korjasin testin ja
+    vahvistin etta TOTEUTUS oli koko ajan oikein.
+
+Testaus
+-------
+
+Kaikki nelja skenaariota vahvistettu erikseen JA koko
+plugin.main()-regressiosarja ajettiin lapi ilman virheita.
+
+Laitetestin kierros 6 (2026-08-01, test5_openvix.log)
+------------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt ei näy aikaa lainkaan. Joskus kelauksessa
+saattoi tulla näkyviin, mutta silloinkin oli ilmeisesti väärässä
+kohdassa" -- VAKAVA regressio kierros 5:n korjauksesta.
+
+LOYDOS 1: RADIO-KELAUS RIKKOI SEEK-OFFSETIN
+
+    Analysoin lokia ja loysin TASMALLISEN tapahtumaketjun: kayttaja
+    vaihtoi radioasemaa (RIGHT -> "Radio navigation list switched"),
+    UUSI striimi kaynnistyi, ja SITTEN "SEEK FORWARD pressed."
+    laukesi -- VAIKKA radiostriimeilla EI OLE mielekasta
+    aikajanaa kelattavaksi! Tarkistin oman koodini:
+    seekForward()/seekBackward() kasvattivat `_seek_offset_seconds`:ia
+    JO ENNEN kuin edes tarkistivat onnistuiko `seekRelative()`-kutsu
+    -- eli vaikka kelaus striimilla EPAONNISTUISI (tai olisi
+    merkityksetön), offset TURMELTUI silti.
+
+    JUURISYYN LOYSIN LISAKSI ETTA MainScreenin LEFT/RIGHT ON JO
+    radiotietoinen (vaihtaa radiolistoja striimatessa sen sijaan
+    etta kelaisi), MUTTA ERILLISET, omistetut kelausnappaimet
+    (seekForwardPressed/seekBackwardPressed) EIVAT tarkistaneet
+    tata lainkaan.
+
+    KORJAUS (kaksitasoinen): (1) seekForward()/seekBackward()
+    HYLKAAVAT nyt kelauksen KOKONAAN kun `_is_stream` on tosi --
+    striimeilla ei OLE aikajanaa kelattavaksi. (2) Offset
+    kasvatetaan VASTA sen jalkeen kun `seekRelative()`-kutsu on
+    VAHVISTETUSTI onnistunut (aiemmin jarjestys oli vaarinpain).
+    (3) MainScreenin `_seek()` tarkistaa nyt myos
+    `isPlayingStream()`:in ja OHITTAA hiljaisesti (ei nayta "Seek
+    failed" -virhetta, koska tama EI OLE virhe kayttajan
+    nakokulmasta, vain nappain joka ei sovellu striimaukseen).
+
+LOYDOS 2 (ITSENAINEN ANALYYSINI): KIERROS 5:N "HYLKAA LOPUTTOMASTI"
+-STRATEGIA AIHEUTTI OMAN VAKAVAN UX-REGRESSION
+
+    Laskin lokista: 168/198 (85%!) "tick"-kutsusta HYLATTIIN
+    epauskottavina. Loysin ERAAN kappaleen jossa GStreamerin OMA
+    raportoima elapsed JUUTTUI TASAN arvoon "291" (YLI kappaleen OMAN
+    keston, 231 sekuntia!) YLI 20 PERAKKAISEN tick-kutsun ajaksi, kun
+    taas OMA arvioitu asemani nousi normaalisti (189, 190, 191...
+    208). Kierros 5:n "hylkaa loputtomasti" -logiikka toimi TEKNISESTI
+    OIKEIN (ei koskaan hyvaksynyt selvasti vaaraa 291-arvoa) MUTTA
+    TAMAN SEURAUKSENA UI ei nayttanyt MITAAN aikaa TAMAN KOKO PITKAN
+    JAKSON aikana -- kayttajan kannalta PAHEMPI lopputulos kuin
+    hieman epatarkka aika.
+
+    KORJAUS: kun GStreamerin arvo hylataan epauskottavana, tick()
+    KAYTTAA NYT arvioitua asemaa (kelloaika-pohjainen) NAYTOLLE
+    sen sijaan etta jattaisi ajan tyhjaksi -- TAMA arvo on JO
+    todistetusti tarpeeksi tarkka silla PERUSTEELLA etta sita
+    kaytetaan GStreamerin arvon USKOTTAVUUDEN ARVIOIMISEEN
+    ylipaataan. TARKEA VARMISTUS: tama "estimated fallback" -haara
+    PALAA AINA ENNEN kappaleen-loppu-tarkistusta, joten HYLATTY
+    GStreamer-lukema EI VOI KOSKAAN itse laukaista Automaattista
+    Seuraava Kappale -toimintoa -- vain OIKEAKSI VAHVISTETTU
+    GStreamer-arvo voi sen tehda.
+
+Testaus
+-------
+
+    Testattu KATTAVASTI: (1) tarkalleen lokista loytynyt "juuttunut
+    291" -skenaario -- nyt nayttaa jarkevan arvioidun ajan (~189),
+    EI jaa tyhjaksi, EIKA lopeta kappaletta ennenaikaisesti; (2)
+    arvo jatkaa nousuaan normaalisti usean "juuttuneen" tickin
+    yli; (3) kun GStreamer LOPULTA palauttaa uskottavan arvon, se
+    hyvaksytaan taas normaalisti; (4) radiostriimin kelaus palauttaa
+    nyt False eika turmele offsetia; (5) kaikki kierros 5:n
+    regressiotestit (pause/resume, aito paikallisen tiedoston
+    kelaus, normaali toisto) ajettu UUDELLEEN ja vahvistettu etta
+    pysyvat OIKEINA -- yksi testi EPAONNISTUI ALUKSI mutta totesin
+    sen johtuvan OMASTA testiympäristöni puutteesta
+    (compatibility.seekRelative() ei ollut mockattu, joten se
+    palautti False koska oikeaa Enigma2-laitteistoa ei ole
+    stub-ymparistossa) -- EI todellinen regressio, korjasin testin.
+
+    Koko plugin.main()-regressiosarja ajettiin lapi ilman virheita.
+
+Laitetestin kierros 7 (2026-08-01, test6_openvix.log)
+------------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt soittoaika näyttä oikein" -- kierros 6:n
+korjaus vahvistettu toimivaksi peruskaytossa. Kolme jaljella olevaa
+havaintoa: (1) "jäljellä olevassa lukee soittolistassa olevien
+kappaleiden määrä" -- redundanttia bottom-rivin kanssa; (2) EPG-nappi
+nayttaa hetkeksi jaljella olevan ajan mutta palaa kappalenaytt00n; (3)
+kelaus NAYTTAA oikealta mutta AANI hyppaa kappaleen loppuun, vaikka
+pitaisi olla 2 min jaljella. Kayttaja ehdotti ITSE:
+"Pitäisikö muuttaa niin että soitettu aika lasketaan kellosta ja
+jäljellä oleva otetaan gstreamerista?"
+
+LOYDOS: KELAUKSEN JUURISYY -- SEEKRELATIVE() KAYTTI GSTREAMERIN OMAA
+VANHENTUNUTTA SISAISTA VIITEPISTETTA
+
+    Jaljitin lokista TASMALLISEN, matemaattisesti todistettavan
+    ketjun: JUURI ENNEN kelausta, GStreamer OLI JO juuttunut
+    raportoimaan "231" (= kappaleen OMA KESTO, 231 sekuntia!) VAIKKA
+    OMA arvioni osoitti todellisen aseman olevan VAIN ~84 sekuntia.
+    Kayttaja painoi kelaa-eteenpain (+30s asetuksista), ja
+    seurauksena "seekTo()" TAI TARKEMMIN "seekRelative()" -kutsu
+    laski uuden kohteen SUHTEESSA GStreamerin OMAAN (vaarnaan)
+    sisaiseen tilaan: 231 + 30 = 261 -- YLI kappaleen 231 sekunnin
+    keston! Tama TASMALLEEN selittaa: "kelaus näyttää oikealta"
+    (OMA nayttoni kayttaa LUOTETTAVAA arviotani, joka NOUSI oikein
+    84:sta ~114:aan) "mutta hyppää loppuun" (koska OIKEA, taustalla
+    tapahtuva AANEN asema hyppasi 261:een, YLI kappaleen loppuun,
+    jolloin soitto luonnollisesti pysahtyi/vaikeni siina).
+
+    KORJAUS (perustavanlaatuinen, osoittaa suoraan juurisyyhyn):
+    lisattiin `compatibility.seekTo(position_seconds)` -- ABSOLUUTTINEN
+    kelaus (`iSeekableService.seekTo(pts)`) SUHTEELLISEN
+    (`seekRelative()`) sijaan. `PlaybackController.seekForward()`/
+    `seekBackward()` laskevat nyt kohteen OMAN, LUOTETUN
+    `self._position`-arvon perusteella (JOKA ON JO validoitu
+    kellopohjaisella tarkistuksella aiemmissa kierroksissa) EIVATKA
+    LUOTA GStreamerin OMAAN, MAHDOLLISESTI VANHENTUNEESEEN sisaiseen
+    tilaan lainkaan. Kelauksen jalkeen kellopohjainen arvio
+    "uudelleenankkuroidaan" (_rebaselineAfterSeek()) kelauksen
+    KOHTEESEEN, ei kertyvana offsetina.
+
+    Kayttajan OMA ehdotus (kello elapsedille, GStreamer remaining-
+    ille) OLI oikean suuntainen INTUITIO -- LOPULLINEN korjaus meni
+    hieman PIDEMMALLE: kayttaa OMAA, JO VALIDOITUA arviota myos
+    KELAUKSEN KOHTEEN LASKENTAAN, mika ratkaisee ongelman
+    JUURISYYSSA (vaaraa kelauskohdetta) eika vain OIREESSA (vaaraa
+    naytettya aikaa).
+
+    Testattu TASMALLEEN lokista loytynyt skenaario: GStreamer
+    juuttunut 231:een (todellinen asema ~84s) -> nayttaa oikein 84 ->
+    kelaus +30s -> seekTo()-kutsu KOHDISTUU OIKEIN ~114:aan (EI
+    231+30=261:een) -> asema paivittyy oikein kelauksen jalkeen.
+    Kaikki kierros 5-6:n regressiotestit (pause/resume, striimin
+    kelauksen esto, normaali toisto) ajettu UUDELLEEN ja vahvistettu.
+
+TOINEN LOYDOS: "REMAINING"-KENTAN REDUNDANTTI KAYTOS
+
+    Tarkistin koodin: build 0007:sta lahtien "remaining"-widget
+    naytti KAPPALEEN SIJAINNIN listassa (esim. "7/14") INFO-
+    napilla vaihdettavassa "favorites"-nakymassa, TARKOITUKSELLISESTI
+    (kayttajan oma pyynto silloin). Kayttajan UUSI havainto -- etta
+    tama on nyt REDUNDANTTIA "queueposition"-widgetin (alarivi)
+    kanssa, joka NAYTTAA saman tiedon -- on PATEVA ja hyvin
+    perusteltu UX-yksinkertaistus. Poistettu "favorites"-nakyman
+    erikoiskasittely "remaining"-kentasta -- se nayttaa nyt AINA
+    oikean jaljella olevan AJAN, riippumatta nakymatilasta.
+
+EI VIELA RATKAISTU: EPG-NAPIN KAYTOS
+
+    Kayttajan kolmas havainto (EPG-nappi nayttaa hetkeksi jaljella
+    olevan ajan, palaa sitten kappalenaytt00n) EI LOYTYNYT tasta
+    logista -- EPG-nappainpainalluksesta EI OLLUT YHTAAN lokirivia.
+    En arvannut tai spekuloinut ilman todistetta -- pyydetty
+    kayttajalta LISAA, tata TAPAUSTA erikseen kaappaavaa lokia jos
+    halutaan tutkia tarkemmin.
+
+Testaus
+-------
+
+Kaikki skenaariot testattu KATTAVASTI mock-seekTo()-kutsujen kera,
+vahvistettu etta kelauskohde lasketaan OIKEIN OMASTA arviosta eika
+GStreamerin vanhentuneesta tilasta. Koko regressiosarja (kierrokset
+5-6 mukaan lukien) ajettu UUDELLEEN onnistuneesti. Koko
+plugin.main()-savellys OK.
+
+Laitetestin kierros 8 (2026-08-01, test7_openvix.log)
+------------------------------------------------------------------------------
+
+Kayttajan palaute: "Nyt tuntuu toimivan. Soittoaika etenee myös
+kelauksissa oikein ja kappale loppuu oikein." -- kierros 7:n
+absoluuttinen-kelaus-korjaus VAHVISTETTU toimivaksi kaytannossa!
+
+Jaljella yksi havainto: "Kun painaa epg, niin ylimpään riviin
+vaihtuu kappaleen nimi näkyviin sen aikaa kun painaa epg-nappia,
+kun muuten lukee MediaPlayer3, eli yrittää vaihtaa
+soittolistanäkymän ja kelausnäkymän välillä, mutta palaa
+takaisin." -- kayttaja MYOS ITSE tunnisti taman EPG-napin (KEY_INFO
+tallä kaukosaatimella) ja esitti ERINOMAISEN arkkitehtuurikysymyksen:
+"Pitäisikö compatibility.py sisältää jonkinlainen kaukosäätimen
+tunnistus laitetunnistuksen kautta vai olisiko parempi että
+käytetään tunnistettuja näppäintietoja?"
+
+JUURISYY -- VAHVISTETTU TAYDELLA VARMUUDELLA LOGISTA
+
+    Jaljitin lokista TASMALLISEN todisteen:
+        50165.471590 [InfoBarGenerics] Key: 358 (Make) ... 'INFO'
+        50165.472901 [MainScreen] INFO pressed.
+        50165.473736 [MainScreen] View mode: seek
+        50165.703057 [InfoBarGenerics] Key: 358 (Break) ... 'INFO'
+        50165.704606 [MainScreen] INFO pressed.
+        50165.705307 [MainScreen] View mode: favorites
+
+    SEKA "Make" (painallus) ETTA "Break" (vapautus) -tapahtumat
+    laukaisevat `infoPressed()`:n TASMALLEEN SAMALLA kaukosaatimella
+    -- JOKAINEN fyysinen paina-ja-vapauta-sykli kiertaa
+    `_view_mode`:n KAHDESTI (kerran painalluksella, kerran
+    vapautuksella), NETOTEN takaisin ALKUPERAISEEN tilaan --
+    TASMALLEEN kuten kayttaja kuvaili ("vaihtuu... sen aikaa kun
+    painaa... palaa takaisin").
+
+VASTAUS KAYTTAJAN ARKKITEHTUURIKYSYMYKSEEN
+
+    Suosittelin YLEISTA, kaukosaadin-riippumatonta ratkaisua
+    ERITYISLAITETUNNISTUKSEN sijaan, perustellen: (1) laitekohtainen
+    kaukosaadin-tietokanta olisi HAURAS ja vaatisi JATKUVAA yllapitoa
+    jokaiselle uudelle laitemallille; (2) "toiminto laukeaa seka
+    Make- etta Break-tapahtumalla" ON YLEINEN keymap-omituisuus-
+    LUOKKA joka VOISI vaikuttaa MIHIN TAHANSA kaukosaatimeen, MIHIN
+    TAHANSA nappaimeen -- YLEINEN, VANKKA korjaus ratkaisee KAIKKI
+    tallaiset tapaukset kerralla ilman etta tarvitsee tietaa MIKA
+    laite/nappain sen aiheuttaa.
+
+KORJAUS: YLEINEN _isDebounced()-SUOJAUS
+
+    Lisatty MainScreeniin `_isDebounced(action_name, min_interval=0.4)`
+    -apumetodi: seuraa VIIMEISINTA laukaisuaikaa PER toiminnon nimi,
+    ja OHITTAA kutsun jos se tulee ALLE 0.4 sekunnin sisalla
+    EDELLISESTA saman toiminnon kutsusta. Aikaikkuna valittu niin
+    etta se on SELVASTI PIDEMPI kuin lokista vahvistettu Make-Break-
+    vali (~0.23s) mutta SELVASTI LYHYEMPI kuin kaksi AITOA, erillista
+    ihmisen tekemaa painallusta olisivat.
+
+    Sovellettu `infoPressed()`:iin (VAHVISTETTU tapaus). SUUNNITELTU
+    UUDELLEENKAYTETTAVAKSI: sama `_isDebounced()`-metodi on nyt
+    KAYTETTAVISSA muillekin kytkinmaisille kasittelijoille (HELP,
+    TEXT, RADIO) jos SAMA ilmio loydetaan NIILLE jollain toisella
+    kaukosaatimella tulevaisuudessa -- EI tarvitse kirjoittaa uutta
+    korjausta jokaiselle tapaukselle erikseen.
+
+Testaus
+-------
+
+Testattu KATTAVASTI OIKEALLA `time.sleep()`:lla (ei mockatulla
+kellolla) TASMALLEEN lokista vahvistetulla ajoituksella: (1) Make +
+Break ~230ms:n valein (sama fyysinen painallus) -- Break OIKEIN
+ohitettu, tila pysyy Make:n asettamana; (2) AITO, erillinen
+painallus 0.5s myohemmin -- OIKEIN vaihtaa tilaa normaalisti; (3)
+NELJA taydellista paina-vapauta-sykliä perakkain -- OIKEIN
+vuorottelee TASMALLEEN kerran per SYKLI, ei koskaan menetä
+synkronointia. (Ensimmainen testiajooni ilmeni VAARA assertion-
+odotusarvo OMASSA testiskriptissani, ei toteutuksessa -- korjattu
+ja vahvistettu askel askeleelta tulostuksella etta toteutus toimii
+TASMALLEEN oikein koko ajan.)
+
+Koko plugin.main()-regressiosarja ajettiin lapi ilman virheita.
+
+Laitetestin kierros 9 (2026-08-01, test8_openvix.log)
+------------------------------------------------------------------------------
+
+Kayttajan palaute: "Toimii aika hyvin." Nelja havaintoa: (1)
+progressbar nayttaa 6 sek jaljella kappaleen loppuessa, mutta vaihtuu
+oikein seuraavalle; (2) EPG-nappi toimii oikein (kierros 8:n korjaus
+vahvistettu!); (3) soittolistatilan kelauksissa "oikea" kelausnappi
+(FF, ERI fyysinen nappi kuin RIGHT-nuoli) kelaa vaarin nollasta, kun
+taas RIGHT-nuoli toimii oikein; (4) sanoitukset toimivat, PAITSI
+kappaleella "01-shakira-objection" sanat eivat vaihtuneet, vain 5
+ensimmaista riviä nakyi. Kayttaja ehdotti myos VIERIVAN TEKSTIN
+ominaisuutta sanoituksille.
+
+1) KELAUSKETJUN TURMELTUMINEN -- JUURISYY LOYDETTY JA KORJATTU
+
+    Jaljitin lokista TASMALLISEN ketjun: RIGHT-nuoli (lyhyt kelaus,
+    10s) -> "Seek forward: 10s (current: 170s, target: 180s)" --
+    OIKEIN. VALITTOMASTI SEURAAVAKSI: dedikoitu FF-nappi (30s) ->
+    "Seek forward: 30s (current: 0s, target: 30s)" -- VAARIN! Pitaisi
+    olla current=180, target=210.
+
+    JUURISYY: `_seek()` MainScreenissa kutsui
+    `self._playback.tick()`:ia VALITTOMASTI onnistuneen kelauksen
+    JALKEEN. Tama kysyy GStreamerilta position UUDELLEEN heti kelaus-
+    komennon jalkeen -- TAVOITTAEN GStreamerin viela "kesken flush"
+    -tilassa (aito ajoitus-kilpailutilanne: kelauskomento juuri
+    lahetetty, GStreamer EI OLE VIELA ehtinyt paivittaa omaa
+    sisaista tilaansa), joka palautti VALIAIKAISESTI position=0.
+    OMA uskottavuustarkastukseni hylkaa VAIN liian KORKEITA lukemia
+    (alkuperainen bugikaava), EI liian MATALIA -- joten taa
+    0-arvo HYVAKSYTTIIN ja YLIKIRJOITTI `_rebaselineAfterSeek()`:n
+    JUURI asettaman OIKEAN arvon (180).
+
+    KORJAUS: poistettu `self._playback.tick()`-kutsu `_seek()`:sta
+    KOKONAAN. `PlaybackController` TIETAA JO oikean position
+    `_rebaselineAfterSeek()`:n ansiosta -- uutta GStreamer-kyselya EI
+    TARVITA lainkaan. Testattu TASMALLEEN lokista loytynyt skenaario:
+    lyhyt kelaus (170->180) VALITTOMASTI seurattuna pitkalla
+    kelauksella (pitaisi olla 180->210) -- VAHVISTETTU etta korjaus
+    tuottaa OIKEAN 210-kohteen simuloidulla GStreamer-0-vastauksella
+    (joka aiemmin olisi turmellut ketjun).
+
+2) "6 SEKUNTIA JALJELLA" -BUGI -- ERI, HIENOVARAISEMPI JUURISYY
+
+    Jaljitin lokista TASMALLISEN tapauksen: "Estimated position: 218s
+    ... GStreamer-reported: 224" -> HYLATTY epauskottavana ("estimated
+    position is only 218.4s") -- MUTTA GStreamerin arvo 224 OLI
+    ITSE ASIASSA TAYSIN OIKEIN (tasmasi kappaleen kestoon, 224)!
+    Tama EI OLLUT sama "juuttunut vanha arvo" -bugi kuin aiemmilla
+    kierroksilla -- tama oli LUONNOLLISTA kellopoikkeamaa: OMA
+    kellopohjainen arvioni oli ajautunut ~5.6 sekuntia jalkeen
+    OIKEASTA ajasta 220 sekunnin YHTAJAKSOISEN toiston jalkeen (n.
+    2.5% poikkeama), YLITTAEN niukasti 5 sekunnin toleranssini.
+
+    KORJAUS: toleranssi SKAALAUTUU nyt kappaleen kuluneen ajan mukaan
+    (POSITION_DRIFT_TOLERANCE_RATIO=3%) KIINTEAN perustoleranssin
+    LISAKSI -- lyhyilla/alkupaan kohdilla toleranssi pysyy TIUKKANA
+    (luotettavasti nappaa alkuperaisen "vanha arvo edellisesta
+    kappaleesta" -bugin), MUTTA PITKIEN kappaleiden loppupaassa
+    sallii ENEMMAN LUONNOLLISTA ajautumaa. Testattu KOLME skenaariota:
+    (a) TASMALLEEN lokista loytynyt luonnollinen ajautuma (218.4 vs
+    224) -- NYT HYVAKSYTTY oikein, kappale paattyy oikein; (b) ja (c)
+    AIEMPIEN kierrosten VAHVISTETUT bugit (52s juuttunut arvo
+    kierros 6:sta, 231s juuttunut arvo kierros 7:sta) -- MOLEMMAT
+    EDELLEEN OIKEIN hylatty, EI regressiota.
+
+3) SANOITUSTEN VIERITYS -- TOTEUTETTU KAYTTAJAN PYYNNON MUKAISESTI
+
+    Tutkin "01-shakira-objection"-bugin: loki paljasti etta TAMA
+    kappale kayttaa UPOTETTUJA sanoituksia (embedded, EI .lrc-
+    tiedostoa) -- ja upotetut sanoitukset OVAT AINA
+    synkronoimattomia (ei aikaleimoja). VANHA koodini nayti TALLOIN
+    VAIN koko sanoitusblokin STAATTISESTI, JOKA JUURI SELITTAA
+    "vain 5 ensimmaista riviä nakyi eivatka vaihtuneet" -- EI
+    OLLUT bugikoodissa, vaan RAJOITETTU OMINAISUUS joka kayttajan
+    OMA seuraava ehdotus (vierityskesyys) suoraan ratkaisee.
+
+    Toteutin `LyricsManager.getScrollWindow()`: nayttaa IKKUNAN
+    riveja (oletuksena 5) KESKITETTYNA "nykyiseen" riviin:
+        - Synkronoiduille (.lrc) sanoituksille: OIKEA ajastettu rivi
+          keskella, TASMALLEEN kayttajan pyynnon mukaisesti ("rivi on
+          alueen keskikohdalla, kun on oikea aika").
+        - Synkronoimattomille (upotetut/.txt) sanoituksille: LASKETTU
+          "virtuaalinen" rivi-indeksi SUHTEESSA kappaleen etenemiseen
+          (kulunut/kokonaiskesto), TASMALLEEN kayttajan pyynnon
+          mukaisesti ("Txt muotoiseen... vierimisaika olisi kappaleen
+          alusta kappaleen loppuun") -- SOVELLETTU MYOS upotettuihin
+          sanoituksiin, koska ne OVAT tasmalleen sama tapaus kuin txt.
+
+    Testattu KATTAVASTI: synkronoitu keskitys OIKEIN, reunatapaukset
+    (listan ALKU ja LOPPU, ei mene "negatiiviseksi" tai yli listan),
+    ja UPOTETTUJEN sanoitusten suhteellinen vieritys ALUSTA LOPPUUN
+    -- VAHVISTETTU etta TAMA ratkaisee TASMALLEEN raportoidun
+    "Objection"-bugin (rivit nyt VAIHTUVAT koko kappaleen ajan pysyen
+    paikallaan).
+
+Testaus
+-------
+
+Kaikki kolme korjausta/ominaisuutta testattu ERIKSEEN JA yhdessa.
+Koko regressiosarja (kierrokset 6-8 mukaan lukien) ajettu UUDELLEEN
+ja vahvistettu etta pysyvat oikeina. Koko plugin.main()-savellys OK.
+
+Laitetestin kierros 10 -- VAHVISTETTU VALMIIKSI (2026-08-01, test9_openvix.log + test9.jpg)
+------------------------------------------------------------------------------------------
+
+Kayttajan palaute: "Molemmat tekstitykset toimii oikein." Kuvakaappaus
+vahvistaa: synkronoitu (.lrc) sanoitusikkuna nakyy selkeasti 5 rivilla
+("Le-do-lo-le-lo-le..." / "At your feet..." / "Whenever, wherever" /
+"We're meant to be together"), Previous/Next-esikatselu nayttaa
+oikean edellisen/seuraavan kappaleen, ja koko MainScreenin asettelu
+(elapsed/progressbar/remaining, kokonaisaika+kappalemaara,
+esikatselu+sanoitukset, ohjerivi) toimii yhdessa oikein.
+
+Kaksi jaljella olevaa, TIETOISESTI MATALAN PRIORITEETIN havaintoa:
+
+1) "Syncronoimaton voisi näyttää enemmän rivejä, mutta se voidaan
+   korjata myöhemmissä versioissa." -- Kayttaja ITSE totesi taman
+   VOIVAN odottaa. LYRICS_WINDOW_SIZE=5 on TASMALLEEN sama kaikille
+   sanoitustyypeille; koska synkronoimaton (upotettu/.txt) -tapaus EI
+   OLE aikakriittinen samalla tavalla (ei tarvitse "osua" tarkkaan
+   ajastettuun riviin), suurempi ikkuna VOISI toimia paremmin
+   siina tapauksessa erikseen. JATETTY TULEVAAN BUILDIIN kayttajan
+   OMAN toiveen mukaisesti.
+
+2) "Myös txt nappi toimi tällä kaukosäätimellä ja vaihtoi lyrics
+   kohdan tilaa oikein. Koodi on Key: 388 (Break) KeyID='KEY_TEXT'
+   Binding='('TEXT',)'." -- TARKISTIN lokista: TEXT-nappi laukeaa
+   MYOS seka Make- etta Break-tapahtumilla (SAMA ilmio kuin INFO:lla
+   kierros 8:ssa), MUTTA koska TEXT KIERTAA KOLMEA tilaa (lyrics->
+   metadata->codec) KAHDEN sijasta, tama on PALJON VAHEMMAN
+   hairitseva -- jokainen fyysinen painallus EDELLEEN etenee
+   ETEENPAIN (vain valilla kaksi askelta yhden sijasta), EI koskaan
+   "peruuta itseaan" kuten INFO:n kaksitilainen kytkin teki. Kayttaja
+   VAHVISTI etta tama toimii OIKEIN kaytannossa. JATETTY
+   ENNALLEEN -- sama `_isDebounced()`-mekanismi ON JO valmiina jos
+   tama joskus osoittautuu todelliseksi ongelmaksi.
+
+DOKUMENTAATIO PAIVITETTY: kayttajan PYYNNOSTA merkitty koko Build
+0008 VAHVISTETUSTI VALMIIKSI:
+    - CHANGELOG.md: "BUILD 0008 -- CONFIRMED COMPLETE" -osio lisatty
+      (Build 0007:n vastaavan mallin mukaisesti), Known Issues
+      paivitetty vastaamaan LOPULLISTA, todellista tilannetta
+      (poistettu vanhentuneet "ei viela testattu" -maininnat).
+    - HISTORY.md: "Closing note" lisatty Build 0008:n omaan
+      aikajanamerkintaan.
+    - BUILD_0008_PLAN.md ja kaikki viisi Build 0008:n spec-
+      dokumenttia (LIBRARY_MANAGER_SPEC.md, LYRICS_MANAGER_SPEC.md,
+      HELP_MANAGER_SPEC.md, HELP_SCREEN_SPEC.md,
+      MUSICLIBRARY_SCREEN_SPEC.md): tila paivitetty "CONFIRMED
+      COMPLETE" -muotoon.
+
+YHTEENVETO KOKO BUILD 0008:STA (9 laitetestikierrosta, kaksi eri
+Enigma2-laitetta mukaan lukien VU+ Duo2):
+
+    Kolme paaominaisuutta (kontekstisidonnainen ohje, sanoitukset,
+    musiikkikirjasto) TAYSIN toiminnassa. Matkan varrella loytyi ja
+    korjattiin KAKSI merkittavaa, taysin RIIPPUMATONTA
+    soittoaseman-tarkkuusongelmaa jotka EIVAT liittyneet suoraan
+    mihinkaan kolmesta paaominaisuudesta: GStreamerin oma
+    kilpailutilanne (vanhentunut asema edellisesta soitosta,
+    kierrokset 1-7) ja kelausketjun turmeltuminen GStreamer-
+    uudelleenkyselysta kesken flush-tilan (kierros 9). MOLEMMAT
+    juurisyyt loydettiin AIDOSTA laitelokitodistuksesta, EI
+    arvauksella tai sokealla korjauksella.

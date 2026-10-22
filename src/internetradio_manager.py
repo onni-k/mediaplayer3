@@ -1639,6 +1639,25 @@ class InternetRadioManager:
 
     def prepareStream(self, station: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
+        Round 249: remembers the prepared (enriched) station and its
+        stream URL, so a screen that played the station itself can
+        tell MainScreen exactly which station is now playing
+        (getLastPrepared()).
+        """
+
+        result = self._prepareStreamImpl(station)
+
+        self._last_prepared = result
+
+        return result
+
+    def getLastPrepared(self) -> Optional[Dict[str, Any]]:
+        """The last prepareStream() result ({"url", "station"}) or None."""
+
+        return getattr(self, "_last_prepared", None)
+
+    def _prepareStreamImpl(self, station: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
         Validate `station` and resolve its actual playable stream URL.
 
         RadioBrowser's own convention (confirmed in the pyradios

@@ -923,8 +923,8 @@ msgstr "Sanoituksia ei ole saatavilla."
 msgid "No cover art available."
 msgstr "Kansikuvaa ei ole saatavilla."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
-msgstr "OK / EXIT / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Säädä ajoitusta"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / KELTAINEN / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Säädä ajoitusta"
 
 msgid "Download cover art"
 msgstr "Lataa kansikuva"
@@ -1412,8 +1412,8 @@ msgstr "Näytä kuvaus koko ruudussa"
 msgid "No description available."
 msgstr "Kuvausta ei ole saatavilla."
 
-msgid "OK / EXIT / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
-msgstr "OK / EXIT / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Vieritä"
+msgid "OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Scroll"
+msgstr "OK / EXIT / KELTAINEN / VASEN / OIKEA: Sulje -- YLÖS / ALAS: Vieritä"
 
 msgid "show lyrics or episode description fullscreen"
 msgstr "näytä sanoitukset tai jakson kuvaus koko näytöllä"
@@ -1430,3 +1430,198 @@ msgstr "Podcast-hakuraja"
 
 msgid "Maximum number of podcasts requested from Podcast Index per search or popular-podcasts fetch (10-1000, default 1000)."
 msgstr "Podcast Indexistä haettavien podcastien enimmäismäärä yhtä hakua tai suosituimpien hakua kohden (10-1000, oletus 1000)."
+
+msgid "Start recording"
+msgstr "Aloita tallennus"
+
+msgid "Stop recording"
+msgstr "Lopeta tallennus"
+
+msgid "Recording started: {0}"
+msgstr "Tallennus alkoi: {0}"
+
+msgid "No recording folder available. Set one in Settings, or connect a disk/USB."
+msgstr "Tallennuskansiota ei ole käytettävissä. Aseta kansio asetuksissa tai liitä levy/USB."
+
+msgid "Not enough free disk space for recording."
+msgstr "Levytilaa ei ole riittävästi tallennukseen."
+
+msgid "Recording is already in progress."
+msgstr "Tallennus on jo käynnissä."
+
+msgid "No stream to record."
+msgstr "Ei tallennettavaa lähetystä."
+
+msgid "Recording could not be started."
+msgstr "Tallennusta ei voitu aloittaa."
+
+msgid "Recording is not supported for this stream type (HLS)."
+msgstr "Tallennusta ei tueta tälle lähetystyypille (HLS)."
+
+msgid "This stream address is a playlist, not a direct stream, so it cannot be recorded."
+msgstr "Tämä lähetysosoite on soittolista eikä suora lähetys, joten sitä ei voi tallentaa."
+
+msgid "This address did not return an audio stream, so it cannot be recorded."
+msgstr "Osoite ei palauttanut äänilähetystä, joten sitä ei voi tallentaa."
+
+msgid "Recording stopped: the stream connection was lost."
+msgstr "Tallennus päättyi: lähetysyhteys katkesi."
+
+msgid "Recording stopped: disk space ran out."
+msgstr "Tallennus päättyi: levytila loppui."
+
+msgid "Recording failed: the file could not be written."
+msgstr "Tallennus epäonnistui: tiedostoa ei voitu kirjoittaa."
+
+msgid "Recording failed: nothing was received."
+msgstr "Tallennus epäonnistui: mitään ei vastaanotettu."
+
+msgid "Recording stopped early."
+msgstr "Tallennus päättyi ennenaikaisesti."
+
+msgid "Recording failed."
+msgstr "Tallennus epäonnistui."
+
+msgid "Recording saved: {0}"
+msgstr "Tallenne tallennettu: {0}"
+
+msgid "Added to playlist: {0}"
+msgstr "Lisätty soittolistalle: {0}"
+
+msgid "Recordings"
+msgstr "Tallennukset"
+
+msgid "Recording folder"
+msgstr "Tallennuskansio"
+
+msgid "Folder where radio recordings are saved (a Radio sub-folder is used). Leave empty for the default: a Recordings folder in MediaPlayer3's own data folder on disk/USB."
+msgstr "Kansio, johon radiotallenteet tallennetaan (käytetään Radio-alikansiota). Jätä tyhjäksi oletukselle: Recordings-kansio MediaPlayer3:n omassa datakansiossa levyllä/USB:llä."
+
+msgid "Record episode"
+msgstr "Tallenna jakso"
+
+msgid "Downloading episode: {0}"
+msgstr "Ladataan jaksoa: {0}"
+
+msgid "A podcast download is already in progress."
+msgstr "Podcast-lataus on jo käynnissä."
+
+msgid "Episode saved: {0}"
+msgstr "Jakso tallennettu: {0}"
+
+msgid "Download failed: the connection was lost."
+msgstr "Lataus epäonnistui: yhteys katkesi."
+
+msgid "Download stopped: disk space ran out."
+msgstr "Lataus keskeytyi: levytila loppui."
+
+msgid "Download failed."
+msgstr "Lataus epäonnistui."
+
+msgid "Downloading: {0} - {1}"
+msgstr "Ladataan: {0} - {1}"
+
+msgid "Update"
+msgstr "Päivitä"
+
+msgid "Delete file"
+msgstr "Poista tiedosto"
+
+msgid "Delete the file \"{0}\" from the disk?"
+msgstr "Poistetaanko tiedosto \"{0}\" levyltä?"
+
+msgid "The file could not be deleted."
+msgstr "Tiedostoa ei voitu poistaa."
+
+msgid "No new recordings found."
+msgstr "Uusia tallenteita ei löytynyt."
+
+msgid "{0} recordings added to the playlist."
+msgstr "{0} tallennetta lisätty soittolistalle."
+
+msgid "Radio time shift"
+msgstr "Radion ajansiirto"
+
+msgid "If yes, the playing radio station is buffered on disk (in the recording folder) so you can pause and rewind it; the total time grows while you listen and the remaining time shows the delay behind live. Needs a recording folder on a disk or USB stick (default: yes)."
+msgstr "Jos kyllä, soiva radiokanava puskuroidaan levylle (tallennuskansioon), jolloin sitä voi pysäyttää ja kelata taaksepäin. Kokonaisaika kasvaa kuunnellessa ja jäljellä oleva aika näyttää viiveen livestä. Vaatii tallennuskansion levyllä tai USB-tikulla (oletus: kyllä)."
+
+msgid "Time shift length (minutes)"
+msgstr "Ajansiirron pituus (minuuttia)"
+
+msgid "How much of the station is kept in the buffer. Older audio is deleted automatically (default: 120, 5-480). 120 minutes of a 128 kbit/s station needs about 120 MB."
+msgstr "Kuinka paljon kanavasta pidetään puskurissa. Vanhempi ääni poistetaan automaattisesti (oletus: 120, 5-480). 120 minuuttia 128 kbit/s kanavaa vie noin 120 Mt."
+
+msgid "Jump to live"
+msgstr "Siirry live-tilaan"
+
+msgid "From the start of the time shift ({0})"
+msgstr "Ajansiirron alusta ({0})"
+
+msgid "From now"
+msgstr "Nykyisestä kohdasta"
+
+msgid "Time shift stopped: disk space ran out. Playing the stream directly."
+msgstr "Ajansiirto päättyi: levytila loppui. Kanavaa toistetaan suoraan."
+
+msgid "Time shift stopped: the connection was lost. Playing the stream directly."
+msgstr "Ajansiirto päättyi: yhteys katkesi. Kanavaa toistetaan suoraan."
+
+msgid "This HLS stream is encrypted, so it cannot be recorded."
+msgstr "Tämä HLS-lähetys on salattu, joten sitä ei voi tallentaa."
+
+msgid "Episode"
+msgstr "Jakso"
+
+msgid "Duration"
+msgstr "Kesto"
+
+msgid "Recording length"
+msgstr "Tallenteen kesto"
+
+msgid "Identify song"
+msgstr "Tunnista kappale"
+
+msgid "Identifying the song..."
+msgstr "Tunnistetaan kappaletta..."
+
+msgid "Match"
+msgstr "Osuma"
+
+msgid "Set your AcoustID application key in Settings first (free at acoustid.org/new-application)."
+msgstr "Aseta ensin AcoustID-sovellusavain asetuksissa (ilmainen osoitteesta acoustid.org/new-application)."
+
+msgid "No tool for making an audio fingerprint was found on this receiver."
+msgstr "Äänen sormenjälkityökalua ei löytynyt tästä vastaanottimesta."
+
+msgid "The bundled fingerprint tool does not run on this receiver's processor. See the log for details."
+msgstr "Pluginin mukana tuleva sormenjälkityökalu ei toimi tämän vastaanottimen suorittimella. Katso tarkemmat tiedot lokista."
+
+msgid "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver for song identification."
+msgstr "Vastaanottimesta ei löytynyt äänidekooderia (ffmpeg tai gst-launch-1.0) kappaleen tunnistusta varten."
+
+msgid "Could not get an audio sample to identify (HLS streams need Radio time shift to be on)."
+msgstr "Äänitallennetta ei saatu tunnistettavaksi (HLS-kanavat vaativat, että radion ajansiirto on päällä)."
+
+msgid "The song was not recognized."
+msgstr "Kappaletta ei tunnistettu."
+
+msgid "Song identification failed: the AcoustID service could not be reached."
+msgstr "Kappaleen tunnistus epäonnistui: AcoustID-palveluun ei saatu yhteyttä."
+
+msgid "Song identification is already running."
+msgstr "Kappaleen tunnistus on jo käynnissä."
+
+msgid "Song identification failed."
+msgstr "Kappaleen tunnistus epäonnistui."
+
+msgid "AcoustID application key"
+msgstr "AcoustID-sovellusavain"
+
+msgid "fpcalc path (empty = automatic)"
+msgstr "fpcalc-polku (tyhjä = automaattinen)"
+
+msgid "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own free key at https://acoustid.org/new-application (register an application, copy its API key here)."
+msgstr "Käytetään OK-valikon kohdassa Tunnista kappale. Jätä tyhjäksi, niin käytetään pluginin mukana tulevaa avainta, tai hanki oma ilmainen avain osoitteesta https://acoustid.org/new-application (rekisteröi sovellus ja kopioi sen API-avain tähän)."
+
+msgid "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
+msgstr "Kappaleen tunnistus käyttää pluginin mukana tulevaa sormenjälkityökalua. Anna koko polku vain, jos Chromaprintin fpcalc on asennettu ja haluat käyttää sitä; tyhjä = automaattinen."

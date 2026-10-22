@@ -25,6 +25,11 @@ together, side by side with their contents.
 
 ## Notes
 
+The "Recordings (Radio)" and "Recordings (Podcast)" playlists hold your
+recordings. Removing a track from them lets you choose to also delete
+the file from the disk. OK on the playlist has an Update choice that
+adds recordings found in the recording folder back to the playlist.
+
 Local playlists are listed first, followed by your Internet Radio
 favorite lists. Radio lists have a shorter menu than local playlists
 -- actions like Export only make sense for local playlists -- but

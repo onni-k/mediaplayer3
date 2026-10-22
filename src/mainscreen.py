@@ -443,6 +443,8 @@ from .internetradio_manager import internetradio_manager
 from .browserscreen import _defaultPlayPlaylistName
 from .playlist_manager import playlist_manager
 from .podcast_manager import podcast_manager
+from .recording_manager import recording_manager
+from .song_identifier import song_identifier
 from .localization import _
 from .logger import logger
 from .musiclibraryscreen import MusicLibraryScreen
@@ -2931,6 +2933,8 @@ class MainScreen(Screen, HelpableScreen):
 
         self._playback.tick()
 
+        self._pollRecording()
+
         clock_text = time.strftime("%H:%M")
 
         self["clock_normal"].setText(clock_text)
@@ -2979,6 +2983,64 @@ class MainScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Front panel text (Round 254)
+    # ------------------------------------------------------------------
+
+    def _frontPanelIdleText(self) -> str:
+
+        return get_version_string()
+
+    def _frontPanelPlayingText(self) -> str:
+        """
+        Text for the receiver's front display: what is playing ("Artist -
+        Title" or station / stream title), prefixed with a pause mark or
+        REC while paused / recording.
+        """
+
+        text = " ".join(str(self["media"].getText() or "").split())
+
+        if not text:
+            return get_version_string()
+
+        try:
+            if self._playback.isPlayingStream():
+                station = (self._last_radio_station or {}).get("name") or ""
+                if station and station not in text:
+                    text = f"{station}: {text}"
+            else:
+                artist = str((self._playback.getMetadata() or {}).get("artist") or "")
+                if artist and artist != "Unknown" and artist not in text:
+                    text = f"{artist} - {text}"
+        except Exception:
+            pass
+
+        prefix = ""
+
+        if recording_manager.isRecording():
+            prefix = "REC "
+        elif self._playback.isPaused():
+            prefix = "|| "
+
+        return prefix + text
+
+    def _setFrontPanelText(self, text: str) -> None:
+        """
+        The front display of most receivers shows the screen title, so
+        the title is kept equal to the front-panel text (changed only
+        when it differs, this runs every second).
+        """
+
+        if text == getattr(self, "_front_panel_text", None):
+            return
+
+        self._front_panel_text = text
+
+        try:
+            self.setTitle(text)
+        except Exception as error:
+            logger.verbose(f"[MainScreen] Front panel title not set: {error}")
+
     def _updateDisplay(self) -> None:
         """
         Refresh MainScreen's display from PlaybackController's current
@@ -2995,6 +3057,19 @@ class MainScreen(Screen, HelpableScreen):
 
             self._statusbar.showReady()
 
+            # Round 242: an episode download's progress also shows
+            # when nothing is loaded.
+            idle_download = recording_manager.getDownloadStatus()
+
+            if idle_download["active"]:
+
+                idle_percent = idle_download["percent"]
+
+                self["status"].setText(
+                    f"{self['status'].getText()}  DL "
+                    + (f"{idle_percent}%" if idle_percent >= 0 else f"{idle_download['bytes'] // (1024 * 1024)} MB")
+                )
+
             self["elapsed"].setText("--:--")
             self["remaining"].setText("--:--")
             self["progressbar"].setValue(0)
@@ -3005,6 +3080,8 @@ class MainScreen(Screen, HelpableScreen):
             self._updatePanelHighlighting()
 
             self._updateCoverArt(None)
+
+            self._setFrontPanelText(self._frontPanelIdleText())
 
             return
 
@@ -3019,6 +3096,30 @@ class MainScreen(Screen, HelpableScreen):
         self["meta"].setText(self._formatMetaLines())
 
         self._statusbar.showState(self._playback.getState(), filename)
+
+        # Round 241: DL percentage while a podcast episode downloads.
+        download_status = recording_manager.getDownloadStatus()
+
+        if download_status["active"]:
+
+            percent = download_status["percent"]
+
+            self["status"].setText(
+                f"{self['status'].getText()}  DL " + (f"{percent}%" if percent >= 0 else f"{download_status['bytes'] // (1024 * 1024)} MB")
+            )
+
+        # Round 240: REC marker while a radio recording runs.
+        recording_status = recording_manager.getStatus()
+
+        if recording_status["active"]:
+
+            seconds = recording_status["elapsed"]
+
+            self["status"].setText(
+                f"REC {seconds // 3600:d}:{(seconds // 60) % 60:02d}:{seconds % 60:02d}  {recording_status['name']}"
+            )
+
+        self._setFrontPanelText(self._frontPanelPlayingText())
 
         self._updateCoverArt(filename)
 
@@ -4047,6 +4148,16 @@ class MainScreen(Screen, HelpableScreen):
 
             return
 
+        # Round 250: ePicLoad rejects startDecode() while a previous
+        # decode is still running (device log: two station changes within
+        # milliseconds left the cover empty). Remember the newest request
+        # and run it when the running decode finishes.
+        if time.time() - getattr(self, "_cover_decode_started", 0.0) < 3.0:
+
+            self._cover_decode_pending = artwork_path
+
+            return
+
         try:
             widget_size = self["cover"].instance.size()
 
@@ -4066,19 +4177,84 @@ class MainScreen(Screen, HelpableScreen):
             if self._picload.startDecode(artwork_path) != 0:
                 raise RuntimeError("startDecode() reported failure")
 
+            self._cover_decode_started = time.time()
+
+            self._cover_retry_count = 0
+
         except Exception as error:
 
             logger.verbose(f"[MainScreen] Unable to decode cover art {artwork_path}: {error}")
 
-            self["cover"].hide()
+            if "startDecode" in str(error):
+
+                self._scheduleCoverRetry(artwork_path)
+
+            else:
+
+                self["cover"].hide()
 
     # ------------------------------------------------------------------
+
+    def _scheduleCoverRetry(self, artwork_path: str) -> None:
+        """Round 251: (re)try a cover decode shortly, a few times at most."""
+
+        count = getattr(self, "_cover_retry_count", 0)
+
+        if count >= 8:
+
+            self._cover_retry_count = 0
+
+            self["cover"].hide()
+
+            return
+
+        self._cover_retry_count = count + 1
+
+        self._cover_decode_pending = artwork_path
+
+        try:
+            timer = eTimer()
+            timer.callback.append(self._runPendingCoverDecode)
+            timer.start(200, True)
+            self._cover_retry_timer = timer
+        except Exception:
+            self._cover_decode_pending = None
+
+    def _runPendingCoverDecode(self) -> None:
+
+        path = getattr(self, "_cover_decode_pending", None)
+
+        self._cover_decode_pending = None
+
+        if path:
+            self._decodeCoverArt(path)
 
     def _onCoverArtDecoded(self, picture_info=None) -> None:
         """
         ePicLoad callback: fires once decoding (started in
         _decodeCoverArt()) completes.
         """
+
+        self._cover_decode_started = 0.0
+
+        pending = getattr(self, "_cover_decode_pending", None)
+
+        self._cover_decode_pending = None
+
+        if pending:
+
+            # ePicLoad refuses a new startDecode() until the finished
+            # result has been collected with getData() (device log
+            # 1.3.013: every later decode failed). Collect and discard
+            # it, then start the newer decode a moment later.
+            try:
+                self._picload.getData()
+            except Exception:
+                pass
+
+            self._scheduleCoverRetry(pending)
+
+            return
 
         try:
             pixmap = self._picload.getData()
@@ -4354,6 +4530,25 @@ class MainScreen(Screen, HelpableScreen):
 
                 choices.append((_("Remove from Favorites"), "remove_from_favorites"))
 
+                # Round 240, per direct request: radio recording.
+                if recording_manager.isRecording():
+
+                    choices.append((_("Stop recording"), "record_stop"))
+
+                else:
+
+                    choices.append((_("Start recording"), "record_start"))
+
+                if self._playback.getTimeshiftDelay() > 3:
+
+                    choices.append((_("Jump to live"), "timeshift_live"))
+
+            current_path = self._playback.getCurrentFile() or ""
+
+            if self._playback.isPlayingStream() or ("://" not in current_path and current_path):
+
+                choices.append((_("Identify song"), "identify_song"))
+
             resume_state = self._playback.isPaused() or self._playback.isStopped()
 
             stop_resume_label = _("Resume") if resume_state else _("Stop")
@@ -4519,6 +4714,22 @@ class MainScreen(Screen, HelpableScreen):
                 MessageBox.TYPE_YESNO,
             )
 
+        elif choice[1] == "record_start":
+
+            self._startRadioRecording()
+
+        elif choice[1] == "record_stop":
+
+            recording_manager.stop()
+
+        elif choice[1] == "identify_song":
+
+            self._identifySong()
+
+        elif choice[1] == "timeshift_live":
+
+            self._playback.timeshiftGoLive()
+
         elif choice[1] == "add_to_favorites":
 
             self._addCurrentStationToFavorites()
@@ -4552,6 +4763,304 @@ class MainScreen(Screen, HelpableScreen):
         elif choice[1] == "cover":
 
             self._showCoverArtFullscreen()
+
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Radio recording (Round 240, 1.3.002)
+    # ------------------------------------------------------------------
+
+    _RECORDING_START_MESSAGES = {
+        "no_folder": "No recording folder available. Set one in Settings, or connect a disk/USB.",
+        "no_space": "Not enough free disk space for recording.",
+        "already": "Recording is already in progress.",
+        "no_url": "No stream to record.",
+    }
+
+    _RECORDING_END_MESSAGES = {
+        "hls": "Recording is not supported for this stream type (HLS).",
+        "hls_encrypted": "This HLS stream is encrypted, so it cannot be recorded.",
+        "playlist": "This stream address is a playlist, not a direct stream, so it cannot be recorded.",
+        "not_audio": "This address did not return an audio stream, so it cannot be recorded.",
+        "connection_lost": "Recording stopped: the stream connection was lost.",
+        "no_space": "Recording stopped: disk space ran out.",
+        "write_failed": "Recording failed: the file could not be written.",
+        "empty": "Recording failed: nothing was received.",
+    }
+
+    def _startRadioRecording(self) -> None:
+        """
+        Start recording the radio stream that is playing now (OK menu).
+        The stream is copied to a file by RecordingManager's own
+        thread; playback is not affected. With timeshift history in
+        the buffer the user chooses where the recording begins.
+        """
+
+        if not self._playback.isPlayingStream():
+            return
+
+        buffered = self._playback.getTimeshiftBufferedSeconds()
+
+        if buffered >= 10:
+
+            self.session.openWithCallback(
+                self._recordingStartChosen,
+                ChoiceBox,
+                title=_("Start recording"),
+                list=[
+                    (_("From the start of the time shift ({0})").format(self._formatTime(buffered)), "start"),
+                    (_("From now"), "now"),
+                ],
+            )
+
+            return
+
+        self._beginRadioRecording(False)
+
+    _SONG_ID_MESSAGES = {
+        "no_key": "Set your AcoustID application key in Settings first (free at acoustid.org/new-application).",
+        "no_fpcalc": "No tool for making an audio fingerprint was found on this receiver.",
+        "no_tool": "The bundled fingerprint tool does not run on this receiver's processor. See the log for details.",
+        "no_decoder": "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver for song identification.",
+        "no_sample": "Could not get an audio sample to identify (HLS streams need Radio time shift to be on).",
+        "not_found": "The song was not recognized.",
+        "network": "Song identification failed: the AcoustID service could not be reached.",
+        "busy": "Song identification is already running.",
+        "failed": "Song identification failed.",
+    }
+
+    def _identifySong(self) -> None:
+        """
+        Round 255: identify the playing song from an audio sample via
+        AcoustID (song_identifier.py). Radio: the last ~25 s of the time
+        shift buffer (or a fresh capture of the stream); files: the file.
+        """
+
+        path = self._playback.getCurrentFile() or ""
+
+        api_key = str(config_manager.get("recognition.acoustid_key", "") or "").strip()
+
+        fpcalc_path = str(config_manager.get("recognition.fpcalc_path", "") or "").strip()
+
+        if self._playback.isPlayingStream():
+
+            if self._playback.isTimeshiftActive():
+
+                playback = self._playback
+
+                status = song_identifier.start(
+                    api_key,
+                    fpcalc_path,
+                    sample_provider=lambda target, stop: playback.exportTimeshiftSong(target, stop),
+                )
+
+            else:
+
+                status = song_identifier.start(api_key, fpcalc_path, stream_url=path)
+
+        elif path and "://" not in path:
+
+            duration = self._playback.getDuration()
+
+            status = song_identifier.start(
+                api_key, fpcalc_path, file_path=path, track_duration=int(duration or 0)
+            )
+
+        else:
+
+            status = "no_sample"
+
+        if status != "ok":
+
+            self.session.open(
+                MessageBox,
+                _(self._SONG_ID_MESSAGES.get(status, "Song identification failed.")),
+                MessageBox.TYPE_INFO,
+                timeout=8,
+            )
+
+            return
+
+        self.session.open(MessageBox, _("Identifying the song..."), MessageBox.TYPE_INFO, timeout=3)
+
+    def _pollSongIdentification(self) -> None:
+
+        result = song_identifier.popResult()
+
+        if result is None:
+            return
+
+        if result.get("status") == "ok":
+
+            match = result["match"]
+
+            lines = [f"{match.get('artist') or _('Unknown')} - {match.get('title')}"]
+
+            if match.get("album"):
+                lines.append(f"{_('Album')}: {match['album']}")
+
+            lines.append(f"{_('Match')}: {int(round(match.get('score', 0) * 100))}%")
+
+            self._log("Song identified: " + " | ".join(lines))
+
+            self.session.open(MessageBox, "\n".join(lines), MessageBox.TYPE_INFO, timeout=20)
+
+            return
+
+        self.session.open(
+            MessageBox,
+            _(self._SONG_ID_MESSAGES.get(result.get("status"), "Song identification failed.")),
+            MessageBox.TYPE_INFO,
+            timeout=8,
+        )
+
+    def _recordingStartChosen(self, choice) -> None:
+
+        if choice is None:
+            return
+
+        self._beginRadioRecording(choice[1] == "start")
+
+    def _beginRadioRecording(self, from_start: bool) -> None:
+
+        if not self._playback.isPlayingStream():
+            return
+
+        url = self._playback.getCurrentFile()
+
+        station = self._last_radio_station or {}
+
+        name = station.get("name") or ""
+
+        relay_url = self._playback.getTimeshiftRecordingUrl(from_start)
+
+        if relay_url:
+            ok, result = recording_manager.startRadioRecording(name, relay_url, source_url=url)
+        else:
+            ok, result = recording_manager.startRadioRecording(name, url)
+
+        if ok:
+
+            self._log(f"Radio recording started: {name} -> {result}")
+
+            self.session.open(
+                MessageBox,
+                _("Recording started: {0}").format(name or _("Radio")),
+                MessageBox.TYPE_INFO,
+                timeout=3,
+            )
+
+        else:
+
+            self._log(f"Radio recording not started: {result}")
+
+            self.session.open(
+                MessageBox,
+                _(self._RECORDING_START_MESSAGES.get(result, "Recording could not be started.")),
+                MessageBox.TYPE_ERROR,
+                timeout=6,
+            )
+
+    # ------------------------------------------------------------------
+
+    def _pollRecording(self) -> None:
+        """
+        Called once a second: ends a recording when the stream it
+        records is no longer the one being played (station changed,
+        stopped, other source), and reports a finished recording.
+        """
+
+        self._pollSongIdentification()
+
+        reason = self._playback.popTimeshiftFailure()
+
+        if reason in ("no_space", "connection_lost"):
+
+            self.session.open(
+                MessageBox,
+                (
+                    _("Time shift stopped: disk space ran out. Playing the stream directly.")
+                    if reason == "no_space"
+                    else _("Time shift stopped: the connection was lost. Playing the stream directly.")
+                ),
+                MessageBox.TYPE_INFO,
+                timeout=6,
+            )
+
+        status = recording_manager.getStatus()
+
+        if status["active"]:
+
+            same_stream = (
+                self._playback.isPlayingStream()
+                and not self._playback.isStopped()
+                and self._playback.getCurrentFile() == status.get("url")
+            )
+
+            if not same_stream:
+
+                self._log("Recording stopped: the recorded stream is no longer playing.")
+
+                recording_manager.stop()
+
+        event = recording_manager.popFinishedEvent()
+
+        while event is not None:
+
+            self._reportRecordingEvent(event)
+
+            event = recording_manager.popFinishedEvent()
+
+    # ------------------------------------------------------------------
+
+    _DOWNLOAD_END_MESSAGES = {
+        "connection_lost": "Download failed: the connection was lost.",
+        "no_space": "Download stopped: disk space ran out.",
+        "not_audio": "This address did not return an audio stream, so it cannot be recorded.",
+    }
+
+    def _reportRecordingEvent(self, event) -> None:
+        """Tells the user how a finished radio recording / podcast download ended."""
+
+        is_podcast = event.get("kind") == "podcast"
+
+        name = event.get("title") if is_podcast else event.get("name")
+
+        name = name or _("Radio")
+
+        message = event.get("message") or ""
+
+        if event.get("status") == "done":
+
+            if is_podcast:
+
+                text = _("Episode saved: {0}").format(os.path.basename(event.get("path", "")))
+
+            else:
+
+                text = _("Recording saved: {0}").format(os.path.basename(event.get("path", "")))
+
+            if message:
+
+                text += "\n" + _(self._RECORDING_END_MESSAGES.get(message, "Recording stopped early."))
+
+            if event.get("playlist"):
+
+                text += "\n" + _("Added to playlist: {0}").format(event["playlist"])
+
+            self.session.open(MessageBox, text, MessageBox.TYPE_INFO, timeout=6)
+
+        else:
+
+            if is_podcast:
+
+                reason = _(self._DOWNLOAD_END_MESSAGES.get(message, "Download failed."))
+
+            else:
+
+                reason = _(self._RECORDING_END_MESSAGES.get(message, "Recording failed."))
+
+            self.session.open(MessageBox, f"{name}: {reason}", MessageBox.TYPE_ERROR, timeout=8)
 
     # ------------------------------------------------------------------
 
@@ -4799,7 +5308,15 @@ class MainScreen(Screen, HelpableScreen):
 
         if action == "radio":
 
-            self._startRadioMode()
+            # Round 253: a station is already playing -- open the
+            # station browser instead of restarting the last station.
+            if self._playback.isPlayingStream() and not self._playback.isStopped():
+
+                self.openRadioBrowserScreen()
+
+            else:
+
+                self._startRadioMode()
 
         elif action == "local":
 
@@ -4921,7 +5438,7 @@ class MainScreen(Screen, HelpableScreen):
 
         logger.verbose("[MainScreen] PAUSE pressed.")
 
-        if self._playback.isPlayingStream():
+        if self._playback.isPlayingStream() and not self._playback.isTimeshiftActive():
 
             self.stopPressed()
 
@@ -5196,7 +5713,7 @@ class MainScreen(Screen, HelpableScreen):
         if not self._playback.hasMedia():
             return
 
-        if self._playback.isPlayingStream():
+        if self._playback.isPlayingStream() and not self._playback.isTimeshiftActive():
             return
 
         success = (
@@ -6007,13 +6524,20 @@ class MainScreen(Screen, HelpableScreen):
 
             self._refreshRadioStateAfterExternalPlay()
 
+        elif played and self._playback.isPlayingStream():
+
+            # Round 249: a station started from a favorites list in
+            # PlaylistScreen -- keep the active list, only learn which
+            # station is playing now.
+            self._refreshRadioStateAfterExternalPlay(switch_list=False)
+
         self._applyUiSettings()
 
         self._updateDisplay()
 
     # ------------------------------------------------------------------
 
-    def _refreshRadioStateAfterExternalPlay(self) -> None:
+    def _refreshRadioStateAfterExternalPlay(self, switch_list: bool = True) -> None:
         """
         Device test round 26 -- bug: selecting a station from
         RadioBrowserScreen's own search (not History/Favorites
@@ -6045,15 +6569,60 @@ class MainScreen(Screen, HelpableScreen):
         from this different close-callback path too.
         """
 
-        self._radio_list_name = "history"
+        if not switch_list:
 
-        self._refreshRadioList(is_explicit_switch=True)
+            # Round 250: the station boxes and the information panel show
+            # _radio_list[_radio_index], so the index must point at the
+            # station that is playing now; if it is not in the active list
+            # (e.g. played from another favorites list), fall back to History.
+            prepared = internetradio_manager.getLastPrepared()
 
-        self._radio_index = 0 if self._radio_list else -1
+            uuid = prepared["station"].get("stationuuid") if prepared else None
 
-        if self._radio_list:
+            index = -1
 
-            self._last_radio_station = self._radio_list[0]
+            if uuid:
+
+                for position, entry in enumerate(self._radio_list or []):
+
+                    if entry.get("stationuuid") == uuid:
+
+                        index = position
+
+                        break
+
+            if index >= 0:
+
+                self._radio_index = index
+
+            else:
+
+                switch_list = True
+
+        if switch_list:
+
+            self._radio_list_name = "history"
+
+            self._refreshRadioList(is_explicit_switch=True)
+
+            self._radio_index = 0 if self._radio_list else -1
+
+            if self._radio_list:
+
+                self._last_radio_station = self._radio_list[0]
+
+        # Round 249: the screen that started playback prepared the full
+        # (enriched) station; prefer it over the lighter history entry
+        # so the favicon, EPG and station details match what is playing.
+        prepared = internetradio_manager.getLastPrepared()
+
+        if prepared and prepared.get("url") == self._playback.getCurrentFile():
+
+            self._last_radio_station = prepared["station"]
+
+            self._cover_file = None
+
+            finland_radio_epg_registry.registerProvidersForStation(prepared["station"])
 
     # ------------------------------------------------------------------
 
@@ -6208,6 +6777,13 @@ class MainScreen(Screen, HelpableScreen):
         except Exception as error:
 
             self._log(f"Error while stopping refresh timer: {error}")
+
+        try:
+            recording_manager.stopAndWait()
+
+        except Exception as error:
+
+            self._log(f"Error while stopping recording: {error}")
 
         try:
             self._playback.stop()
