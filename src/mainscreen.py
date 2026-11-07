@@ -444,7 +444,8 @@ from .browserscreen import _defaultPlayPlaylistName
 from .playlist_manager import playlist_manager
 from .podcast_manager import podcast_manager
 from .recording_manager import recording_manager
-from .song_identifier import song_identifier
+from .song_identifier import song_identifier, song_submitter
+from . import background_tasks
 from .localization import _
 from .logger import logger
 from .musiclibraryscreen import MusicLibraryScreen
@@ -2047,6 +2048,14 @@ class MainScreen(Screen, HelpableScreen):
                     foregroundColor="{palette['header_active_fg']}"
                     transparent="1"/>
 
+            <widget name="task_banner"
+                    {rect(clock_rect[0] - 296, header_y, 292, 64)}
+                    font="Bold;{max(10, int(24 * sx))}"
+                    halign="right"
+                    valign="center"
+                    foregroundColor="{palette['header_inactive_fg']}"
+                    transparent="1"/>
+
             <widget name="clock_normal"
                     {rect(*clock_rect)}
                     font="Bold;{max(10, int(32 * sx))}"
@@ -2500,6 +2509,8 @@ class MainScreen(Screen, HelpableScreen):
 
         self["clock_normal"] = Label(clock_text)
 
+        background_tasks.attachBanner(self)
+
         self["clock_active"] = Label(clock_text)
 
         self["clock_active"].hide()
@@ -2557,7 +2568,7 @@ class MainScreen(Screen, HelpableScreen):
         # to be conditional on which variant is actually asking for
         # it, not a single fixed string shared by both.
         blue_hint_text = (
-            _("Player/Info") if self._skin_variant == "vintage_radio" else _("BLUE: Player/Info")
+            _("Info") if self._skin_variant == "vintage_radio" else _("BLUE: Info")
         )
 
         # Round 126: MainScreen's own hint bar -- created unconditionally
@@ -2605,13 +2616,13 @@ class MainScreen(Screen, HelpableScreen):
 
             self["hint_color_red"] = Label(_("Playlist"))
             self["hint_color_green"] = Label(_("Source"))
-            self["hint_color_yellow"] = Label(_("Lyrics"))
+            self["hint_color_yellow"] = Label(_("Info fullscreen"))
 
         else:
 
             self["hint_color_red"] = Label(_("RED: Playlist"))
             self["hint_color_green"] = Label(_("GREEN: Source"))
-            self["hint_color_yellow"] = Label(_("YELLOW: Lyrics"))
+            self["hint_color_yellow"] = Label(_("YELLOW: Info fullscreen"))
 
         # Round 167, per direct request/device log: a real crash
         # (skin.SkinError: "Component with name 'hint_icon_red' was
@@ -2671,8 +2682,8 @@ class MainScreen(Screen, HelpableScreen):
         # round 201 comment there).
         self["key_green"] = StaticText(_("Source"))
         self["key_red"] = StaticText(_("Playlist"))
-        self["key_yellow"] = StaticText(_("Lyrics"))
-        self["key_blue"] = StaticText(_("Player/Info"))
+        self["key_yellow"] = StaticText(_("Info fullscreen"))
+        self["key_blue"] = StaticText(_("Info"))
 
         # Rounds 180-183 used Components.Sources.Boolean ("key_help"/
         # "key_menu"/"key_info") to gate Enigma2's own core
@@ -3542,19 +3553,12 @@ class MainScreen(Screen, HelpableScreen):
 
             return
 
-        order = ("player", "information")
+        # 1.4.010, per direct request: BLUE no longer switches the active panel (the Information
+        # panel's own "active" background image is gone); it cycles the pages of the Information
+        # panel (lyrics, metadata, codec, EPG ...). The fullscreen view follows the same page.
+        self._active_panel = "player"
 
-        if self._active_panel not in order:
-
-            # Was on "playlist" -- no longer reachable in this cycle
-            # for any source (device test round 23); land on Player.
-            self._active_panel = "player"
-
-        else:
-
-            self._active_panel = order[(order.index(self._active_panel) + 1) % len(order)]
-
-        self._log(f"Active panel: {self._active_panel}")
+        self._information_panel.switchPage(1)
 
         self._updateDisplay()
 
@@ -3764,6 +3768,71 @@ class MainScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
+    def _epgInfo(self, station):
+        """
+        1.5.000: (now_playing, programme) for the media line. Stations with a web provider
+        (Bauer, Yle) are looked up in a background thread (up to 8 s of network wait before);
+        the last known answer is shown meanwhile. Other stations read the stream's own tags
+        directly as before.
+        """
+
+        empty = {"available": False}
+
+        if not epg_manager.usesNetwork(station):
+
+            try:
+                now_playing = epg_manager.getNowPlaying(station)
+            except Exception as error:
+                logger.verbose(f"[MainScreen] Now-playing lookup failed for media line: {error}")
+                now_playing = empty
+
+            try:
+                programme = epg_manager.getCurrentProgramme(station)
+            except Exception as error:
+                logger.verbose(f"[MainScreen] Current-programme lookup failed for media line: {error}")
+                programme = None
+
+            return now_playing, programme
+
+        cache = self.__dict__.setdefault("_epg_cache", {})
+        pending = self.__dict__.setdefault("_epg_pending", set())
+
+        key = station.get("stationuuid") or station.get("name") or ""
+
+        entry = cache.get(key)
+
+        if (entry is None or time.monotonic() - entry[0] > 15) and key not in pending:
+
+            pending.add(key)
+
+            def work(stop):
+                try:
+                    now_playing = epg_manager.getNowPlaying(station)
+                except Exception:
+                    now_playing = empty
+                try:
+                    programme = epg_manager.getCurrentProgramme(station)
+                except Exception:
+                    programme = None
+                return now_playing, programme
+
+            def done(result, error):
+                pending.discard(key)
+                if result is not None and error is None:
+                    changed = entry is None or result != entry[1:]
+                    cache[key] = (time.monotonic(),) + tuple(result)
+                    if changed:
+                        self._updateDisplay()
+
+            background_tasks.start("", work, done, key="epg:" + key)
+
+        if entry is None:
+            return empty, None
+
+        return entry[1], entry[2]
+
+    # ------------------------------------------------------------------
+
     def _formatMediaLine(self, filename) -> str:
         """
         Build 0010, device test round 23 -- second box, one line:
@@ -3793,27 +3862,11 @@ class MainScreen(Screen, HelpableScreen):
             if station is None:
                 return ""
 
-            try:
-                now_playing = epg_manager.getNowPlaying(station)
-
-            except Exception as error:
-
-                logger.verbose(f"[MainScreen] Now-playing lookup failed for media line: {error}")
-
-                now_playing = {"available": False}
+            now_playing, programme = self._epgInfo(station)
 
             if now_playing.get("available"):
 
                 return epg_manager.formatNowPlaying(now_playing)
-
-            try:
-                programme = epg_manager.getCurrentProgramme(station)
-
-            except Exception as error:
-
-                logger.verbose(f"[MainScreen] Current-programme lookup failed for media line: {error}")
-
-                programme = None
 
             if programme and programme.get("title"):
 
@@ -4549,6 +4602,10 @@ class MainScreen(Screen, HelpableScreen):
 
                 choices.append((_("Identify song"), "identify_song"))
 
+            if "://" not in current_path and current_path and not self._playback.isPlayingStream():
+
+                choices.append((_("Submit fingerprint to AcoustID"), "submit_fingerprint"))
+
             resume_state = self._playback.isPaused() or self._playback.isStopped()
 
             stop_resume_label = _("Resume") if resume_state else _("Stop")
@@ -4594,13 +4651,9 @@ class MainScreen(Screen, HelpableScreen):
         shows the lyrics exactly as before.
         """
 
-        if self._currentEpisodeDescription():
-
-            self._showDescriptionFullscreen()
-
-        else:
-
-            self._showLyricsFullscreen()
+        # 1.4.011: YELLOW opens the Information panel fullscreen (any page; for a podcast
+        # episode the description page comes first)
+        self._showLyricsFullscreen()
 
     # ------------------------------------------------------------------
 
@@ -4633,6 +4686,9 @@ class MainScreen(Screen, HelpableScreen):
         Round 231: YELLOW's hint reads "Description" while a podcast
         episode with a description is loaded, "Lyrics" otherwise.
         """
+
+        # 1.4.011: YELLOW always reads "Info fullscreen" (set when the labels are created)
+        return
 
         has_description = bool(self._currentEpisodeDescription())
 
@@ -4725,6 +4781,10 @@ class MainScreen(Screen, HelpableScreen):
         elif choice[1] == "identify_song":
 
             self._identifySong()
+
+        elif choice[1] == "submit_fingerprint":
+
+            self._submitFingerprint(False)
 
         elif choice[1] == "timeshift_live":
 
@@ -4883,7 +4943,118 @@ class MainScreen(Screen, HelpableScreen):
 
         self.session.open(MessageBox, _("Identifying the song..."), MessageBox.TYPE_INFO, timeout=3)
 
+    _SONG_SUBMIT_MESSAGES = {
+        "no_key": "Set your AcoustID application key in Settings first.",
+        "no_user_key": "Set your AcoustID user key in Settings first (get it at https://acoustid.org/api-key after signing in).",
+        "no_tags": "The file has no usable tags. Submitting needs a MusicBrainz ID or both artist and title in the tags.",
+        "no_duration": "The length of the track is not known, so it cannot be submitted.",
+        "no_fpcalc": "No tool for making an audio fingerprint was found on this receiver.",
+        "no_tool": "The bundled fingerprint tool does not run on this receiver's processor. See the log for details.",
+        "no_decoder": "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver.",
+        "no_sample": "Could not read audio from the file.",
+        "network": "Submitting failed: the AcoustID service could not be reached.",
+        "busy": "A submission is already running.",
+        "failed": "Submitting failed.",
+    }
+
+    def _submitFingerprint(self, force: bool) -> None:
+        """1.5.000: fingerprint the playing local file and submit it to AcoustID."""
+
+        path = (getattr(self, "_submit_path", "") if force else "") or self._playback.getCurrentFile() or ""
+
+        api_key = str(config_manager.get("recognition.acoustid_key", "") or "").strip()
+
+        user_key = str(config_manager.get("recognition.acoustid_user_key", "") or "").strip()
+
+        fpcalc_path = str(config_manager.get("recognition.fpcalc_path", "") or "").strip()
+
+        duration = int(self._playback.getDuration() or 0) if path == (self._playback.getCurrentFile() or "") else 0
+
+        self._submit_path = path
+
+        status = song_submitter.start(api_key, user_key, path, duration, fpcalc_path, force)
+
+        if status != "ok":
+
+            self.session.open(
+                MessageBox,
+                _(self._SONG_SUBMIT_MESSAGES.get(status, "Submitting failed.")),
+                MessageBox.TYPE_INFO,
+                timeout=8,
+            )
+
+            return
+
+        self.session.open(MessageBox, _("Making the fingerprint and submitting it. This takes about half a minute..."), MessageBox.TYPE_INFO, timeout=4)
+
+    def _submitAnywayChosen(self, answer) -> None:
+
+        if answer:
+            self._submitFingerprint(True)
+
+    def _pollSongSubmission(self) -> None:
+
+        result = song_submitter.popResult()
+
+        if result is None:
+            return
+
+        status = result.get("status")
+
+        label = result.get("label") or ""
+
+        if status == "submitted":
+
+            state = result.get("state")
+
+            self._log(f"Fingerprint submitted: {label} ({state})")
+
+            text = (
+                _("Submitted: {0}\nThe fingerprint is now in the AcoustID database.")
+                if state == "imported"
+                else _("Submitted: {0}\nAcoustID is still processing it; it should appear in the database shortly.")
+            ).format(label)
+
+            if result.get("mbid"):
+                text += "\n" + _("MusicBrainz ID: sent with the tags.")
+            else:
+                text += "\n" + _("MusicBrainz ID: not in the tags, so AcoustID can only match by artist and title. Tag the file with MusicBrainz Picard to link it for sure.")
+
+            if result.get("unlinked"):
+                text += "\n" + _("This sound was already known to AcoustID but was not linked to a MusicBrainz recording.")
+
+            self.session.open(MessageBox, text, MessageBox.TYPE_INFO, timeout=20)
+
+            return
+
+        if status == "exists":
+
+            match = result.get("match") or {}
+
+            self._log(f"Fingerprint already in AcoustID: {match.get('artist')} - {match.get('title')}")
+
+            self.session.openWithCallback(
+                self._submitAnywayChosen,
+                MessageBox,
+                _("This track is already in the AcoustID database as:\n{0} - {1}\n\nSubmit it anyway?").format(
+                    match.get("artist") or _("Unknown"), match.get("title") or ""
+                ),
+                MessageBox.TYPE_YESNO,
+                default=False,
+            )
+
+            return
+
+        message = _(self._SONG_SUBMIT_MESSAGES.get(status, "Submitting failed."))
+
+        if status in ("failed", "network") and result.get("detail"):
+            message += "\n" + str(result["detail"])
+
+        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=10)
+
     def _pollSongIdentification(self) -> None:
+
+        self._pollSongSubmission()
 
         result = song_identifier.popResult()
 
@@ -6777,6 +6948,13 @@ class MainScreen(Screen, HelpableScreen):
         except Exception as error:
 
             self._log(f"Error while stopping refresh timer: {error}")
+
+        try:
+            background_tasks.cancelAll()
+            song_identifier.cancel()
+            song_submitter.cancel()
+        except Exception as error:
+            self._log(f"Error while cancelling background tasks: {error}")
 
         try:
             recording_manager.stopAndWait()

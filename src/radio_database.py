@@ -69,10 +69,20 @@ from __future__ import annotations
 
 import json
 import os
+import functools
 import sqlite3
+import threading
 from typing import Any, Dict, List, Optional
 
 from .logger import logger
+
+
+def _locked(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
 
 
 class RadioStationDatabase:
@@ -101,6 +111,10 @@ class RadioStationDatabase:
 
         self._db_path = db_path
 
+        # 1.5.000: searches and database updates run in background threads
+        # (background_tasks.py); one connection, so every public method takes this lock.
+        self._lock = threading.RLock()
+
         self._conn: Optional[sqlite3.Connection] = None
 
         self._open()
@@ -111,7 +125,7 @@ class RadioStationDatabase:
 
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
 
-        self._conn = sqlite3.connect(self._db_path, timeout=10.0)
+        self._conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
 
         # Manual transaction control (BEGIN/commit/rollback issued
         # explicitly below) rather than Python's own sqlite3 module
@@ -176,6 +190,7 @@ class RadioStationDatabase:
 
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
+    @_locked
     def search(
         self,
         name: Optional[str],
@@ -255,9 +270,11 @@ class RadioStationDatabase:
 
     # ------------------------------------------------------------------
 
+    @_locked
     def getCountries(self) -> List[Dict[str, Any]]:
         return self._aggregate("country_lower")
 
+    @_locked
     def getLanguages(self) -> List[Dict[str, Any]]:
         return self._aggregate("language_lower")
 
@@ -317,6 +334,33 @@ class RadioStationDatabase:
 
     # ------------------------------------------------------------------
 
+    @_locked
+    def countryNameForCode(self, code: str) -> Optional[str]:
+        """1.5.000: the RadioBrowser country name used by stations with this ISO country code."""
+
+        code = (code or "").strip().upper()
+
+        if len(code) != 2:
+            return None
+
+        rows = self._conn.execute(
+            "SELECT data FROM stations WHERE data LIKE ? OR data LIKE ? LIMIT 20",
+            ('%"countrycode": "' + code + '"%', '%"countrycode":"' + code + '"%'),
+        ).fetchall()
+
+        for row in rows:
+            try:
+                station = json.loads(row["data"])
+            except ValueError:
+                continue
+            if str(station.get("countrycode", "")).upper() == code and station.get("country"):
+                return str(station["country"]).strip()
+
+        return None
+
+    # ------------------------------------------------------------------
+
+    @_locked
     def getInfo(self) -> Dict[str, Any]:
 
         count = self._conn.execute("SELECT COUNT(*) FROM stations").fetchone()[0]
@@ -331,6 +375,7 @@ class RadioStationDatabase:
     # Writes
     # ------------------------------------------------------------------
 
+    @_locked
     def replaceAll(self, stations: List[Dict[str, Any]], last_updated: float) -> None:
         """
         Rebuilds the whole `stations` table from `stations`, inside a
@@ -367,6 +412,7 @@ class RadioStationDatabase:
 
     # ------------------------------------------------------------------
 
+    @_locked
     def migrateFromJsonl(self, jsonl_path: str, last_updated: Optional[float]) -> int:
         """
         One-time migration for an install upgrading from round 198's
@@ -488,6 +534,7 @@ class RadioStationDatabase:
 
     # ------------------------------------------------------------------
 
+    @_locked
     def clear(self) -> None:
 
         self._conn.execute("DELETE FROM stations")
@@ -500,6 +547,7 @@ class RadioStationDatabase:
 
     # ------------------------------------------------------------------
 
+    @_locked
     def close(self) -> None:
 
         if self._conn is not None:

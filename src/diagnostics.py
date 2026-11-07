@@ -37,7 +37,7 @@ from . import metadata as md
 from .compatibility import compatibility
 from .config import config_manager
 from .internetradio_manager import internetradio_manager
-from .localization import AVAILABLE_LANGUAGES, getCurrentLanguage
+from .localization import AVAILABLE_LANGUAGES, getCatalogReport, getCurrentLanguage
 from .logger import logger
 from .paths import LOG_PATH
 from .playlist_manager import playlist_manager
@@ -93,6 +93,7 @@ def logStartupDiagnostics(playback_controller) -> None:
     # use now.
     logger.verbose(f"[Diagnostics] language: {getCurrentLanguage()}")
     logger.verbose(f"[Diagnostics] available_languages: {', '.join(AVAILABLE_LANGUAGES)}")
+    logger.verbose(f"[Diagnostics] catalog: {getCatalogReport()}")
 
     logger.verbose("[Diagnostics] ---- Storage ----")
 

@@ -2,7 +2,7 @@
 
 # Radio time shift, HLS recording and song identification
 
-Version: 1.4.001
+Version: 1.5.000
 
 Status: implemented and device tested (OpenViX, OpenPLI, OpenATV, OpenBH)
 
@@ -42,10 +42,12 @@ OK menu > *Identify song*:
 1. Sample: local file (first 60 s), or for radio the time shift buffer from
    the last Icy title change (28-38 s; waits until 28 s of the song are
    buffered), else the last 40 s, else a fresh capture without time shift.
-2. Fingerprint: a real `fpcalc` when found, otherwise the bundled
-   `fpraw-<cpu>` (static Chromaprint, raw 11025 Hz mono PCM on stdin). The
-   PCM comes from `gst-launch-1.0` (decodebin) or `ffmpeg` (WAV output).
-   The tools are in the released .ipk as `bin/fpraw-<cpu>` (not in the source tree; `.gz` variants are unpacked at first use into the plugin folder, else /var/volatile/tmp or /tmp). The CPU build is chosen from the ELF header and test-run with `-v`.
+2. Fingerprint: a real `fpcalc` when found; otherwise the PCM (11025 Hz mono, from
+   `gst-launch-1.0` decodebin or `ffmpeg` WAV output) is piped to a tool process: the optional
+   bundled C tool `bin/fpraw-<cpu>` (chosen from the ELF header, test-run with `-v`) or, by
+   default, `chromaprint_py.py` run with `python3` (nice 10) -- a bit-identical port of
+   Chromaprint's default algorithm. The tools print `DURATION=` / `FINGERPRINT=` like fpcalc.
+   Timings and load are logged ([SongID] system / decoder / tool / identification lines).
 3. Lookup: AcoustID `lookup` (POST). `duration` must be the length of the
    whole track: known for files, guessed for radio (typical song lengths
    tried in turn, 0.4 s apart).

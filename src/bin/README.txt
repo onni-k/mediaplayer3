@@ -1,5 +1,6 @@
-Prebuilt song identification tools (fpraw-arm, fpraw-mipsel, fpraw-aarch64) are NOT
-kept in the source tree; they are included in the released .ipk package only.
-To build them yourself: sh tools/fpraw/build.sh, then copy the fpraw-<cpu> files here
-(plain or gzip-compressed as fpraw-<cpu>.gz). Without them "Identify song" reports that
-the fingerprint tool is missing; everything else works.
+Optional: prebuilt fingerprint tools (fpraw-arm, fpraw-mipsel, fpraw-aarch64).
+
+Since 1.4.003 "Identify song" works without them: the plugin has a pure Python port of
+Chromaprint (chromaprint_py.py) that it runs as a separate low-priority python3 process.
+If a working fpraw-<cpu> exists in this folder the plugin uses it instead (faster).
+To build them: sh tools/fpraw/build.sh, then copy the fpraw-<cpu> files here.

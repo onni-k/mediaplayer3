@@ -166,6 +166,11 @@ def _parseVorbisComments(data: bytes, offset: int, metadata: Dict[str, Any]) -> 
 
         key, value = raw.split("=", 1)
 
+        if key.strip().lower() == "musicbrainz_trackid" and value:
+
+            # 1.5.000: MusicBrainz recording ID (used when submitting to AcoustID)
+            metadata["_mbid"] = value.strip()
+
         field = _VORBIS_FIELD_MAP.get(key.strip().lower())
 
         if field is not None and value:
@@ -430,6 +435,16 @@ def _readID3v2(filepath: str, metadata: Dict[str, Any]) -> None:
             metadata["has_embedded_artwork"] = True
 
             metadata["_embedded_artwork"] = _parseID3Picture(frame_data)
+
+            continue
+
+        if frame_id_str == "UFID":
+
+            # 1.5.000: MusicBrainz recording ID = UFID with owner http://musicbrainz.org
+            owner, _sep, identifier = frame_data.partition(b"\x00")
+
+            if owner == b"http://musicbrainz.org" and identifier:
+                metadata["_mbid"] = identifier.decode("ascii", "replace").strip()
 
             continue
 

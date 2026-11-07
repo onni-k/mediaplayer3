@@ -1714,6 +1714,209 @@ known since 1.0.0 and unrelated to this release.
 
 ---
 
+### 1.5.000 (2026-11-06) -- public release
+
+The release of the 1.4.001-1.4.012 test series (all of it device-tested on OpenViX 6.9,
+OpenPLI 9.2, OpenATV 8.0 and OpenBH 5.6 on a Vu+ Uno4K SE). The detailed entries of the
+individual test versions follow below; this is the summary.
+
+**Song identification and AcoustID**
+* "Identify song" needs no compiled tools any more: a pure Python port of Chromaprint
+  (`chromaprint_py.py`, MIT, bit-identical to the C tool in all tests) runs as a low-priority
+  separate process. FFT rewritten with C-level `map()`/`itemgetter` operations (~35 % faster,
+  about 7.5 s for a 38 s sample on a Vu+ Uno4K SE); numpy is used automatically when present.
+  The released .ipk and the source zip contain no binaries (fixes the Yocto/bitbake `[arch]`
+  QA error of the distribution recipe). Compiled `fpraw` tools remain optional.
+* The load of an identification is logged (`[SongID]` lines: decoder time, CPU, load average,
+  python version, FFT engine).
+* **Submit fingerprint to AcoustID** (OK menu while a local file plays): fingerprints the first
+  120 s, checks whether the track is already in the database (asks before submitting again),
+  submits with the tags (MusicBrainz recording ID from ID3 UFID / Vorbis `MUSICBRAINZ_TRACKID`
+  when present, otherwise artist + title) and reports the status. New setting "AcoustID user
+  key (for submitting)" with instructions (https://acoustid.org/api-key). The result message and
+  the log tell whether the MusicBrainz ID was sent and whether AcoustID already knew the sound
+  without a MusicBrainz link.
+
+**Responsiveness: background tasks**
+* New `background_tasks.py`. Lyrics and cover art downloads, radio station search, station
+  filter lists and database downloads, the music library scan, podcast search / popular /
+  episodes / subscribe / refresh, ffprobe codec checks and the Bauer/Yle web now-playing lookups
+  run in background threads (results delivered in the GUI thread; a newer job replaces an older
+  one; everything is cancelled when MediaPlayer3 is closed). The radio station database is
+  thread-safe. A job started from another job's callback is no longer lost (poll-timer fix).
+* The running task is shown in the header of every screen ("Internet Radio  -  Searching
+  stations...", "Identifying song...", ...), also while another window is open.
+
+**Podcasts**
+* **Add RSS feed** (OK menu): any RSS feed by URL, with the previous address shown for editing
+  (e.g. Yle Areena series `https://feeds.yle.fi/areena/v1/series/1-50438875.rss`); works without
+  Podcast Index keys. New `rss_feed.py`.
+* The info text of a selected episode, and the episode description on the main screen, start
+  with the publishing date.
+
+**Main screen**
+* BLUE cycles the pages of the Information panel (lyrics, metadata, codec, radio EPG ...); the
+  panel is no longer "activated", so the `mainscreen_info_active.png` images were removed
+  (the .ipk is ~4.8 MB smaller).
+* YELLOW = "Info fullscreen": the Information panel's current page fullscreen; LEFT/RIGHT/BLUE
+  change the view there, other pages than lyrics scroll with UP/DOWN.
+
+**Settings and defaults**
+* "Restore default settings" (last row; API keys are kept).
+* Internet Radio's default region follows the receiver's time zone (`config.timezone.val` in
+  /etc/enigma2/settings) when none is set.
+* Defaults aligned with the help texts: radio station limit 0 (unlimited), play next track
+  automatically = yes, unlimited results for own language = yes, radio history size 20.
+
+**Localization and diagnostics**
+* The Finnish (and other) catalogs are found on distribution builds that install them to
+  `<plugin>/locale/` (OpenViX); the catalog search is logged.
+* Startup log lines: `Distribution (/etc/issue)` and `Fonts: Bold=... | Regular=...`.
+
+**Known:** OpenATV starts time-shifted stations about 6 s later (image player buffering).
+Text looks slightly crisper on OpenViX than on the other images: its image renders text with a
+newer glyph atlas (the same Roboto-Black font is registered as "Bold" on ViX/ATV/BH).
+
+---
+
+### 1.4.012 (2026-11-06) -- test version
+
+* Startup log: `Distribution (/etc/issue): ...` (which distribution the log comes from) and
+  `Fonts: Bold=... | Regular=...` (the font files the image registers; the plugin's text uses "Bold").
+
+### 1.4.011 (2026-11-05) -- test version
+
+* **Main screen: YELLOW = "Info fullscreen"** (it was Lyrics / Description): opens the
+  fullscreen view of the Information panel's current page (for a podcast episode the
+  description page comes first).
+* **Fullscreen view:** BLUE also changes the view (with LEFT/RIGHT); pages other than lyrics are
+  shown in a ScrollLabel scrolled with UP/DOWN (lyrics: UP/DOWN still adjust the timing).
+* **Podcast episode description starts with the publishing date** in the main screen too (the
+  date is added where the description is remembered / saved with a download; episodes remembered
+  or downloaded earlier keep their old text).
+
+### 1.4.010 (2026-11-05) -- test version
+
+* **Main screen: BLUE cycles the Information panel pages** (lyrics, metadata, codec, radio EPG
+  ...) instead of switching the active panel; the panel is no longer "activated", so the
+  `mainscreen_info_active.png` background images (all skins/tiers, 4.8 MB) were removed. Hint
+  texts: "BLUE: Info". (UP/DOWN scrolling of long non-lyrics pages in the small panel is gone;
+  the fullscreen view shows a page in full.)
+* **Fullscreen lyrics view:** LEFT/RIGHT now change the view (the same pages, the same shared
+  state as BLUE in the main screen) instead of closing; pages other than lyrics are shown in
+  full. OK / EXIT / YELLOW close it. The podcast description viewer is unchanged.
+* **Podcasts:** the info text of a selected episode starts with its publishing date.
+
+### 1.4.009 (2026-10-29) -- test version
+
+* **Podcasts: add an RSS feed.** OK menu (Available and Subscribed columns) > "Add RSS feed":
+  a text entry that starts with the previously entered address (remembered in
+  `podcast.last_rss_url`), so e.g. Yle Areena series are added by changing only the last digits
+  of `https://feeds.yle.fi/areena/v1/series/1-50438875.rss`. New `src/rss_feed.py` (xml.etree,
+  no dependencies; title, artwork, episodes with enclosure, date, duration). The feed is added
+  as a subscription (id `rss:<hash>`, `feed_url`), opened/refreshed from its own URL, in a
+  background thread with error messages (invalid address, not a feed, download failed, no
+  playable episodes). The empty-info line now reads "Press YELLOW to search or OK to add".
+* Radio history size default is 20 (it was 50 while the help text said 20).
+
+### 1.4.008 (2026-10-27) -- test version
+
+* **Fix:** a background job started from another job's callback (station filters -> search)
+  could be left without its result: the 200 ms poll timer decided to stop before the callbacks
+  ran. The search then stayed at "Searching for stations, please wait..." until the next
+  action. The idle check now runs after the callbacks.
+* Defaults corrected (they now match the setting help texts, and "Restore default settings"):
+  Radio station limit 0 (unlimited), Automatically play next track = yes,
+  Unlimited results for own language = yes.
+
+### 1.4.007 (2026-10-27) -- test version
+
+**Task indicator in the header text.** On every screen except the player the running task is
+appended to the header/status text ("Internet Radio  -  Searching stations..."), so it is
+centred with the title and visible when the screen is changed (the separate label of 1.4.006
+was clipped off-screen on the other screens). The player screen keeps its own label next to the clock.
+**More work moved to background threads:** station filter lists (country/language), the first
+music library scan and rescans (a scan builds a new index and swaps it in; a cancelled scan keeps
+the old one), podcast search / popular / episode lists / subscribe / refresh, ffprobe codec
+checks of stations and episodes (silent), and the web now-playing / schedule lookup of Bauer and
+Yle stations (last answer shown meanwhile, refreshed every 15 s; ICY-tag stations as before).
+Not moved: the Information panel's ffprobe (opened on request).
+**Radio default region from the time zone:** when no default region is set, Internet Radio
+uses the country of the receiver's time zone (`config.timezone.val` in /etc/enigma2/settings,
+`Europe/Helsinki` or `Helsinki`, matched with /usr/share/zoneinfo/zone.tab; the country name is
+taken from the station database by country code). New `src/system_region.py`.
+**Settings > "Restore default settings"** (last row, press OK + confirm) restores every setting;
+the API keys (AcoustID application/user key, Podcast Index key/secret, Yle app id/key) are kept.
+
+### 1.4.006 (2026-10-26) -- test version
+
+**Background tasks.** New `src/background_tasks.py`: long jobs run in daemon threads and
+deliver their result to the GUI thread (200 ms eTimer poll). Moved to the background:
+lyrics and cover art downloads (BrowserScreen; they continue when the screen is closed and
+report with a message box), radio station search and the station database downloads
+(initial, manual and the quiet periodic update; a newer search replaces an older one;
+`RadioStationDatabase` is now thread-safe: `check_same_thread=False` + a lock).
+Everything is cancelled when MediaPlayer3 is closed (stop event checked between files /
+steps; song identification and submission are cancelled too).
+**Task indicator in the header row** of every main screen (Main, Browser, Music Library,
+Playlists, Podcasts, Internet Radio, Settings): shows the running task ("Identifying
+song...", "Downloading lyrics...", "Searching stations..." ...), "(+n)" for more tasks.
+**AcoustID submission:** log lines tell whether the MusicBrainz recording ID was sent
+(`[SongID] submit: MusicBrainz recording ID SENT (...)` or "not in the tags"), the result
+message says the same, and a fingerprint that AcoustID already knows but has not linked to
+a MusicBrainz recording is reported (log + message). Folder submission is deliberately not
+added (each track has to be checked individually).
+
+### 1.4.005 (2026-10-24) -- test version
+
+**Submit fingerprints to AcoustID (first step, single track).** While a local file is
+playing, OK menu > "Submit fingerprint to AcoustID" fingerprints the first 120 s of the
+file (pure Python Chromaprint) and submits it with the track's tags to
+`https://api.acoustid.org/v2/submit` (gzip POST). The tags' MusicBrainz recording ID
+(ID3 UFID `http://musicbrainz.org`, Vorbis `MUSICBRAINZ_TRACKID`) is sent when present;
+otherwise artist + title are required. The whole-track duration comes from the player.
+Before submitting, the fingerprint is looked up: if it is already in the database
+(score >= 0.9) the track is shown and the user is asked whether to submit anyway.
+After a submission `submission_status` is checked up to three times (pending/imported).
+New setting "AcoustID user key (for submitting)" with help text on where to get it
+(https://acoustid.org/api-key after signing in). Log lines `[SongID] submit ...`.
+Background pre-fingerprinting of a whole folder and folder submission are planned next.
+
+### 1.4.004 (2026-10-24)
+
+**Faster song fingerprinting.** The FFT in `chromaprint_py.py` was rewritten to use
+C-level `map()` / `itemgetter` operations with precomputed twiddles (pure Python path
+~35 % faster: 2.9 -> 1.9 ms/frame on the test PC). If numpy happens to be installed it is
+used automatically (~1.0 ms/frame); set `MP3_NO_NUMPY=1` to force the pure Python path.
+The `STATS` line in the log has a new `fft=` field (`numpy x.y.z` or `pure python`).
+Results remain bit-identical to the C tool on all 8 test signals and on empty/tiny/odd-length
+input, with both engines.
+
+### 1.4.003 (2026-10-24)
+
+**Song identification without compiled tools.** New `src/chromaprint_py.py`: a pure Python
+port of Chromaprint's default algorithm (MIT licence, Lukas Lalinsky), bit-identical to
+the C tool in 8 tests (music-like signal, noise, sweep, gap, quiet, short, silence,
+clipped). It runs as a separate python3 process at lower priority (no GIL stalls of the
+Enigma2 GUI) fed with the PCM from gst-launch-1.0 / ffmpeg. The compiled `fpraw` tools
+are now optional: used when present and working, otherwise the Python port. The released
+.ipk no longer contains binaries. On a fast PC the 38 s sample takes ~0.9 s of CPU
+(3 ms per frame); receivers will be slower.
+Load tracking in the log (`[SongID]` lines): system line (CPU model, cores, memory,
+python version), per decoder run time, per tool run (wall, child CPU, load average
+before/after, frames, ms/frame, peak memory, python version) and the total
+identification time with CPU used by this process and by child processes.
+
+### 1.4.002 (2026-10-24)
+
+OpenViX distribution build: the plugin stayed in English there. The distribution
+recipe installs the catalogs as `<plugin folder>/locale/<lang>/LC_MESSAGES/<name>.mo`
+instead of `resources/locale/...`, and a missing catalog fell back to English silently.
+localization.py now searches both folders (and accepts any single .mo name in the
+folder), and the diagnostics log has a `[Diagnostics] catalog:` line showing the file
+found, or "NO CATALOG FOUND" with the searched folders. (The distribution version string
+`1.0+git17` is the OE package version; the plugin shows its own `__version__`.)
+
 ### 1.4.001 (2026-10-22)
 
 Packaging only. The source tree / zip contains no prebuilt binaries any more

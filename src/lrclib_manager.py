@@ -237,7 +237,7 @@ class LrclibManager:
 
     # ------------------------------------------------------------------
 
-    def downloadForDirectory(self, directory: str, recursive: bool = False, mode: str = "all") -> Dict[str, int]:
+    def downloadForDirectory(self, directory: str, recursive: bool = False, mode: str = "all", stop=None) -> Dict[str, int]:
         """
         Download lyrics for every audio file directly inside
         `directory`, and inside every subdirectory too when
@@ -256,6 +256,9 @@ class LrclibManager:
         counts: Dict[str, int] = {}
 
         for filepath in self._collectAudioFiles(directory, recursive=recursive):
+
+            if stop is not None and stop.is_set():
+                break
 
             result = self.downloadForFile(filepath, mode=mode)
 

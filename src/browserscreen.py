@@ -145,6 +145,7 @@ from .constants import PLAYLIST_FILE_EXTENSIONS, SUPPORTED_AUDIO_EXTENSIONS
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .localization import _
+from . import background_tasks
 from .logger import logger
 from .paths import ensure_trailing_slash, BUTTON_ICON_PATH
 from .coverart_manager import coverart_manager
@@ -857,7 +858,9 @@ class BrowserScreen(Screen, HelpableScreen):
         # concurrent decode while one is already running.
         self._background_decode_in_progress = False
 
-        self["status"] = Label("")
+        self["status"] = background_tasks.makeHeaderLabel("")
+
+        background_tasks.watchHeader(self, "status")
 
         for column_name in COLUMNS:
 
@@ -2254,40 +2257,26 @@ class BrowserScreen(Screen, HelpableScreen):
 
     def _startLyricsDownload(self, target: str, recursive: bool, mode: str) -> None:
 
-        # Same deferred please-wait pattern as RadioBrowserScreen's own
-        # _updateStationDatabase() -- a real, potentially slow network
-        # operation (worse here for a whole directory, one request per
-        # track), so paint the status message before the blocking call
-        # actually runs.
-        self["status"].setText(_("Downloading lyrics, please wait..."))
+        # 1.5.000: runs in a background thread (background_tasks.py); the header row of every
+        # MediaPlayer3 screen shows "Downloading lyrics..." while it runs and the result
+        # message appears when it is done, even if another screen is open by then.
+        session = self.session
 
-        self._lyrics_download_timer = eTimer()
+        def work(stop):
+            if os.path.isdir(target):
+                counts = lrclib_manager.downloadForDirectory(target, recursive=recursive, mode=mode, stop=stop)
+                return self._describeLyricsDownloadTally(counts)
+            return self._describeLyricsDownloadResult(lrclib_manager.downloadForFile(target, mode=mode))
 
-        self._lyrics_download_timer.callback.append(lambda: self._performLyricsDownload(target, recursive, mode))
+        def done(message, error):
+            if error is not None:
+                message = _("Lyrics download failed.")
+            logger.info(f"[BrowserScreen] Lyrics download finished for '{target}': {message}")
+            session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
 
-        self._lyrics_download_timer.start(10, True)
+        background_tasks.start(_("Downloading lyrics..."), work, done, key="lyrics")
 
-    # ------------------------------------------------------------------
-
-    def _performLyricsDownload(self, target: str, recursive: bool, mode: str) -> None:
-
-        if os.path.isdir(target):
-
-            counts = lrclib_manager.downloadForDirectory(target, recursive=recursive, mode=mode)
-
-            message = self._describeLyricsDownloadTally(counts)
-
-        else:
-
-            result = lrclib_manager.downloadForFile(target, mode=mode)
-
-            message = self._describeLyricsDownloadResult(result)
-
-        self["status"].setText(self._current_root)
-
-        logger.info(f"[BrowserScreen] Lyrics download finished for '{target}': {message}")
-
-        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
+        session.open(MessageBox, _("Lyrics download started in the background."), MessageBox.TYPE_INFO, timeout=3)
 
     # ------------------------------------------------------------------
 
@@ -2367,37 +2356,24 @@ class BrowserScreen(Screen, HelpableScreen):
 
     def _startCoverArtDownload(self, target: str, recursive: bool) -> None:
 
-        # Same deferred please-wait pattern as _startLyricsDownload()/
-        # RadioBrowserScreen's own _updateStationDatabase().
-        self["status"].setText(_("Downloading cover art, please wait..."))
+        # 1.5.000: background thread, see _startLyricsDownload().
+        session = self.session
 
-        self._coverart_download_timer = eTimer()
+        def work(stop):
+            if os.path.isdir(target):
+                counts = coverart_manager.downloadForDirectory(target, recursive=recursive, stop=stop)
+                return self._describeCoverArtDownloadTally(counts)
+            return self._describeCoverArtDownloadResult(coverart_manager.downloadForFile(target))
 
-        self._coverart_download_timer.callback.append(lambda: self._performCoverArtDownload(target, recursive))
+        def done(message, error):
+            if error is not None:
+                message = _("Cover art download failed.")
+            logger.info(f"[BrowserScreen] Cover art download finished for '{target}': {message}")
+            session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
 
-        self._coverart_download_timer.start(10, True)
+        background_tasks.start(_("Downloading cover art..."), work, done, key="coverart")
 
-    # ------------------------------------------------------------------
-
-    def _performCoverArtDownload(self, target: str, recursive: bool) -> None:
-
-        if os.path.isdir(target):
-
-            counts = coverart_manager.downloadForDirectory(target, recursive=recursive)
-
-            message = self._describeCoverArtDownloadTally(counts)
-
-        else:
-
-            result = coverart_manager.downloadForFile(target)
-
-            message = self._describeCoverArtDownloadResult(result)
-
-        self["status"].setText(self._current_root)
-
-        logger.info(f"[BrowserScreen] Cover art download finished for '{target}': {message}")
-
-        self.session.open(MessageBox, message, MessageBox.TYPE_INFO, timeout=5)
+        session.open(MessageBox, _("Cover art download started in the background."), MessageBox.TYPE_INFO, timeout=3)
 
     # ------------------------------------------------------------------
 

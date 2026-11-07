@@ -81,10 +81,12 @@ Other modules import `_` directly: `from .localization import _`.
 
 from __future__ import annotations
 
+import glob
 import gettext
+import os
 
 from .compatibility import compatibility
-from .paths import LOCALE_PATH
+from .paths import LOCALE_PATH, PLUGIN_PATH
 
 DOMAIN = "MediaPlayer3"
 
@@ -105,16 +107,70 @@ FALLBACK_LANGUAGE = "en"
 _translation_cache = {}
 
 
+# 1.4.002: where the catalogs are looked for. Our own recipe/package puts them
+# under resources/locale; the Enigma2 distribution recipes (oe-alliance) install
+# <plugin folder>/locale/<lang>/LC_MESSAGES/<name>.mo instead, which made the
+# plugin silently stay in English there.
+LOCALE_DIRS = (LOCALE_PATH, os.path.join(PLUGIN_PATH, "locale"))
+
+# What was loaded (for the diagnostics log): language -> path or "" when none.
+_loaded_catalogs = {}
+
+
+def _findCatalog(language_code: str) -> str:
+    """Path of the .mo file for `language_code`, or ''."""
+
+    for folder in LOCALE_DIRS:
+
+        message_dir = os.path.join(folder, language_code, "LC_MESSAGES")
+
+        exact = os.path.join(message_dir, DOMAIN + ".mo")
+
+        if os.path.isfile(exact):
+            return exact
+
+        # A distribution may name the catalog differently: take the only/first .mo
+        others = sorted(glob.glob(os.path.join(message_dir, "*.mo")))
+
+        if others:
+            return others[0]
+
+    return ""
+
+
+def getCatalogReport() -> str:
+    """One line for the diagnostics log: which catalog files were found."""
+
+    language = getCurrentLanguage()
+    path = _loaded_catalogs.get(language)
+
+    if path is None:
+        path = _findCatalog(language)
+
+    return f"{language}: {path or 'NO CATALOG FOUND (text stays English)'}; searched {', '.join(LOCALE_DIRS)}"
+
+
 def _loadTranslation(language_code: str):
 
     if language_code in _translation_cache:
 
         return _translation_cache[language_code]
 
-    try:
-        translation = gettext.translation(DOMAIN, localedir=LOCALE_PATH, languages=[language_code])
+    path = _findCatalog(language_code)
 
-    except (FileNotFoundError, OSError):
+    translation = None
+
+    if path:
+
+        try:
+            with open(path, "rb") as handle:
+                translation = gettext.GNUTranslations(handle)
+        except (OSError, ValueError):
+            translation = None
+
+    _loaded_catalogs[language_code] = path if translation is not None else ""
+
+    if translation is None:
 
         if language_code != FALLBACK_LANGUAGE:
 

@@ -19,4 +19,3 @@ src/resources/locale/*/LC_MESSAGES/*.po
 __pycache__/
 *.pyc
 *.pyo
-src/bin/fpraw-*

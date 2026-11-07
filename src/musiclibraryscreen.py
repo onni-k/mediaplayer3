@@ -63,6 +63,7 @@ from .config import config_manager
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .library_manager import library_manager
+from . import background_tasks
 from .localization import _
 from .logger import logger
 from .playlist_manager import playlist_manager
@@ -875,7 +876,11 @@ class MusicLibraryScreen(Screen, HelpableScreen):
         self["hint_icon_help"] = Pixmap()
         self["hint_icon_exit"] = Pixmap()
 
-        self["status"] = Label(_("Music Library"))
+        self["status"] = background_tasks.makeHeaderLabel(_("Music Library"))
+
+        background_tasks.watchHeader(self, "status")
+
+        self.onClose.append(lambda: background_tasks.cancelOwner(self))
 
         self["artists"] = MenuList([])
         self["albums"] = MenuList([])
@@ -1010,13 +1015,26 @@ class MusicLibraryScreen(Screen, HelpableScreen):
 
     def _performInitialLoad(self) -> None:
 
-        if not library_manager.isScanned():
+        if library_manager.isScanned():
 
-            library_manager.scan()
+            self._refreshArtists()
 
-        self._refreshArtists()
+            self._updateFocusIndicator()
 
-        self._updateFocusIndicator()
+            return
+
+        # 1.5.000: the first scan runs in a background thread
+        def done(count, error):
+            self._refreshArtists()
+            self._updateFocusIndicator()
+
+        background_tasks.start(
+            _("Scanning library..."),
+            lambda stop: library_manager.scan(stop=stop),
+            done,
+            owner=self,
+            key="library_scan",
+        )
 
     # ------------------------------------------------------------------
     # Data refresh
@@ -1895,13 +1913,18 @@ class MusicLibraryScreen(Screen, HelpableScreen):
 
     def _performRescan(self) -> None:
 
-        count = library_manager.scan()
+        def done(count, error):
+            self._refreshArtists()
+            self._updateFocusIndicator()
+            self._log(f"Library rescanned: {count} track(s).")
 
-        self._refreshArtists()
-
-        self._updateFocusIndicator()
-
-        self._log(f"Library rescanned: {count} track(s).")
+        background_tasks.start(
+            _("Scanning library..."),
+            lambda stop: library_manager.scan(stop=stop),
+            done,
+            owner=self,
+            key="library_scan",
+        )
 
     # ------------------------------------------------------------------
     # Help (Build 0008)

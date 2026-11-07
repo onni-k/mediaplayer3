@@ -191,7 +191,7 @@ from enigma import ePicLoad, eTimer
 
 from Components.ActionMap import ActionMap, HelpableActionMap
 from Components.AVSwitch import AVSwitch
-from Components.config import getConfigListEntry
+from Components.config import ConfigSelection, getConfigListEntry
 from Components.ConfigList import ConfigListScreen
 from Components.Label import Label
 from Components.Pixmap import Pixmap
@@ -206,6 +206,7 @@ from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .config import cfg, config_manager
 from .internetradio_manager import internetradio_manager
+from . import background_tasks
 from .localization import _
 from .logger import logger
 from .paths import BUTTON_ICON_PATH
@@ -654,7 +655,9 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
 
         ConfigListScreen.__init__(self, self.list, session=session)
 
-        self["header_title"] = Label(_("Settings"))
+        self["header_title"] = background_tasks.makeHeaderLabel(_("Settings"))
+
+        background_tasks.watchHeader(self, "header_title")
 
         # Device test round 59 -- new: shows the currently selected
         # setting's own short help text, per direct request
@@ -747,6 +750,9 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
 
             self["actions"] = ActionMap(contexts, actions, -1)
 
+        # 1.5.000: a list row that only reacts to OK ("Restore default settings")
+        self._restore_element = ConfigSelection(choices=[("run", _("Press OK"))], default="run")
+
         self._buildList()
 
         # Device test round 62's own diagnostic (temporarily disabling
@@ -837,6 +843,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             getConfigListEntry(_("Podcast search limit"), cfg.podcast.search_limit),
             getConfigListEntry(_("Recording folder"), cfg.recording.folder),
             getConfigListEntry(_("AcoustID application key"), cfg.recognition.acoustid_key),
+            getConfigListEntry(_("AcoustID user key (for submitting)"), cfg.recognition.acoustid_user_key),
             getConfigListEntry(_("fpcalc path (empty = automatic)"), cfg.recognition.fpcalc_path),
             getConfigListEntry(_("Radio time shift"), cfg.radio.timeshift),
             getConfigListEntry(_("Time shift length (minutes)"), cfg.radio.timeshift_minutes),
@@ -844,6 +851,7 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             getConfigListEntry(_("Podcast Index API secret"), cfg.podcast.podcastindex_api_secret),
             getConfigListEntry(_("Log station codec info (Internet Radio)"), cfg.logging.log_station_codecs),
             getConfigListEntry(_("Logging level"), cfg.logging.developer_level),
+            getConfigListEntry(_("Restore default settings"), self._restore_element),
         ]
 
         self.list = entries
@@ -954,6 +962,11 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             "Used by OK menu > Identify song. Leave empty to use the key bundled with the plugin, or get your own "
             "free key at https://acoustid.org/new-application (register an application, copy its API key here)."
         ),
+        _("AcoustID user key (for submitting)"): _(
+            "Needed for OK menu > Submit fingerprint to AcoustID (adds your own music to the AcoustID database). "
+            "Get it free: sign in at https://acoustid.org/login (a MusicBrainz account works), then open "
+            "https://acoustid.org/api-key and copy 'Your API key' here. It is personal; do not share it."
+        ),
         _("fpcalc path (empty = automatic)"): _(
             "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's "
             "fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
@@ -984,6 +997,10 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             "https://api.podcastindex.org/"
         ),
         _("Log station codec info (Internet Radio)"): _("(Default: yes)"),
+        _("Restore default settings"): _(
+            "Press OK to set every setting back to its default value. Your API keys (AcoustID, Podcast Index, Yle) "
+            "are kept. Internet Radio then uses the region of the receiver's time zone as its default region."
+        ),
         _("Logging level"): _(
             "If you want to look into the program's own behaviour and errors in more depth, choose verbose."
         ),
@@ -1208,6 +1225,18 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
 
             return
 
+        if self._isRestoreTarget():
+
+            self.session.openWithCallback(
+                self._restoreDefaultsConfirmed,
+                MessageBox,
+                _("Restore all settings to their defaults? Your API keys are kept."),
+                MessageBox.TYPE_YESNO,
+                default=False,
+            )
+
+            return
+
         current = self.getCurrentEntry()
 
         previous_value = self.getCurrentValue()
@@ -1305,6 +1334,54 @@ class SettingsScreen(Screen, ConfigListScreen, HelpableScreen):
             logger.verbose(f"[SettingsScreen] Unable to check current entry: {error}")
 
             return False
+
+    # ------------------------------------------------------------------
+
+    def _isRestoreTarget(self) -> bool:
+
+        try:
+            current = self["config"].getCurrent()
+            return bool(current) and len(current) > 1 and current[1] is self._restore_element
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+
+    # settings that hold the user's own credentials; "Restore default settings" leaves them alone
+    _CREDENTIAL_KEYS = (
+        "recognition.acoustid_key",
+        "recognition.acoustid_user_key",
+        "podcast.podcastindex_api_key",
+        "podcast.podcastindex_api_secret",
+        "epg.yle_app_id",
+        "epg.yle_app_key",
+    )
+
+    def _restoreDefaultsConfirmed(self, confirmed) -> None:
+
+        if not confirmed:
+            return
+
+        kept = {key: config_manager.get(key, "") for key in self._CREDENTIAL_KEYS}
+
+        config_manager.reset_defaults()
+
+        for key, value in kept.items():
+            try:
+                config_manager.set(key, value)
+            except Exception as error:
+                self._log(f"Could not keep {key}: {error}")
+
+        config_manager.save()
+
+        self._log("Settings restored to defaults (API keys kept).")
+
+        # apply skin/theme and rebuild the list with the new values
+        self._afterChange()
+
+        self._buildList()
+
+        self.session.open(MessageBox, _("Default settings restored."), MessageBox.TYPE_INFO, timeout=3)
 
     # ------------------------------------------------------------------
 

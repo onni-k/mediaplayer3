@@ -425,7 +425,7 @@ cfg.playback.loop_playlist = ConfigYesNoLocalized(
 # BUILD_0005_PLAN.md). Read by PlaybackController._handleTrackFinished()
 # every time a track ends.
 cfg.playback.auto_play_next = ConfigYesNoLocalized(
-    default=False
+    default=True  # 1.4.008: was False
 )
 
 # Seek step in seconds, used by MainScreen's FASTFORWARD/REWIND
@@ -619,7 +619,7 @@ cfg.radio.default_language = ConfigBrowsePath(
 # Python's own list[:0] (which means "give me zero", the opposite of
 # what a "0 = unlimited" setting needs).
 cfg.radio.search_limit = ConfigInteger(
-    default=100,
+    default=0,  # 1.4.008: was 100 (0 = unlimited)
     limits=(0, 100000),
 )
 
@@ -651,7 +651,7 @@ cfg.radio.search_limit = ConfigInteger(
 # default, since a very large local-language station count could
 # otherwise surprise a user who never asked for it.
 cfg.radio.unlimited_for_own_language = ConfigYesNoLocalized(
-    default=False
+    default=True  # 1.4.008: was False
 )
 
 # MainScreen's LEFT/RIGHT/UP/DOWN station navigation
@@ -666,7 +666,7 @@ cfg.radio.navigation_mode = ConfigSelection(
 )
 
 cfg.radio.history_size = ConfigInteger(
-    default=50,
+    default=20,  # 1.4.009: was 50 (the help text says 20)
     limits=(5, 200),
 )
 
@@ -758,6 +758,8 @@ cfg.recognition = ConfigSubsection()
 
 cfg.recognition.acoustid_key = ConfigText(default="", fixed_size=False)
 
+cfg.recognition.acoustid_user_key = ConfigText(default="", fixed_size=False)
+
 cfg.recognition.fpcalc_path = ConfigText(default="", fixed_size=False)
 
 cfg.radio.database_auto_update = ConfigYesNoLocalized(
@@ -818,6 +820,8 @@ cfg.podcast.podcastindex_api_secret = ConfigText(
 # "popular podcasts" fetch and search results. "" (default) = follow
 # the receiver's own system language, "all" = no language filter,
 # anything else = a language code such as "fi" or "en".
+cfg.podcast.last_rss_url = ConfigText(default="https://", fixed_size=False)
+
 cfg.podcast.language = ConfigText(
     default="",
     fixed_size=False,
@@ -936,6 +940,7 @@ _ENTRIES: Dict[str, Any] = {
     "radio.use_exteplayer3": cfg.radio.use_exteplayer3,
     "radio.timeshift": cfg.radio.timeshift,
     "recognition.acoustid_key": cfg.recognition.acoustid_key,
+    "recognition.acoustid_user_key": cfg.recognition.acoustid_user_key,
     "recognition.fpcalc_path": cfg.recognition.fpcalc_path,
     "radio.timeshift_minutes": cfg.radio.timeshift_minutes,
     "radio.database_auto_update": cfg.radio.database_auto_update,
@@ -946,6 +951,7 @@ _ENTRIES: Dict[str, Any] = {
     "podcast.podcastindex_api_key": cfg.podcast.podcastindex_api_key,
     "podcast.podcastindex_api_secret": cfg.podcast.podcastindex_api_secret,
     "podcast.language": cfg.podcast.language,
+    "podcast.last_rss_url": cfg.podcast.last_rss_url,
     "podcast.search_limit": cfg.podcast.search_limit,
     "recording.folder": cfg.recording.folder,
 

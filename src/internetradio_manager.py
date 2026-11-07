@@ -169,7 +169,7 @@ UNFILTERED_SEARCH_RESULT_CAP = 1500
 
 DEFAULT_FAVORITE_LIST = "General"
 
-DEFAULT_HISTORY_SIZE = 50
+DEFAULT_HISTORY_SIZE = 20
 
 # Round 104, per direct request (moved here from radiobrowserscreen.py's
 # own class attribute of the same name, so both that screen's own
@@ -790,6 +790,22 @@ class InternetRadioManager:
             results = heapq.nsmallest(limit, matches, key=sort_key)
 
         return results
+
+    # ------------------------------------------------------------------
+
+    def getCountryNameForCode(self, code: str) -> Optional[str]:
+        """1.5.000: country name (as in the station list) for an ISO country code, None when unknown."""
+
+        db = self._getRadioDb()
+
+        if db is None or not code:
+            return None
+
+        try:
+            return db.countryNameForCode(code)
+        except Exception as error:
+            self._log(f"Country lookup for '{code}' failed: {error}")
+            return None
 
     # ------------------------------------------------------------------
 

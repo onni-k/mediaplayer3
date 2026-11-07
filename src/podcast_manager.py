@@ -58,6 +58,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
+from . import rss_feed
 from .logger import logger
 from .podcast_providers.podcastindex.podcastindex_provider import podcastindex_provider
 from .storage import storage_manager
@@ -277,6 +278,26 @@ class PodcastManager:
 
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def withDate(published, description: str) -> str:
+        """1.4.011: the episode description starting with the publishing date (YYYY-MM-DD) line."""
+
+        try:
+            from datetime import datetime
+
+            date_text = datetime.fromtimestamp(int(published)).strftime("%Y-%m-%d")
+        except (TypeError, ValueError, OSError, OverflowError):
+            date_text = ""
+
+        description = description or ""
+
+        if not date_text:
+            return description
+
+        return f"{date_text}\n{description}" if description.strip() else date_text
+
+    # ------------------------------------------------------------------
+
     def rememberEpisode(self, playback_url: str, title: str, podcast_title: str, description: str) -> None:
         """
         Round 231: remembers an episode's description under its
@@ -443,6 +464,53 @@ class PodcastManager:
 
     # ------------------------------------------------------------------
 
+    def _feedUrlFor(self, podcast_id: str) -> str:
+
+        for entry in self._subscriptions:
+            if entry.get("podcast_id") == podcast_id:
+                return entry.get("feed_url", "") or ""
+
+        return ""
+
+    # ------------------------------------------------------------------
+
+    def addRssFeed(self, url: str):
+        """
+        1.4.009: subscribe to a plain RSS feed given by URL (blocking -- run in a background
+        thread). Returns (podcast dict, "") on success or (None, error text).
+        """
+
+        from . import rss_feed
+
+        url = rss_feed.normalizeUrl(url)
+
+        if not rss_feed.isValidUrl(url):
+            return None, "invalid_url"
+
+        try:
+            podcast, episodes = rss_feed.fetch(url)
+        except ValueError as error:
+            self._log(f"RSS feed {url}: {error}")
+            return None, "not_feed"
+        except Exception as error:
+            self._log(f"RSS feed {url} could not be fetched: {error}")
+            return None, "network"
+
+        if not episodes:
+            self._log(f"RSS feed {url}: no playable episodes")
+            return None, "no_episodes"
+
+        if not self.subscribe(podcast):
+            return None, "save_failed"
+
+        self._episode_cache[podcast["podcast_id"]] = episodes
+
+        self._log(f"RSS feed added: {podcast['title']} ({len(episodes)} episode(s))")
+
+        return podcast, ""
+
+    # ------------------------------------------------------------------
+
     def unsubscribe(self, podcast_id: str) -> bool:
 
         before = len(self._subscriptions)
@@ -482,7 +550,10 @@ class PodcastManager:
             return list(self._episode_cache[podcast_id])
 
         try:
-            episodes = self._provider.getEpisodes(podcast_id)
+            if rss_feed.isRssId(podcast_id):
+                episodes = rss_feed.fetch(self._feedUrlFor(podcast_id))[1]
+            else:
+                episodes = self._provider.getEpisodes(podcast_id)
 
         except Exception as error:
 
@@ -514,7 +585,10 @@ class PodcastManager:
         """
 
         try:
-            updated = self._provider.refreshPodcast(podcast_id)
+            if rss_feed.isRssId(podcast_id):
+                updated = rss_feed.fetch(self._feedUrlFor(podcast_id))[0]
+            else:
+                updated = self._provider.refreshPodcast(podcast_id)
 
         except Exception as error:
 

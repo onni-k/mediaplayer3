@@ -66,8 +66,8 @@ Information panels:
 
 - `mainscreen_player_active.png` -- Player panel focused (the
   transport controls / seek bar / track info column).
-- `mainscreen_info_active.png` -- Information panel focused (Lyrics /
-  Metadata / Codec / Radio EPG sub-pages).
+- (removed in 1.4.010: `mainscreen_info_active.png` -- Information panel focused (Lyrics /
+  Metadata / Codec / Radio EPG sub-pages).)
 
 Layout: a header strip across the top (~80px tall at hd scale) holds
 the "MediaPlayer3" branding text (left) and a live clock (right) --

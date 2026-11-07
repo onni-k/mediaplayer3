@@ -291,6 +291,15 @@ class EPGManager:
 
     # ------------------------------------------------------------------
 
+    def usesNetwork(self, station: Optional[Dict[str, Any]]) -> bool:
+        """1.5.000: True when this station's now-playing / schedule data comes from a web provider (slow)."""
+
+        uuid = (station or {}).get("stationuuid")
+
+        return bool(uuid) and (uuid in self._now_playing_providers or uuid in self._schedule_providers)
+
+    # ------------------------------------------------------------------
+
     def registerNowPlayingProvider(self, station_uuid: str, provider: NowPlayingProvider) -> None:
         """
         Associate `provider` with a specific station (by RadioBrowser

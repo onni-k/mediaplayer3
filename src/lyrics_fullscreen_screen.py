@@ -462,9 +462,9 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
         else:
 
-            self["content"] = Label(self._static_text)
+            self["content"] = ScrollLabel(self._static_text)
 
-            self["hint"] = Label(_("OK / EXIT / YELLOW / LEFT / RIGHT: Close -- UP / DOWN: Adjust timing"))
+            self["hint"] = Label(_("OK / EXIT / YELLOW: Close -- LEFT / RIGHT / BLUE: Change view -- UP / DOWN: Scroll / adjust timing"))
 
         for row_index in range(len(self.LYRICS_WINDOW_ROWS)):
 
@@ -478,16 +478,25 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
             # Round 239, per direct request: YELLOW (which opened this
             # view) also closes it.
             "yellow": self.closePressed,
-            "left": self.closePressed,
-            "right": self.closePressed,
+            # 1.4.010: LEFT/RIGHT change the view (same pages as BLUE in the main screen); the
+            # plain text viewer (podcast description) still closes with them
+            "left": self.closePressed if self._static_scroll else self.previousPage,
+            "right": self.closePressed if self._static_scroll else self.nextPage,
             "up": self.scrollUp,
             "down": self.scrollDown,
         }
+
+        if not self._static_scroll:
+
+            # 1.4.011: BLUE also changes the view
+            actions["blue"] = self.nextPage
 
         contexts = ["OkCancelActions", "DirectionActions", "ColorActions"]
 
         help_text_by_handler = {
             self.closePressed: _("close the fullscreen lyrics view"),
+            self.previousPage: _("previous view"),
+            self.nextPage: _("next view"),
             self.scrollUp: _("scroll up"),
             self.scrollDown: _("scroll down"),
         }
@@ -609,6 +618,16 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
 
             self._hideLyricsWindow()
 
+            # 1.4.010: any other page of the Information panel (metadata, codec, EPG ...)
+            content = self._information_panel.getCurrentFullContent()
+
+            # (a ScrollLabel jumps back to the top on setText: only when the text really changed)
+            if content != getattr(self, "_last_content", None):
+
+                self._last_content = content
+
+                self["content"].setText(content)
+
             self["content"].show()
 
     # ------------------------------------------------------------------
@@ -659,9 +678,35 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
     # Remote control
     # ------------------------------------------------------------------
 
+    def previousPage(self) -> None:
+
+        self._information_panel.switchPage(-1)
+
+        self._last_content = None
+
+        self._refresh()
+
+    # ------------------------------------------------------------------
+
+    def nextPage(self) -> None:
+
+        self._information_panel.switchPage(1)
+
+        self._last_content = None
+
+        self._refresh()
+
+    # ------------------------------------------------------------------
+
     def scrollUp(self) -> None:
 
         if self._static_scroll:
+
+            self["content"].pageUp()
+
+            return
+
+        if self._information_panel.getCurrentLyricsWindowData(len(self.LYRICS_WINDOW_ROWS)) is None:
 
             self["content"].pageUp()
 
@@ -674,6 +719,12 @@ class LyricsFullscreenScreen(Screen, HelpableScreen):
     def scrollDown(self) -> None:
 
         if self._static_scroll:
+
+            self["content"].pageDown()
+
+            return
+
+        if self._information_panel.getCurrentLyricsWindowData(len(self.LYRICS_WINDOW_ROWS)) is None:
 
             self["content"].pageDown()
 

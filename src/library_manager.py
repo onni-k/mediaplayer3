@@ -127,7 +127,7 @@ class LibraryManager:
     # "Library Updates" / "Error Handling")
     # ------------------------------------------------------------------
 
-    def scan(self, directory: Optional[str] = None) -> int:
+    def scan(self, directory: Optional[str] = None, stop=None) -> int:
         """
         (Re)build the index by walking `directory` (or
         library.scan_directory when not given). Unreadable files are
@@ -138,9 +138,13 @@ class LibraryManager:
 
         scan_directory = directory or config_manager.get("library.scan_directory", "")
 
-        self._tracks = []
+        # 1.5.000: built in a local list and swapped in at the end, so a scan in a background
+        # thread never shows a half-built index (and a cancelled scan keeps the old one).
+        tracks = []
 
         if not scan_directory or not os.path.isdir(scan_directory):
+
+            self._tracks = []
 
             self._log(f"Scan directory not available: '{scan_directory}'")
 
@@ -151,6 +155,10 @@ class LibraryManager:
         self._log(f"Scanning '{scan_directory}'.")
 
         for root, _dirs, files in os.walk(scan_directory):
+
+            if stop is not None and stop.is_set():
+                self._log("Scan cancelled.")
+                return len(self._tracks)
 
             for filename in files:
 
@@ -163,7 +171,7 @@ class LibraryManager:
 
                 if entry is not None:
 
-                    self._tracks.append(entry)
+                    tracks.append(entry)
 
                     logger.verbose(
                         "[Library] Indexed '%s' -- artist: %s, album: %s, genre: %s, year: %s",
@@ -173,6 +181,8 @@ class LibraryManager:
                         entry["genre"],
                         entry["year"],
                     )
+
+        self._tracks = tracks
 
         self._scanned = True
 

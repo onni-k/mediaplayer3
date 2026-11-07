@@ -176,6 +176,23 @@ def main(session, **kwargs):
     logger.info("Starting MediaPlayer3")
     logger.info("============================================================")
 
+    # 1.4.012: which distribution this is, straight from /etc/issue
+    try:
+        with open("/etc/issue", "r", encoding="utf-8", errors="replace") as issue_file:
+            issue_text = " ".join(issue_file.read().replace("\\n", " ").replace("\\l", " ").split())
+        logger.info("Distribution (/etc/issue): %s", issue_text or "(empty)")
+    except OSError as error:
+        logger.info("Distribution (/etc/issue): not readable (%s)", error)
+
+    # which font files the image registers as "Bold" / "Regular" (the plugin's text uses "Bold")
+    try:
+        import skin as _enigma_skin
+
+        fonts = getattr(_enigma_skin, "fonts", {}) or {}
+        logger.info("Fonts: Bold=%s | Regular=%s", fonts.get("Bold"), fonts.get("Regular"))
+    except Exception as error:
+        logger.info("Fonts: not readable (%s)", error)
+
     #
     # Build 0008 -- device/system identification, logged unconditionally
     # at every startup purely for troubleshooting (e.g. matching a user-

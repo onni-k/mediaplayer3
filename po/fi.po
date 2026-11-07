@@ -1625,3 +1625,183 @@ msgstr "Käytetään OK-valikon kohdassa Tunnista kappale. Jätä tyhjäksi, nii
 
 msgid "Song identification uses the fingerprint tool bundled with the plugin. Only if you have Chromaprint's fpcalc installed and want to use it instead, enter its full path; leave empty for automatic."
 msgstr "Kappaleen tunnistus käyttää pluginin mukana tulevaa sormenjälkityökalua. Anna koko polku vain, jos Chromaprintin fpcalc on asennettu ja haluat käyttää sitä; tyhjä = automaattinen."
+
+msgid "Submit fingerprint to AcoustID"
+msgstr "Lähetä sormenjälki AcoustIDiin"
+
+msgid "AcoustID user key (for submitting)"
+msgstr "AcoustID-käyttäjäavain (lähetystä varten)"
+
+msgid "Needed for OK menu > Submit fingerprint to AcoustID (adds your own music to the AcoustID database). Get it free: sign in at https://acoustid.org/login (a MusicBrainz account works), then open https://acoustid.org/api-key and copy 'Your API key' here. It is personal; do not share it."
+msgstr "Tarvitaan OK-valikon kohdassa Lähetä sormenjälki AcoustIDiin (lisää oman musiikkisi AcoustID-tietokantaan). Hanki ilmaiseksi: kirjaudu osoitteessa https://acoustid.org/login (MusicBrainz-tunnus käy), avaa sitten https://acoustid.org/api-key ja kopioi 'Your API key' tähän. Avain on henkilökohtainen, älä jaa sitä."
+
+msgid "Set your AcoustID application key in Settings first."
+msgstr "Aseta ensin AcoustID-sovellusavain asetuksissa."
+
+msgid "Set your AcoustID user key in Settings first (get it at https://acoustid.org/api-key after signing in)."
+msgstr "Aseta ensin AcoustID-käyttäjäavain asetuksissa (saat sen osoitteesta https://acoustid.org/api-key kirjauduttuasi)."
+
+msgid "The file has no usable tags. Submitting needs a MusicBrainz ID or both artist and title in the tags."
+msgstr "Tiedostossa ei ole käyttökelpoisia tageja. Lähetykseen tarvitaan MusicBrainz-tunnus tai sekä esittäjä että kappaleen nimi."
+
+msgid "The length of the track is not known, so it cannot be submitted."
+msgstr "Kappaleen pituutta ei tiedetä, joten sitä ei voi lähettää."
+
+msgid "No audio decoder (ffmpeg or gst-launch-1.0) was found on this receiver."
+msgstr "Vastaanottimesta ei löytynyt äänidekooderia (ffmpeg tai gst-launch-1.0)."
+
+msgid "Could not read audio from the file."
+msgstr "Tiedoston ääntä ei voitu lukea."
+
+msgid "Submitting failed: the AcoustID service could not be reached."
+msgstr "Lähetys epäonnistui: AcoustID-palveluun ei saatu yhteyttä."
+
+msgid "A submission is already running."
+msgstr "Lähetys on jo käynnissä."
+
+msgid "Submitting failed."
+msgstr "Lähetys epäonnistui."
+
+msgid "Making the fingerprint and submitting it. This takes about half a minute..."
+msgstr "Tehdään sormenjälki ja lähetetään se. Tähän menee noin puoli minuuttia..."
+
+msgid "Submitted: {0}\nThe fingerprint is now in the AcoustID database."
+msgstr "Lähetetty: {0}\nSormenjälki on nyt AcoustID-tietokannassa."
+
+msgid "Submitted: {0}\nAcoustID is still processing it; it should appear in the database shortly."
+msgstr "Lähetetty: {0}\nAcoustID käsittelee sitä vielä; sen pitäisi ilmestyä tietokantaan pian."
+
+msgid "This track is already in the AcoustID database as:\n{0} - {1}\n\nSubmit it anyway?"
+msgstr "Tämä kappale on jo AcoustID-tietokannassa nimellä:\n{0} - {1}\n\nLähetetäänkö silti?"
+
+msgid "Identifying song..."
+msgstr "Tunnistetaan kappaletta..."
+
+msgid "Submitting fingerprint..."
+msgstr "Lähetetään sormenjälkeä..."
+
+msgid "Downloading lyrics..."
+msgstr "Ladataan sanoituksia..."
+
+msgid "Downloading cover art..."
+msgstr "Ladataan kansikuvia..."
+
+msgid "Searching stations..."
+msgstr "Haetaan asemia..."
+
+msgid "Updating station database..."
+msgstr "Päivitetään asematietokantaa..."
+
+msgid "Lyrics download failed."
+msgstr "Sanoitusten lataus epäonnistui."
+
+msgid "Cover art download failed."
+msgstr "Kansikuvan lataus epäonnistui."
+
+msgid "Lyrics download started in the background."
+msgstr "Sanoitusten lataus alkoi taustalla."
+
+msgid "Cover art download started in the background."
+msgstr "Kansikuvan lataus alkoi taustalla."
+
+msgid "MusicBrainz ID: sent with the tags."
+msgstr "MusicBrainz-tunniste: lähetetty tagien mukana."
+
+msgid "MusicBrainz ID: not in the tags, so AcoustID can only match by artist and title. Tag the file with MusicBrainz Picard to link it for sure."
+msgstr "MusicBrainz-tunniste: ei tageissa, joten AcoustID voi yhdistää vain esittäjän ja nimen perusteella. Tagita tiedosto MusicBrainz Picardilla, niin linkki syntyy varmasti."
+
+msgid "This sound was already known to AcoustID but was not linked to a MusicBrainz recording."
+msgstr "Tämä ääni oli jo AcoustIDin tiedossa, mutta sitä ei ollut linkitetty MusicBrainz-kappaleeseen."
+
+msgid "Loading station filters..."
+msgstr "Ladataan asemasuodattimia..."
+
+msgid "Scanning library..."
+msgstr "Skannataan kirjastoa..."
+
+msgid "Loading episodes..."
+msgstr "Ladataan jaksoja..."
+
+msgid "Searching podcasts..."
+msgstr "Haetaan podcasteja..."
+
+msgid "Fetching popular podcasts..."
+msgstr "Haetaan suosittuja podcasteja..."
+
+msgid "Subscribing..."
+msgstr "Tilataan..."
+
+msgid "Refreshing podcast..."
+msgstr "Päivitetään podcastia..."
+
+msgid "Restore default settings"
+msgstr "Palauta oletusasetukset"
+
+msgid "Press OK"
+msgstr "Paina OK"
+
+msgid "Press OK to set every setting back to its default value. Your API keys (AcoustID, Podcast Index, Yle) are kept. Internet Radio then uses the region of the receiver's time zone as its default region."
+msgstr "Paina OK palauttaaksesi kaikki asetukset oletusarvoihin. API-avaimesi (AcoustID, Podcast Index, Yle) säilyvät. Internetradio käyttää sen jälkeen oletusalueena vastaanottimen aikavyöhykkeen aluetta."
+
+msgid "Restore all settings to their defaults? Your API keys are kept."
+msgstr "Palautetaanko kaikki asetukset oletusarvoihin? API-avaimesi säilyvät."
+
+msgid "Default settings restored."
+msgstr "Oletusasetukset palautettu."
+
+msgid "Add RSS feed"
+msgstr "Lisää RSS-syöte"
+
+msgid "Adding RSS feed..."
+msgstr "Lisätään RSS-syötettä..."
+
+msgid "Added: {0}"
+msgstr "Lisätty: {0}"
+
+msgid "RSS feed address (e.g. Yle Areena: https://feeds.yle.fi/areena/v1/series/1-50438875.rss)"
+msgstr "RSS-syötteen osoite (esim. Yle Areena: https://feeds.yle.fi/areena/v1/series/1-50438875.rss)"
+
+msgid "Press YELLOW to search or OK to add"
+msgstr "Paina keltaista hakeaksesi tai OK lisätäksesi"
+
+msgid "That is not a valid web address. It should start with http:// or https://."
+msgstr "Osoite ei kelpaa. Sen pitää alkaa http:// tai https://."
+
+msgid "The address did not return an RSS podcast feed."
+msgstr "Osoite ei palauttanut RSS-podcastsyötettä."
+
+msgid "The feed could not be downloaded."
+msgstr "Syötettä ei voitu ladata."
+
+msgid "The feed has no playable episodes."
+msgstr "Syötteessä ei ole toistettavia jaksoja."
+
+msgid "The feed was read but saving the subscription failed."
+msgstr "Syöte luettiin, mutta tilauksen tallennus epäonnistui."
+
+msgid "The feed could not be added."
+msgstr "Syötettä ei voitu lisätä."
+
+msgid "BLUE: Info"
+msgstr "SININEN: Tiedot"
+
+msgid "Info"
+msgstr "Tiedot"
+
+msgid "OK / EXIT / YELLOW: Close -- LEFT / RIGHT: Change view -- UP / DOWN: Adjust timing"
+msgstr "OK / EXIT / KELTAINEN: Sulje -- VASEN / OIKEA: Vaihda näkymää -- YLÖS / ALAS: Säädä ajoitusta"
+
+msgid "previous view"
+msgstr "edellinen näkymä"
+
+msgid "next view"
+msgstr "seuraava näkymä"
+
+msgid "Info fullscreen"
+msgstr "Tiedot kokoruutu"
+
+msgid "YELLOW: Info fullscreen"
+msgstr "KELTAINEN: Tiedot kokoruutu"
+
+msgid "OK / EXIT / YELLOW: Close -- LEFT / RIGHT / BLUE: Change view -- UP / DOWN: Scroll / adjust timing"
+msgstr "OK / EXIT / KELTAINEN: Sulje -- VASEN / OIKEA / SININEN: Vaihda näkymää -- YLÖS / ALAS: Vieritä / säädä ajoitusta"

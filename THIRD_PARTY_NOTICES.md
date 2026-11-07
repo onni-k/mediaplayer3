@@ -1,5 +1,12 @@
 # Third-party components
 
+## Chromaprint (Python port, `src/chromaprint_py.py`)
+
+The fingerprint algorithm is a Python port of Chromaprint's default algorithm; Chromaprint's
+own source code is MIT licensed, Copyright (C) 2010-2016 Lukas Lalinsky (licence text in the
+header of the file). It is the default way to fingerprint since 1.4.003; the compiled tools
+below are optional.
+
 ## Chromaprint / fpraw (`bin/fpraw-*` in the released .ipk)
 
 The song identification feature ("Identify song") uses small static

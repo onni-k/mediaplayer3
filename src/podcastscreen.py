@@ -80,6 +80,7 @@ from .config import config_manager
 from .ffprobe_helper import isAvailable as ffprobe_available, probe as ffprobe_probe
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
+from . import background_tasks
 from .localization import _, getCurrentLanguage
 from .logger import logger
 from .paths import BUTTON_ICON_PATH
@@ -752,7 +753,11 @@ class PodcastScreen(Screen, HelpableScreen):
         # concurrent decode while one is already running.
         self._background_decode_in_progress = False
 
-        self["status"] = Label("")
+        self["status"] = background_tasks.makeHeaderLabel("")
+
+        background_tasks.watchHeader(self, "status")
+
+        self.onClose.append(lambda: background_tasks.cancelOwner(self))
         self["warning"] = Label("")
         self["warning"].hide()
 
@@ -1007,13 +1012,22 @@ class PodcastScreen(Screen, HelpableScreen):
 
             description = podcast_manager.cleanDescription(source[index].get("description") or "")
 
+        # 1.4.010: an episode's info text starts with its publishing date
+        if self._focus == "episodes" and source and 0 <= index < len(source):
+
+            published = _formatPublished(source[index].get("published"))
+
+            if published:
+
+                description = f"{published}\n{description}" if description else published
+
         if description:
 
             self["info"].setText(description)
 
         else:
 
-            self["info"].setText(_("Press YELLOW to search"))
+            self["info"].setText(_("Press YELLOW to search or OK to add"))
 
     # ------------------------------------------------------------------
 
@@ -1345,27 +1359,30 @@ class PodcastScreen(Screen, HelpableScreen):
         if not url:
             return
 
-        result = ffprobe_probe(url)
-
         title = episode.get("title", "?")
 
-        if result:
+        # 1.5.000: ffprobe runs in a silent background thread
+        def done(result, error):
 
-            logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> {result}")
+            if error is None and result:
 
-            return
+                logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> {result}")
 
-        logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> probe failed or timed out")
+                return
 
-        if self._focus == "episodes" and self["episodes_list"].getSelectedIndex() == index:
+            logger.info(f"[Podcast] Episode codec (ffprobe): {title} -> probe failed or timed out")
 
-            self["warning"].setText(_("Warning: this episode may not work."))
+            if self._focus == "episodes" and self["episodes_list"].getSelectedIndex() == index:
 
-            self["warning"].show()
+                self["warning"].setText(_("Warning: this episode may not work."))
 
-            self["status"].hide()
+                self["warning"].show()
 
-            self._episode_codec_revert_timer.start(EPISODE_CODEC_WARNING_MS, True)
+                self["status"].hide()
+
+                self._episode_codec_revert_timer.start(EPISODE_CODEC_WARNING_MS, True)
+
+        background_tasks.start("", lambda stop: ffprobe_probe(url), done, owner=self, key="podcast_codec")
 
     # ------------------------------------------------------------------
 
@@ -1385,9 +1402,23 @@ class PodcastScreen(Screen, HelpableScreen):
         # docstring.
         self._current_podcast_title = podcast.get("title", "")
 
-        self._episodes = podcast_manager.getEpisodes(podcast_id, force_refresh=force_refresh)
+        # 1.5.000: fetched in a background thread (the feed may be slow)
+        self._episodes = []
 
         self._updateDisplay()
+
+        def done(episodes, error):
+            if error is None and self._current_podcast_id == podcast_id:
+                self._episodes = episodes or []
+                self._updateDisplay()
+
+        background_tasks.start(
+            _("Loading episodes..."),
+            lambda stop: podcast_manager.getEpisodes(podcast_id, force_refresh=force_refresh),
+            done,
+            owner=self,
+            key="podcast_episodes",
+        )
 
     # ------------------------------------------------------------------
     # Search (PODCAST_SCREEN_SPEC.md "Search")
@@ -1425,15 +1456,7 @@ class PodcastScreen(Screen, HelpableScreen):
 
                 return
 
-            if podcast_manager.subscribe(podcast):
-
-                self._subscribed_podcasts = podcast_manager.getSubscriptions()
-
-                self._updateDisplay()
-
-            else:
-
-                self.session.open(MessageBox, _("Unable to subscribe."), MessageBox.TYPE_ERROR)
+            self._subscribeInBackground(podcast)
 
         elif self._focus == "episodes":
 
@@ -1491,35 +1514,133 @@ class PodcastScreen(Screen, HelpableScreen):
         # Round 230: results follow the selected podcast language.
         language = self._podcastLanguage()
 
-        raw_results = podcast_manager.searchPodcasts(text)
+        # 1.5.000: the search runs in a background thread
+        def done(raw_results, error):
 
-        results = podcast_manager.filterByLanguage(raw_results, language)
+            raw_results = raw_results or []
 
-        # Round 235: counts to the log, as for Internet Radio.
-        self._log(
-            f"Search '{text}': API returned {len(raw_results)}, "
-            f"{len(results)} kept (language filter '{language or 'all'}')."
-        )
 
-        self._available_podcasts = results
+            results = podcast_manager.filterByLanguage(raw_results, language)
 
-        self._focus = "available"
-
-        self._rememberAvailableState()
-
-        self._updateDisplay()
-
-        if not results:
-
-            self.session.open(
-                MessageBox,
-                _("No podcasts found for \"%s\".") % text,
-                MessageBox.TYPE_INFO,
-                timeout=4,
+            # Round 235: counts to the log, as for Internet Radio.
+            self._log(
+                f"Search '{text}': API returned {len(raw_results)}, "
+                f"{len(results)} kept (language filter '{language or 'all'}')."
             )
+
+            self._available_podcasts = results
+
+            self._focus = "available"
+
+            self._rememberAvailableState()
+
+            self._updateDisplay()
+
+            if not results:
+
+                self.session.open(
+                    MessageBox,
+                    _("No podcasts found for \"%s\".") % text,
+                    MessageBox.TYPE_INFO,
+                    timeout=4,
+                )
+
+
+        background_tasks.start(
+            _("Searching podcasts..."),
+            lambda stop: podcast_manager.searchPodcasts(text),
+            done,
+            owner=self,
+            key="podcast_search",
+        )
 
     # ------------------------------------------------------------------
     # Actions (PODCAST_SCREEN_SPEC.md "Podcast Actions")
+    # ------------------------------------------------------------------
+
+    _RSS_MESSAGES = {
+        "invalid_url": "That is not a valid web address. It should start with http:// or https://.",
+        "not_feed": "The address did not return an RSS podcast feed.",
+        "network": "The feed could not be downloaded.",
+        "no_episodes": "The feed has no playable episodes.",
+        "save_failed": "The feed was read but saving the subscription failed.",
+    }
+
+    def _addRssFeedPressed(self) -> None:
+        """1.4.009: add any RSS podcast feed by URL; the previous URL is shown for editing."""
+
+        self.session.openWithCallback(
+            self._rssUrlEntered,
+            VirtualKeyBoard,
+            title=_("RSS feed address (e.g. Yle Areena: https://feeds.yle.fi/areena/v1/series/1-50438875.rss)"),
+            text=str(config_manager.get("podcast.last_rss_url", "https://") or "https://"),
+        )
+
+    # ------------------------------------------------------------------
+
+    def _rssUrlEntered(self, text) -> None:
+
+        if text is None:
+            return
+
+        url = text.strip()
+
+        if not url or url == "https://":
+            return
+
+        try:
+            config_manager.set("podcast.last_rss_url", url)
+            config_manager.save()
+        except Exception as error:
+            self._log(f"Could not remember the RSS address: {error}")
+
+        def done(result, error):
+
+            podcast, reason = result if (result is not None and error is None) else (None, "network")
+
+            if podcast is None:
+                self.session.open(
+                    MessageBox,
+                    _(self._RSS_MESSAGES.get(reason, "The feed could not be added.")),
+                    MessageBox.TYPE_ERROR,
+                    timeout=8,
+                )
+                return
+
+            self._subscribed_podcasts = podcast_manager.getSubscriptions()
+
+            self._focus = "subscribed"
+
+            self._updateDisplay()
+
+            self.session.open(MessageBox, _("Added: {0}").format(podcast.get("title", url)), MessageBox.TYPE_INFO, timeout=4)
+
+        background_tasks.start(
+            _("Adding RSS feed..."),
+            lambda stop: podcast_manager.addRssFeed(url),
+            done,
+            key="podcast_rss",
+        )
+
+    # ------------------------------------------------------------------
+
+    def _subscribeInBackground(self, podcast) -> None:
+        """1.5.000: subscribing fetches the feed, so it runs in a background thread."""
+
+        def done(ok, error):
+            if ok and error is None:
+                self._subscribed_podcasts = podcast_manager.getSubscriptions()
+                self._updateDisplay()
+            else:
+                self.session.open(MessageBox, _("Unable to subscribe."), MessageBox.TYPE_ERROR)
+
+        background_tasks.start(
+            _("Subscribing..."),
+            lambda stop: podcast_manager.subscribe(podcast),
+            done,
+            key="podcast_subscribe",
+        )
+
     # ------------------------------------------------------------------
 
     def _rememberAvailableState(self) -> None:
@@ -1627,30 +1748,41 @@ class PodcastScreen(Screen, HelpableScreen):
 
         self["status"].setText(_("Searching..."))
 
-        results = podcast_manager.getTrendingPodcasts(language)
+        def done(results, error):
 
-        self._search_query = ""
+            results = results or []
 
-        self._available_podcasts = results
+            self._search_query = ""
 
-        self._popular_label = "%s: %s (%d)" % (_("Popular podcasts"), self._languageLabel(language), len(results))
+            self._available_podcasts = results
 
-        self._log(f"Popular podcasts: {len(results)} returned (language '{language or 'all'}').")
+            self._popular_label = "%s: %s (%d)" % (_("Popular podcasts"), self._languageLabel(language), len(results))
 
-        self._focus = "available"
+            self._log(f"Popular podcasts: {len(results)} returned (language '{language or 'all'}').")
 
-        self._rememberAvailableState()
+            self._focus = "available"
 
-        self._updateDisplay()
+            self._rememberAvailableState()
 
-        if not results:
+            self._updateDisplay()
 
-            self.session.open(
-                MessageBox,
-                _("No popular podcasts found."),
-                MessageBox.TYPE_INFO,
-                timeout=4,
-            )
+            if not results:
+
+                self.session.open(
+                    MessageBox,
+                    _("No popular podcasts found."),
+                    MessageBox.TYPE_INFO,
+                    timeout=4,
+                )
+
+
+        background_tasks.start(
+            _("Fetching popular podcasts..."),
+            lambda stop: podcast_manager.getTrendingPodcasts(language),
+            done,
+            owner=self,
+            key="podcast_popular",
+        )
 
     # ------------------------------------------------------------------
 
@@ -1713,6 +1845,7 @@ class PodcastScreen(Screen, HelpableScreen):
         # toiseksi vaihtoehdoksi hae"): the text search that YELLOW
         # used to open directly.
         choices.append((_("Search"), "search"))
+        choices.append((_("Add RSS feed"), "rss"))
         choices.append((_("Cancel"), "cancel"))
 
         self.session.openWithCallback(
@@ -1741,17 +1874,15 @@ class PodcastScreen(Screen, HelpableScreen):
 
             return
 
+        if choice[1] == "rss":
+
+            self._addRssFeedPressed()
+
+            return
+
         if choice[1] == "subscribe":
 
-            if podcast_manager.subscribe(podcast):
-
-                self._subscribed_podcasts = podcast_manager.getSubscriptions()
-
-                self._updateDisplay()
-
-            else:
-
-                self.session.open(MessageBox, _("Unable to subscribe."), MessageBox.TYPE_ERROR)
+            self._subscribeInBackground(podcast)
 
         elif choice[1] == "open":
 
@@ -1768,11 +1899,16 @@ class PodcastScreen(Screen, HelpableScreen):
         podcast = self._selectedPodcast()
 
         if podcast is None:
+
+            # nothing subscribed yet: OK still offers adding an RSS feed
+            self._addRssFeedPressed()
+
             return
 
         choices = [
             (_("Open podcast"), "open"),
             (_("Refresh"), "refresh"),
+            (_("Add RSS feed"), "rss"),
             (_("Unsubscribe"), "unsubscribe"),
             (_("Cancel"), "cancel"),
         ]
@@ -1793,6 +1929,12 @@ class PodcastScreen(Screen, HelpableScreen):
 
         podcast_id = podcast.get("podcast_id")
 
+        if choice[1] == "rss":
+
+            self._addRssFeedPressed()
+
+            return
+
         if choice[1] == "open":
 
             self._loadEpisodes(podcast)
@@ -1805,22 +1947,32 @@ class PodcastScreen(Screen, HelpableScreen):
 
             self["status"].setText(_("Refreshing..."))
 
-            if not podcast_manager.refreshPodcast(podcast_id):
+            def done(ok, error):
 
-                self.session.open(
-                    MessageBox,
-                    _("Refresh failed -- keeping previous information."),
-                    MessageBox.TYPE_INFO,
-                    timeout=4,
-                )
+                if not ok or error is not None:
 
-            self._subscribed_podcasts = podcast_manager.getSubscriptions()
+                    self.session.open(
+                        MessageBox,
+                        _("Refresh failed -- keeping previous information."),
+                        MessageBox.TYPE_INFO,
+                        timeout=4,
+                    )
 
-            if self._current_podcast_id == podcast_id:
+                self._subscribed_podcasts = podcast_manager.getSubscriptions()
 
-                self._episodes = podcast_manager.getEpisodes(podcast_id)
+                if self._current_podcast_id == podcast_id:
 
-            self._updateDisplay()
+                    self._episodes = podcast_manager.getEpisodes(podcast_id)
+
+                self._updateDisplay()
+
+            background_tasks.start(
+                _("Refreshing podcast..."),
+                lambda stop: podcast_manager.refreshPodcast(podcast_id),
+                done,
+                owner=self,
+                key="podcast_refresh",
+            )
 
         elif choice[1] == "unsubscribe":
 
@@ -1922,7 +2074,7 @@ class PodcastScreen(Screen, HelpableScreen):
             self._current_podcast_title or "",
             title,
             playback_url,
-            episode.get("description", ""),
+            podcast_manager.withDate(episode.get("published"), episode.get("description", "")),
         )
 
         if ok:
@@ -1990,7 +2142,7 @@ class PodcastScreen(Screen, HelpableScreen):
             playback_url,
             episode.get("title", ""),
             self._current_podcast_title,
-            episode.get("description", ""),
+            podcast_manager.withDate(episode.get("published"), episode.get("description", "")),
         )
 
         if self._playback.playQueue([playback_url], start_index=0):
@@ -2083,7 +2235,7 @@ class PodcastScreen(Screen, HelpableScreen):
             playback_url,
             episode_title,
             self._current_podcast_title,
-            episode.get("description", ""),
+            podcast_manager.withDate(episode.get("published"), episode.get("description", "")),
         )
 
         display_title = f"{episode_title} ({_('Podcast')})"

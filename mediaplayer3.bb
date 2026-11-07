@@ -7,7 +7,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=1ebbd3e34237af26da5dc08a4e440464"
 HOMEPAGE = "https://github.com/onni-k/mediaplayer3"
 BUGTRACKER = "https://github.com/onni-k/mediaplayer3/issues"
 
-PV = "1.4.001"
+PV = "1.5.000"
 PR = "r0"
 
 SRC_URI = "git://github.com/onni-k/mediaplayer3.git;branch=main;protocol=https"
@@ -20,9 +20,11 @@ S = "${WORKDIR}/git"
 # architectures.
 inherit allarch
 
-# 1.4.001: the prebuilt song identification tools (fpraw-<cpu>) are not part of
-# the source tree, so this allarch recipe packages none. They are included in the
-# released .ipk only; build them with tools/fpraw/build.sh if needed (src/bin/README.txt).
+# 1.5.000: public release of the 1.4.001-1.4.012 test series (no packaging change).
+# 1.4.004: faster FFT (optional numpy).
+# 1.4.003: song identification uses the pure Python Chromaprint port
+# (chromaprint_py.py); the compiled fpraw tools are optional and not part of the
+# source tree, so this allarch recipe packages no binaries.
 
 # Round 135, per direct programmer feedback ("*.mo files should not be
 # in the repo. These are added by the bitbake recipe. *.po files

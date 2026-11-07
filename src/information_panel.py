@@ -1003,6 +1003,16 @@ class InformationPanel:
 
     # ------------------------------------------------------------------
 
+    def getCurrentFullContent(self) -> str:
+        """1.4.010: the whole content of the current page (fullscreen view, no line window)."""
+
+        if not self._pages:
+            return _("No information available.")
+
+        return self._pages[self._current_index][1]
+
+    # ------------------------------------------------------------------
+
     def getPageCount(self) -> int:
 
         return len(self._pages)

@@ -157,6 +157,7 @@ from .config import config_manager
 from .guide_manager import guide_manager
 from .guide_screen import GuideScreen
 from .internetradio_manager import internetradio_manager
+from . import background_tasks
 from .localization import _
 from .logger import logger
 from .metadata import metadata_reader
@@ -731,7 +732,9 @@ class PlaylistScreen(Screen, HelpableScreen):
         # concurrent decode while one is already running.
         self._background_decode_in_progress = False
 
-        self["status"] = Label("")
+        self["status"] = background_tasks.makeHeaderLabel("")
+
+        background_tasks.watchHeader(self, "status")
 
         for panel_name in PANELS:
 

@@ -162,6 +162,7 @@ from .internetradio_manager import APP_LANGUAGE_TO_RADIOBROWSER_NAME, internetra
 from .paths import BUTTON_ICON_PATH
 from .skin import resolve_skin_asset_path, to_opaque_skin_color
 from .localization import _, getCurrentLanguage
+from . import background_tasks
 from .logger import logger
 
 # Build 0010, device test round 16 -- user request: "Internetradion
@@ -857,7 +858,11 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         # concurrent decode while one is already running.
         self._background_decode_in_progress = False
 
-        self["status"] = Label(_("Internet Radio"))
+        self["status"] = background_tasks.makeHeaderLabel(_("Internet Radio"))
+
+        background_tasks.watchHeader(self, "status")
+
+        self.onClose.append(lambda: background_tasks.cancelOwner(self))
 
         self["stations_title_normal"] = Label(_("Stations"))
         self["stations_title_active"] = Label(_("Stations"))
@@ -1079,9 +1084,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
             return
 
-        self._reloadFilters()
-
-        self._runSearchWithStatus()
+        self._reloadFilters(self._runSearchWithStatus)
 
         if internetradio_manager.shouldAutoUpdateDatabase():
 
@@ -1104,31 +1107,32 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         if not confirmed:
 
-            self._reloadFilters()
-
-            self._runSearchWithStatus()
+            self._reloadFilters(self._runSearchWithStatus)
 
             return
 
         self["status"].setText(_("Downloading station database, please wait..."))
 
-        self._db_update_timer = eTimer()
+        def done(ok, error):
+            self._performInitialDatabaseUpdate(bool(ok) and error is None)
 
-        self._db_update_timer.callback.append(self._performInitialDatabaseUpdate)
-
-        self._db_update_timer.start(10, True)
+        background_tasks.start(
+            _("Updating station database..."),
+            lambda stop: internetradio_manager.updateStationDatabase(),
+            done,
+            owner=self,
+            key="radio_db",
+        )
 
     # ------------------------------------------------------------------
 
-    def _performInitialDatabaseUpdate(self) -> None:
+    def _performInitialDatabaseUpdate(self, ok: bool = True) -> None:
 
-        if not internetradio_manager.updateStationDatabase():
+        if not ok:
 
             self["status"].setText(_("Update failed. No station data available."))
 
-        self._reloadFilters()
-
-        self._runSearchWithStatus()
+        self._reloadFilters(self._runSearchWithStatus)
 
     # ------------------------------------------------------------------
 
@@ -1136,7 +1140,15 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self._background_db_update_timer = eTimer()
 
-        self._background_db_update_timer.callback.append(internetradio_manager.updateStationDatabase)
+        # 1.5.000: the quiet periodic refresh also runs in a background thread
+        self._background_db_update_timer.callback.append(
+            lambda: background_tasks.start(
+                _("Updating station database..."),
+                lambda stop: internetradio_manager.updateStationDatabase(),
+                None,
+                key="radio_db_auto",
+            )
+        )
 
         self._background_db_update_timer.start(500, True)
 
@@ -1144,11 +1156,36 @@ class RadioBrowserScreen(Screen, HelpableScreen):
     # Filters / search
     # ------------------------------------------------------------------
 
-    def _reloadFilters(self) -> None:
+    def _reloadFilters(self, then=None) -> None:
+        """
+        1.5.000: the country/language lists are aggregated from the whole station database,
+        which takes a while on a receiver -- done in a background thread; `then()` runs when the
+        lists are in place.
+        """
 
-        self._countries = internetradio_manager.getCountries()
+        def work(stop):
+            auto_country = None
+            if not self._default_country:
+                # 1.5.000: no default region set -> the one of the receiver's time zone
+                from . import system_region
+                auto_country = internetradio_manager.getCountryNameForCode(system_region.detectCountryCode())
+            return internetradio_manager.getCountries(), internetradio_manager.getLanguages(), auto_country
 
-        self._languages = internetradio_manager.getLanguages()
+        def done(result, error):
+            if result is not None and error is None:
+                self._countries, self._languages, auto_country = result
+                if auto_country and not self._default_country:
+                    self._default_country = auto_country
+                    logger.info(f"[RadioBrowser] Default region from the receiver's time zone: {auto_country}")
+            self._applyFilters()
+            if then is not None:
+                then()
+
+        background_tasks.start(_("Loading station filters..."), work, done, owner=self, key="radio_filters")
+
+    # ------------------------------------------------------------------
+
+    def _applyFilters(self) -> None:
 
         self._promoteAppLanguage()
 
@@ -1284,7 +1321,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
     # ------------------------------------------------------------------
 
-    def _search(self) -> None:
+    def _searchParams(self) -> dict:
 
         search_language = self._selectedLanguage()
 
@@ -1304,12 +1341,18 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
                 limit = 0
 
-        self._stations = internetradio_manager.search(
-            name=self._search_name or None,
-            country=self._selectedRegion(),
-            language=search_language,
-            limit=limit,
-        )
+        return {
+            "name": self._search_name or None,
+            "country": self._selectedRegion(),
+            "language": search_language,
+            "limit": limit,
+        }
+
+    # ------------------------------------------------------------------
+
+    def _applySearchResults(self, stations) -> None:
+
+        self._stations = stations or []
 
         self["stations"].setList([entry.get("name", "?") for entry in self._stations])
 
@@ -1331,17 +1374,22 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self["status"].setText(_("Searching for stations, please wait..."))
 
-        self._search_timer = eTimer()
+        # 1.5.000: the search runs in a background thread; a newer search replaces an older one.
+        params = self._searchParams()
 
-        self._search_timer.callback.append(self._performDeferredSearch)
+        def work(stop):
+            return internetradio_manager.search(**params)
 
-        self._search_timer.start(10, True)
+        def done(result, error):
+            self._applySearchResults(result if error is None else [])
+            self._performDeferredSearch()
+
+        background_tasks.start(_("Searching stations..."), work, done, owner=self, key="radio_search")
 
     # ------------------------------------------------------------------
 
     def _performDeferredSearch(self) -> None:
-
-        self._search()
+        """Runs in the GUI thread once the background search has delivered self._stations."""
 
         # Round 214, per direct request: a search with every filter
         # left on "Any" and no name text is the one case
@@ -2028,23 +2076,29 @@ class RadioBrowserScreen(Screen, HelpableScreen):
         if not url:
             return
 
-        result = ffprobe_probe(url)
-
         name = station.get("name", "Unknown")
 
-        if result:
+        # 1.5.000: ffprobe (up to several seconds) runs in a silent background thread
+        def done(result, error):
 
-            logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> {result}")
+            if error is not None:
+                result = None
 
-        else:
+            if result:
 
-            logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> probe failed or timed out")
+                logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> {result}")
 
-        if self["stations"].getSelectedIndex() == index:
+            else:
 
-            self["info"].setText(self._formatStationInfo(station, probe_result=result))
+                logger.info(f"[RadioBrowser] Station codec (ffprobe): {name} -> probe failed or timed out")
 
-            self._setWarning(_("Warning: this station may not work.") if result is None else None)
+            if self["stations"].getSelectedIndex() == index:
+
+                self["info"].setText(self._formatStationInfo(station, probe_result=result))
+
+                self._setWarning(_("Warning: this station may not work.") if result is None else None)
+
+        background_tasks.start("", lambda stop: ffprobe_probe(url), done, owner=self, key="radio_codec")
 
     # ------------------------------------------------------------------
 
@@ -2621,9 +2675,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self["status"].setText("")
 
-        self._reloadFilters()
-
-        self._runSearchWithStatus()
+        self._reloadFilters(self._runSearchWithStatus)
 
     # ------------------------------------------------------------------
 
@@ -2639,17 +2691,17 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self["status"].setText(_("Updating station database, please wait..."))
 
-        self._manual_db_update_timer = eTimer()
-
-        self._manual_db_update_timer.callback.append(self._performManualDatabaseUpdate)
-
-        self._manual_db_update_timer.start(10, True)
+        background_tasks.start(
+            _("Updating station database..."),
+            lambda stop: internetradio_manager.updateStationDatabase(),
+            lambda ok, error: self._performManualDatabaseUpdate(bool(ok) and error is None),
+            owner=self,
+            key="radio_db",
+        )
 
     # ------------------------------------------------------------------
 
-    def _performManualDatabaseUpdate(self) -> None:
-
-        ok = internetradio_manager.updateStationDatabase()
+    def _performManualDatabaseUpdate(self, ok: bool = True) -> None:
 
         info = internetradio_manager.getStationDatabaseInfo()
 
@@ -2675,9 +2727,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
             self.session.open(MessageBox, _("Update failed. No station data available."), MessageBox.TYPE_WARNING, timeout=4)
 
-        self._reloadFilters()
-
-        self._runSearchWithStatus()
+        self._reloadFilters(self._runSearchWithStatus)
 
     # ------------------------------------------------------------------
 
@@ -2690,9 +2740,7 @@ class RadioBrowserScreen(Screen, HelpableScreen):
 
         self.session.open(MessageBox, _("Station list cleared."), MessageBox.TYPE_INFO, timeout=3)
 
-        self._reloadFilters()
-
-        self._runSearchWithStatus()
+        self._reloadFilters(self._runSearchWithStatus)
 
     # ------------------------------------------------------------------
 

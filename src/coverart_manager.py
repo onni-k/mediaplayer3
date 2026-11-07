@@ -181,7 +181,7 @@ class CoverArtManager:
 
     # ------------------------------------------------------------------
 
-    def downloadForDirectory(self, directory: str, recursive: bool = False) -> Dict[str, int]:
+    def downloadForDirectory(self, directory: str, recursive: bool = False, stop=None) -> Dict[str, int]:
         """
         Download cover art for `directory` (treated as one album --
         uses its own first audio file's tags), and for every
@@ -195,6 +195,9 @@ class CoverArtManager:
         counts: Dict[str, int] = {}
 
         for album_directory in self._collectAlbumDirectories(directory, recursive=recursive):
+
+            if stop is not None and stop.is_set():
+                break
 
             result = self._downloadForOneDirectory(album_directory)
 

@@ -2,7 +2,7 @@
 
 **A modern audio player for Enigma2 receivers.**
 
-Version 1.4.001 &middot; Build 0010 &middot; GPL-3.0-or-later
+Version 1.5.000 &middot; Build 0010 &middot; GPL-3.0-or-later
 
 Local music, Internet Radio, Podcasts, a Music Library, playlists, lyrics,
 and Finnish radio EPG (Yle/Bauer) &mdash; in one plugin, with no external
@@ -22,7 +22,8 @@ Python dependencies beyond the standard library.
   Favorites, and listening history.
 - **Podcasts** &mdash; search (up to 1000 results), fetch popular
   podcasts, choose the podcast language, subscribe, and listen via
-  [Podcast Index](https://podcastindex.org/); episode descriptions are
+  [Podcast Index](https://podcastindex.org/), or add any RSS feed by address
+  (e.g. Yle Areena series); episode descriptions (starting with the date) are
   shown on the main screen, also fullscreen.
 - **Radio time shift** &mdash; the playing station (also HLS streams) is
   buffered on disk, so you can pause, rewind and jump back to live; the
@@ -31,7 +32,13 @@ Python dependencies beyond the standard library.
   shift buffer, including HLS (.m3u8) streams.
 - **Identify song** &mdash; OK menu &gt; *Identify song* recognises the
   playing song from the radio broadcast or a local file via
-  [AcoustID](https://acoustid.org/) (Chromaprint fingerprint).
+  [AcoustID](https://acoustid.org/) (Chromaprint fingerprint, computed in
+  pure Python &mdash; no compiled tools needed).
+- **Submit fingerprint to AcoustID** &mdash; add your own music to the
+  AcoustID database from the OK menu (needs your own free user key, set in
+  Settings; uses the file's MusicBrainz ID or artist/title tags).
+- **Always responsive** &mdash; downloads, searches and scans run in the
+  background; the running task is shown in the header of every screen.
 - **Track details in playlists** &mdash; artist, album, title and length
   (files), podcast episode info, or the radio station details.
 - **Front panel text** &mdash; the receiver's front display (also
@@ -88,11 +95,12 @@ then restart Enigma2's GUI.
   images).
 - No external Python packages required &mdash; MediaPlayer3 uses only
   the standard library and Enigma2's own built-in modules.
-- *Identify song* additionally needs an audio decoder on the receiver:
-  `gst-launch-1.0` (present on the standard images) or `ffmpeg`. The
-  fingerprint tool itself is included in the released .ipk (ARM, MIPS,
-  AArch64; the source tree has none &mdash; build them with
-  `tools/fpraw/build.sh`, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+- *Identify song* additionally needs an audio decoder (`gst-launch-1.0`, present on the
+  standard images, or `ffmpeg`) and `python3`. The fingerprint is computed by a pure
+  Python port of Chromaprint (`chromaprint_py.py`, run as a separate low-priority
+  process; a few seconds up to some tens of seconds on slow receivers). Optional compiled
+  tools (`tools/fpraw/`) are used if present &mdash; see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Tested on
 
@@ -108,8 +116,12 @@ Settings (press MENU from the main player screen) covers:
 - Startup/Music Library directories, hidden files
 - Skin (Light/Dark/Vintage Radio), Theme, show/hide the upper hint row
 - Radio: default country/language, navigation mode, history size,
-  automatic station-database updates, resume/auto-play behaviour
+  automatic station-database updates, resume/auto-play behaviour (the default
+  region follows the receiver's time zone when not set)
 - Podcast search limit (default 1000)
+- AcoustID user key (for submitting fingerprints) &mdash; the settings help
+  tells where to get it
+- Restore default settings (API keys are kept)
 - Radio time shift on/off and its length (5-480 minutes; the buffer is
   kept in the recording folder, so a disk or USB stick is needed)
 - AcoustID application key (optional; a default key is bundled) and the
